@@ -1,0 +1,22 @@
+# Unity / Godot generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+*.csproj
+*.sln
+.vs/
+
+# Rust
+/src/core/target/
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+/src/data-pipeline/venv/
+
+# OS
+Thumbs.db
+.DS_Store
