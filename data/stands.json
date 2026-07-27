@@ -1,0 +1,37 @@
+[
+  {
+    "id": "stand.star_platinum",
+    "name": "Star Platinum",
+    "description": "Short range, overwhelming precision and speed.",
+    "bonus": { "atk": 25, "def": 10, "spd": 30, "will": 15 },
+    "skills": ["skill.rush_barrage", "skill.tempo_halt"]
+  },
+  {
+    "id": "stand.crazy_diamond",
+    "name": "Crazy Diamond",
+    "description": "Restores what it touches, but never itself.",
+    "bonus": { "hp": 60, "atk": 18, "def": 20, "spd": 12, "will": 10 },
+    "skills": ["skill.restore", "skill.concussive_slam"]
+  },
+  {
+    "id": "stand.hierophant_green",
+    "name": "Hierophant Green",
+    "description": "Long range control and area denial.",
+    "bonus": { "sp": 25, "atk": 8, "def": 6, "spd": 18, "will": 22 },
+    "skills": ["skill.emerald_snare", "skill.blade_volley"]
+  },
+  {
+    "id": "stand.magicians_red",
+    "name": "Magician's Red",
+    "description": "Ranged flame control with lingering burn.",
+    "bonus": { "atk": 20, "def": 8, "spd": 14, "will": 16 },
+    "skills": ["skill.sun_flare", "skill.rage_focus"]
+  },
+  {
+    "id": "stand.the_world",
+    "name": "The World",
+    "description": "Raw power paired with dominion over time.",
+    "bonus": { "hp": 120, "sp": 40, "atk": 30, "def": 22, "spd": 26, "will": 28 },
+    "skills": ["skill.tempo_halt", "skill.blade_volley", "skill.concussive_slam"]
+  }
+]

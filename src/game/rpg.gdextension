@@ -1,0 +1,37 @@
+; Maps the compiled rpg-bridge cdylib into Godot.
+;
+; res://bin/ is gitignored: those files are build output. Produce them with
+;   cd src && cargo build -p rpg-bridge
+; then copy the artifact from src/target/<profile>/ into src/game/bin/.
+; Automate this in a task before it wastes anyone's afternoon.
+;
+; compatibility_minimum must equal the API version godot-rust compiles
+; against, not a version we wish we supported. godot 0.5.3 targets the
+; Godot 4.6 API by default, confirmed at startup:
+;
+;   Initialize godot-rust (API v4.6.stable.official,
+;                          runtime v4.7.1.stable.official, safeguards strict)
+;
+; GDExtension is forward-compatible, so any Godot >= 4.6 can load this.
+; Lowering this number does NOT widen support; it only delays the failure
+; until the engine tries to resolve symbols that do not exist.
+; To genuinely support older engines, pin a lower API feature in
+; src/bridge/Cargo.toml (e.g. features = ["api-4-2"]) and lower this to match.
+; See https://godot-rust.github.io/book/toolchain/godot-version.html
+
+[configuration]
+
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.6
+reloadable = true
+
+[libraries]
+
+linux.debug.x86_64 = "res://bin/librpg_bridge.so"
+linux.release.x86_64 = "res://bin/librpg_bridge.so"
+windows.debug.x86_64 = "res://bin/rpg_bridge.dll"
+windows.release.x86_64 = "res://bin/rpg_bridge.dll"
+macos.debug = "res://bin/librpg_bridge.dylib"
+macos.release = "res://bin/librpg_bridge.dylib"
+macos.debug.arm64 = "res://bin/librpg_bridge.dylib"
+macos.release.arm64 = "res://bin/librpg_bridge.dylib"

@@ -1,0 +1,138 @@
+[
+  {
+    "id": "skill.strike",
+    "name": "Strike",
+    "description": "A basic physical blow. No resource cost.",
+    "sp_cost": 0,
+    "target": "one_enemy",
+    "accuracy": 95,
+    "tempo_cost": 1000,
+    "effects": [
+      { "kind": "damage", "power": 100, "element": "physical", "variance": 8 }
+    ]
+  },
+  {
+    "id": "skill.guard_stance",
+    "name": "Guard Stance",
+    "description": "Brace. Sharply raises defense but only briefly.",
+    "sp_cost": 0,
+    "target": "self_only",
+    "accuracy": 100,
+    "tempo_cost": 600,
+    "effects": [
+      { "kind": "status", "status": "def_up", "potency": 60, "duration": 2, "chance": 100 }
+    ]
+  },
+  {
+    "id": "skill.rush_barrage",
+    "name": "Rush Barrage",
+    "description": "A dense flurry of close-range strikes.",
+    "sp_cost": 18,
+    "target": "one_enemy",
+    "accuracy": 90,
+    "tempo_cost": 1200,
+    "effects": [
+      { "kind": "damage", "power": 195, "element": "physical", "variance": 12 }
+    ]
+  },
+  {
+    "id": "skill.tempo_halt",
+    "name": "Tempo Halt",
+    "description": "Freezes the flow of the battle for every opponent.",
+    "sp_cost": 45,
+    "target": "all_enemies",
+    "accuracy": 100,
+    "tempo_cost": 1500,
+    "effects": [
+      { "kind": "tempo_lock", "ticks": 6 },
+      { "kind": "damage", "power": 60, "element": "temporal", "variance": 0 }
+    ]
+  },
+  {
+    "id": "skill.restore",
+    "name": "Restore",
+    "description": "Reverts an ally's wounds.",
+    "sp_cost": 20,
+    "target": "one_ally",
+    "accuracy": 100,
+    "tempo_cost": 900,
+    "effects": [
+      { "kind": "heal", "power": 230 }
+    ]
+  },
+  {
+    "id": "skill.emerald_snare",
+    "name": "Emerald Snare",
+    "description": "Ranged binding attack that slows the target.",
+    "sp_cost": 15,
+    "target": "one_enemy",
+    "accuracy": 92,
+    "tempo_cost": 1000,
+    "effects": [
+      { "kind": "damage", "power": 75, "element": "psychic", "variance": 6 },
+      { "kind": "status", "status": "spd_down", "potency": 30, "duration": 3, "chance": 80 }
+    ]
+  },
+  {
+    "id": "skill.blade_volley",
+    "name": "Blade Volley",
+    "description": "Scatters throwing blades across the enemy line.",
+    "sp_cost": 24,
+    "target": "all_enemies",
+    "accuracy": 88,
+    "tempo_cost": 1300,
+    "effects": [
+      { "kind": "damage", "power": 110, "element": "physical", "variance": 15 }
+    ]
+  },
+  {
+    "id": "skill.blood_drain",
+    "name": "Blood Drain",
+    "description": "Steals vitality from the target.",
+    "sp_cost": 12,
+    "target": "one_enemy",
+    "accuracy": 90,
+    "tempo_cost": 1000,
+    "effects": [
+      { "kind": "drain", "power": 120, "element": "psychic" }
+    ]
+  },
+  {
+    "id": "skill.sun_flare",
+    "name": "Sun Flare",
+    "description": "A searing burst of heat that leaves the target bleeding heat.",
+    "sp_cost": 16,
+    "target": "one_enemy",
+    "accuracy": 90,
+    "tempo_cost": 1100,
+    "effects": [
+      { "kind": "damage", "power": 150, "element": "fire", "variance": 10 },
+      { "kind": "status", "status": "bleed", "potency": 25, "duration": 3, "chance": 60 }
+    ]
+  },
+  {
+    "id": "skill.rage_focus",
+    "name": "Rage Focus",
+    "description": "Channels fury into raw offense.",
+    "sp_cost": 10,
+    "target": "self_only",
+    "accuracy": 100,
+    "tempo_cost": 700,
+    "effects": [
+      { "kind": "status", "status": "atk_up", "potency": 40, "duration": 3, "chance": 100 }
+    ]
+  },
+  {
+    "id": "skill.concussive_slam",
+    "name": "Concussive Slam",
+    "description": "A heavy blow that can stagger the target outright.",
+    "sp_cost": 22,
+    "target": "one_enemy",
+    "accuracy": 85,
+    "tempo_cost": 1400,
+    "effects": [
+      { "kind": "damage", "power": 140, "element": "physical", "variance": 10 },
+      { "kind": "status", "status": "stun", "potency": 0, "duration": 1, "chance": 40 }
+    ]
+  }
+]

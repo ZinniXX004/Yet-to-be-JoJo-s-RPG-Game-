@@ -1,0 +1,199 @@
+# Continuous integration.
+#
+# Design notes:
+#  - Windows is a first-class CI target because that is the primary development
+#    machine. A Linux-only pipeline would let Windows-specific breakage (path
+#    separators, line endings, DLL naming) reach main unnoticed.
+#  - clippy runs with -D warnings. A lint that is merely reported is a lint that
+#    accumulates.
+#  - Every job is cheap and independent, so a failure points at one cause.
+#  - The final `ci` job is the single status check to require in branch
+#    protection; adding a job later then does not require reconfiguring GitHub.
+#  - The toolchain is not installed by an action. ../rust-toolchain.toml pins
+#    1.94.1 and rustup honours it for every cargo invocation, so CI and the
+#    development machine cannot diverge. Each job prints what it resolved.
+
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+
+# Superseded runs on the same ref are pointless; cancel them.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # RUSTFLAGS is deliberately NOT set to "-D warnings" here.
+  #
+  # A workflow-level RUSTFLAGS applies to every crate cargo compiles, including
+  # the whole dependency tree. One warning emitted by gdext, glam, venial or syn
+  # under a pinned rustc then turns CI red on a commit that touched none of them,
+  # and the error message points at somebody else's source file. Denying warnings
+  # is a policy for code we own, so it is passed to clippy per job instead.
+
+jobs:
+  format:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v5
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo fmt --version
+      - run: cargo fmt --all --check
+
+  content:
+    name: content validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Stdlib only on purpose: a content validator that needs a dependency tree
+      # is a validator people stop running. The script defaults to ./data, so it
+      # must run from the repository root.
+      - name: Validate data/*.json
+        run: python src/data-pipeline/validate_data.py
+
+  core:
+    name: core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v5
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo --version && cargo clippy --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: core-${{ matrix.os }}
+      - name: Clippy
+        run: cargo clippy -p rpg-core --all-targets --all-features -- -D warnings
+      - name: Tests
+        run: cargo test -p rpg-core --all-targets --all-features
+      - name: Doc build
+        run: cargo doc -p rpg-core --no-deps
+
+  bridge:
+    name: bridge (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v5
+      # godot-rust uses prebuilt GDExtension bindings by default, so no Godot
+      # binary is needed here. libclang is installed anyway because bindgen is
+      # pulled in on some feature paths and the failure mode is cryptic.
+      - name: Install libclang (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: bridge-${{ matrix.os }}
+      # Only our crate is linted. The generated gdext bindings are not ours to
+      # fix, and -D warnings across them is how you get an unfixable red build.
+      - name: Clippy
+        run: cargo clippy -p rpg-bridge --all-targets -- -D warnings
+      - name: Build cdylib
+        run: cargo build -p rpg-bridge
+
+  audit:
+    name: supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      # This action runs cargo-deny inside its own container, which ships an
+      # older default toolchain and therefore has to install the pinned 1.94.1
+      # from rust-toolchain.toml on every run. That costs about thirty seconds
+      # and is the price of the pin being honoured everywhere.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: src/Cargo.toml
+          command: check advisories bans licenses sources
+
+  spelling:
+    name: spelling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      # Pinned to a release tag. Tracking master means an upstream dictionary
+      # change can fail a build on a commit that changed no prose.
+      - uses: crate-ci/typos@v1
+
+  links:
+    name: markdown links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          # Dead links in a README are the most visible kind of rot on a
+          # portfolio repository, so this job stays blocking.
+          #
+          # 403 and 429 are accepted because they mean "the host dislikes CI
+          # traffic", not "the page is gone". Hosts that answer that way
+          # unconditionally are listed in .lycheeignore with a reason each.
+          #
+          # No --exclude-mail: lychee 0.24 removed it in favour of
+          # --include-mail, which is already false by default. Passing the old
+          # flag aborts the run with "unexpected argument" before any link is
+          # checked, which reads like a link failure but is an argument error.
+          args: >-
+            --no-progress
+            --max-retries 2
+            --accept 200,206,301,302,303,304,307,308,403,429
+            './**/*.md'
+          fail: true
+
+  ci:
+    name: ci
+    if: always()
+    needs: [format, content, core, bridge, audit, spelling, links]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # A skipped job counts as a failure. Requiring only this check in branch
+      # protection is safe precisely because it refuses to be green by default.
+      - name: Verify all jobs succeeded
+        if: >-
+          contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+          || contains(needs.*.result, 'skipped')
+        run: |
+          echo "One or more required jobs did not succeed."
+          exit 1
+      - run: echo "All checks passed."

@@ -1,0 +1,5 @@
+# Intentionally empty.
+#
+# The data validator uses only the Python standard library so that CI and
+# contributors never need a virtualenv just to lint content JSON.
+# Add dependencies here only when the balance-report tooling (M2) needs them.

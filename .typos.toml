@@ -1,0 +1,25 @@
+# Spellcheck configuration for crate-ci/typos.
+#
+# Character names are not typos. Keep this list short: every entry added here is
+# a check switched off.
+
+[default]
+extend-ignore-re = [
+    # Compressed identifiers and hashes in docs.
+    "\\b[0-9a-f]{7,40}\\b",
+]
+
+[default.extend-words]
+jotaro = "jotaro"
+josuke = "josuke"
+kakyoin = "kakyoin"
+hierophant = "hierophant"
+gdext = "gdext"
+ser = "ser"
+
+[files]
+extend-exclude = [
+    "*.lock",
+    "src/game/bin/",
+    "src/game/data/",
+]

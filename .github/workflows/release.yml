@@ -1,0 +1,195 @@
+# Release automation.
+#
+# Trigger: pushing a tag shaped v0.1.0. The tag is the single source of truth for
+# a release; nothing is published from a branch. That means a release is always
+# reproducible from an immutable ref.
+#
+# Output: one archive per platform containing the GDExtension library, the
+# content data, the .gdextension descriptor and the licence, plus release notes
+# extracted from CHANGELOG.md.
+#
+# Deliberately NOT published to crates.io: rpg-core is a game's internal crate,
+# not a library anyone should depend on. Publishing it would create a support
+# obligation for no benefit.
+
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  verify:
+    name: verify tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # A tag whose version does not match Cargo.toml is the classic release
+      # mistake. Catch it before any artefact exists.
+      - name: Tag must match workspace version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+            tag="${tag#v}"
+          fi
+          manifest=$(grep -m1 '^version' src/Cargo.toml | cut -d'"' -f2)
+          echo "tag=$tag manifest=$manifest"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::tag $tag does not match workspace version $manifest"
+            exit 1
+          fi
+      - name: CHANGELOG must contain the version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+            tag="${tag#v}"
+          fi
+          grep -q "## \[$tag\]" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no section for $tag"
+            exit 1
+          }
+
+  build:
+    name: build (${{ matrix.target }})
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: rpg_bridge.dll
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: librpg_bridge.so
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: librpg_bridge.dylib
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libclang (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: release-${{ matrix.target }}
+
+      - name: Build release library
+        working-directory: src
+        run: cargo build -p rpg-bridge --release --target ${{ matrix.target }}
+
+      - name: Verify the simulation before shipping it
+        working-directory: src
+        run: cargo test -p rpg-core --release
+
+      - name: Stage package
+        shell: bash
+        run: |
+          name="jojo-rpg-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p "dist/$name/bin" "dist/$name/data"
+          cp "src/target/${{ matrix.target }}/release/${{ matrix.artifact }}" "dist/$name/bin/"
+          cp data/*.json "dist/$name/data/"
+          cp src/game/rpg.gdextension "dist/$name/"
+          cp LICENSE README.md CHANGELOG.md "dist/$name/"
+          echo "$name" > dist/name.txt
+
+      - name: Archive
+        shell: bash
+        run: |
+          name=$(cat dist/name.txt)
+          cd dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "$name.zip" "$name" > /dev/null
+          else
+            tar czf "$name.tar.gz" "$name"
+          fi
+
+      - name: Checksums
+        shell: bash
+        working-directory: dist
+        run: |
+          for file in *.zip *.tar.gz; do
+            [ -e "$file" ] || continue
+            if command -v sha256sum > /dev/null; then
+              sha256sum "$file" > "$file.sha256"
+            else
+              shasum -a 256 "$file" > "$file.sha256"
+            fi
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.target }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: dist
+
+      - name: Extract release notes for this version
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Print the section for this version only, stopping at the next one.
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { inside = 1; next }
+            inside && /^## \[/ { exit }
+            inside { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "No changelog section found for $version." > notes.md
+          fi
+          {
+            echo "## Downloads"
+            echo
+            echo "Each archive contains the GDExtension library, \`data/\` content, the"
+            echo "\`.gdextension\` descriptor and checksums. Drop the library into"
+            echo "\`src/game/bin/\` to run the Godot project."
+          } >> notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+          body_path: notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true

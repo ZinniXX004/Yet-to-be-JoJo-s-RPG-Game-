@@ -1,0 +1,58 @@
+# Supply-chain policy, enforced in CI by cargo-deny.
+#
+# The point is not paranoia: it is that a portfolio repository should be able to
+# answer "what is in your dependency tree and under what licence" without
+# hand-waving.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Add ignore entries here only with a dated comment explaining the exposure.
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# An allowlist entry that nothing in the current tree matches is not a mistake:
+# it is a decision made in advance about a licence we are willing to accept.
+# Reporting those as warnings only trains people to skim past this job's output.
+unused-allowed-license = "allow"
+# MPL-2.0 is required: the godot crate is MPL-licensed. That is file-level
+# copyleft and does not affect this project's own MIT source, but it must be an
+# explicit decision rather than an accident.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MPL-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "CC0-1.0",
+]
+
+[bans]
+# Duplicate versions are reported, not denied. In a dependency tree that
+# includes proc-macro crates, a second copy of syn or bitflags is normal and
+# outside our control; failing the build on it would train us to ignore this
+# job.
+multiple-versions = "warn"
+# A wildcard version requirement on a crate pulled from a registry is a real
+# hazard: it silently accepts any future release. That stays denied.
+wildcards = "deny"
+# An intra-workspace path dependency (`rpg-core = { path = "../core" }`) is
+# formally a wildcard because it carries no version requirement, but it resolves
+# to a directory in this repository and can never resolve to somebody else's
+# code. Adding a version to it would be duplicated bookkeeping that has to be
+# bumped on every release for a crate marked `publish = false`.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,30 @@
+# Keeps Windows editors from committing CRLF or tabs where the project uses LF
+# and spaces. Works together with .gitattributes (which normalises on commit).
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{md,markdown}]
+# Trailing whitespace is significant in Markdown line breaks.
+trim_trailing_whitespace = false
+indent_size = 2
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.{gd,tscn,godot,gdextension}]
+# Godot writes tabs in GDScript and its own file formats. Do not fight it.
+indent_style = tab
+
+[*.py]
+indent_size = 4
+
+[Makefile]
+indent_style = tab

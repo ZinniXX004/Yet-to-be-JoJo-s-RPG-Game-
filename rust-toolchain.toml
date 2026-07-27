@@ -1,0 +1,13 @@
+# Pinned toolchain. rustup reads this file when any cargo command runs anywhere
+# in the repository, so local builds and CI cannot silently diverge.
+#
+# Why an exact patch version rather than "stable": a portfolio repository is
+# judged partly on whether it still builds months later. Floating on stable means
+# a future rustc lint can turn CI red on a commit you never touched.
+#
+# Lower bound is set by the godot crate (MSRV 1.94.0). Do not lower this.
+
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
