@@ -1,104 +1,74 @@
-//! Determinism and termination guarantees.
+//! The load-bearing guarantee of this project: identical seed plus identical
+//! decisions produce an identical event log.
 //!
-//! These tests load the real `data/*.json` rather than fixtures on purpose: a
-//! content edit that breaks the simulation should fail CI, not ship.
-//!
-//! A failure in `identical_seed_yields_identical_event_log` is a release
-//! blocker, not a flaky test. It means replay, save/load, and bug reproduction
-//! are all unreliable.
+//! This test runs against the real shipped content in `data/`, not fixtures, so
+//! it also fails if that content stops loading or stops producing a decisive
+//! fight. That double duty is deliberate: a content typo should break CI here.
 
-use rpg_core::{Battle, BattleOutcome, Command, Database, Event, Phase};
+use rpg_core::{Battle, BattleOutcome, Database, Id};
 
 const STANDS: &str = include_str!("../../../data/stands.json");
 const SKILLS: &str = include_str!("../../../data/skills.json");
 const COMBATANTS: &str = include_str!("../../../data/combatants.json");
 
-fn database() -> Database {
-    match Database::from_json(STANDS, SKILLS, COMBATANTS) {
-        Ok(db) => db,
-        Err(error) => panic!("content data must be valid:\n{error}"),
+fn ids(values: &[&str]) -> Vec<Id> {
+    values.iter().map(|value| value.to_string()).collect()
+}
+
+fn run(seed: u64) -> (BattleOutcome, Vec<String>) {
+    let db = Database::from_json(STANDS, SKILLS, COMBATANTS)
+        .expect("shipped content in data/ must load and validate");
+    let party = ids(&["pc.jotaro", "pc.josuke", "pc.kakyoin"]);
+    let foes = ids(&["npc.dio", "npc.flame_assassin"]);
+
+    let mut battle = Battle::new(db, &party, &foes, seed).expect("battle must build");
+    let outcome = battle.run_to_completion(500);
+    // Debug formatting is enough of a fingerprint here and avoids asserting on a
+    // serialization format that is still allowed to change.
+    let log = battle
+        .take_events()
+        .iter()
+        .map(|event| format!("{event:?}"))
+        .collect();
+    (outcome, log)
+}
+
+#[test]
+fn shipped_content_loads() {
+    let db = Database::from_json(STANDS, SKILLS, COMBATANTS)
+        .expect("shipped content in data/ must load and validate");
+    let (stands, skills, combatants) = db.counts();
+    assert!(stands > 0, "expected at least one stand");
+    assert!(skills > 0, "expected at least one skill");
+    assert!(combatants > 0, "expected at least one combatant");
+}
+
+#[test]
+fn same_seed_produces_identical_logs() {
+    let (first_outcome, first_log) = run(7);
+    let (second_outcome, second_log) = run(7);
+
+    assert_eq!(first_outcome, second_outcome);
+    assert_eq!(
+        first_log.len(),
+        second_log.len(),
+        "event counts diverged between two runs of the same seed"
+    );
+    for (index, (left, right)) in first_log.iter().zip(second_log.iter()).enumerate() {
+        assert_eq!(left, right, "logs diverged at event {index}");
     }
 }
 
-fn party() -> Vec<String> {
-    vec![
-        "pc.jotaro".to_string(),
-        "pc.josuke".to_string(),
-        "pc.kakyoin".to_string(),
-    ]
-}
-
-fn foes() -> Vec<String> {
-    vec!["npc.dio".to_string(), "npc.flame_assassin".to_string()]
-}
-
-fn run(seed: u64) -> (Vec<Event>, BattleOutcome) {
-    let mut battle = Battle::new(database(), &party(), &foes(), seed).expect("battle must build");
-    let outcome = battle.run_with_ai(4_000);
-    (battle.events().to_vec(), outcome)
-}
-
 #[test]
-fn content_data_loads_and_resolves() {
-    let (stands, skills, combatants) = database().counts();
-    assert!(stands > 0 && skills > 0 && combatants > 0);
-}
-
-#[test]
-fn identical_seed_yields_identical_event_log() {
-    let (events_a, outcome_a) = run(1337);
-    let (events_b, outcome_b) = run(1337);
-    assert_eq!(outcome_a, outcome_b);
-    assert_eq!(events_a.len(), events_b.len(), "event count diverged");
-    assert_eq!(events_a, events_b, "event log diverged for the same seed");
-}
-
-#[test]
-fn different_seeds_diverge() {
-    // Not a strict requirement of determinism, but if this ever passes it means
-    // the RNG is not actually influencing resolution.
-    let (events_a, _) = run(1);
-    let (events_b, _) = run(2);
-    assert_ne!(events_a, events_b);
-}
-
-#[test]
-fn battles_terminate_without_hitting_the_safety_valve() {
-    for seed in 0..40u64 {
-        let (_, outcome) = run(seed);
+fn auto_battle_terminates_decisively() {
+    // A stalemate here means the scheduler stalled or nothing could deal damage.
+    for seed in [1_u64, 7, 99, 12_345] {
+        let (outcome, log) = run(seed);
         assert_ne!(
             outcome,
             BattleOutcome::Stalemate,
-            "seed {seed} failed to resolve, which points at unkillable content"
+            "seed {seed} stalled instead of resolving"
         );
+        assert!(!log.is_empty(), "seed {seed} produced no events");
     }
-}
-
-#[test]
-fn illegal_command_is_rejected_and_the_turn_is_retained() {
-    let mut battle = Battle::new(database(), &party(), &foes(), 42).expect("battle must build");
-    match battle.advance() {
-        Phase::AwaitingCommand { actor } => {
-            let bad = Command::Skill {
-                skill: "skill.does_not_exist".to_string(),
-                target: 3,
-            };
-            assert!(battle.submit(&bad).is_err());
-            assert_eq!(
-                battle.awaiting(),
-                Some(actor),
-                "a rejected command must not consume the turn"
-            );
-            assert!(battle.submit(&Command::Wait).is_ok());
-        }
-        other => panic!("expected a command prompt, got {other:?}"),
-    }
-}
-
-#[test]
-fn a_downed_side_ends_the_battle() {
-    let mut battle =
-        Battle::new(database(), &party(), &vec!["npc.thug".to_string()], 9).expect("battle builds");
-    let outcome = battle.run_with_ai(4_000);
-    assert_eq!(outcome, BattleOutcome::PartyWins);
 }

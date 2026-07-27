@@ -1,130 +1,154 @@
 //! Enemy and auto-battle decision making.
 //!
-//! Kept intentionally simple and *deterministic*: it draws from the battle's own
-//! RNG, so an AI-driven battle is as reproducible as a player-driven one. That
-//! is what makes the balance harness in the roadmap possible.
+//! The AI is intentionally shallow: three readable profiles, no search, no
+//! scoring heuristics. Two reasons. First, in a party-scale turn-based game the
+//! *legibility* of enemy behavior matters more than its strength; a player must
+//! be able to predict and counter it. Second, the AI draws from the battle RNG,
+//! so it stays deterministic and replayable, which is worth more than cleverness.
 //!
-//! Tie-breaking always resolves to the lowest index (`min_by_key` returns the
-//! first minimum). Never introduce hash-map iteration here.
+//! Because it is deterministic, thousands of AI-vs-AI battles can be run as a
+//! balance harness (roadmap M2).
 
-use crate::command::Command;
-use crate::data::{AiProfile, Database, Effect, Id, SkillDef, TargetKind};
+use crate::data::{AiProfile, Database, Effect, Id, SkillDef};
 use crate::state::BattleState;
+use crate::Command;
 
+/// Chance that an aggressive actor reaches for its strongest skill instead of a
+/// basic attack. Not 100%, so fights do not degenerate into the same opening
+/// every time, and not low enough to feel passive.
+const AGGRESSIVE_SKILL_CHANCE: i32 = 65;
+
+/// Below this fraction of max HP, a support actor triages instead of attacking.
+const SUPPORT_HEAL_THRESHOLD_PERCENT: i32 = 55;
+
+/// Picks a command for `actor`. Takes `&mut BattleState` because the RNG lives
+/// inside it; the state is otherwise not modified.
 pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
+    // Copy what is needed before touching the RNG, to keep borrows short.
     let team = st.combatants[actor].team;
-    let ai = st.combatants[actor].ai;
+    let profile = st.combatants[actor].ai;
     let sp = st.combatants[actor].sp;
     let skills: Vec<Id> = st.combatants[actor].skills.clone();
 
     let enemies = st.alive_on(team.opposite());
     let allies = st.alive_on(team);
     if enemies.is_empty() {
+        // Nothing hostile left; the scheduler is about to end the battle.
         return Command::Wait;
     }
 
-    // Support triage runs before offense: a dead healer target is worth more
-    // than any damage this turn.
-    if ai == AiProfile::Support {
-        if let Some(&wounded) = allies
-            .iter()
-            .min_by_key(|&&index| health_percent(st, index))
-        {
-            if health_percent(st, wounded) < 55 {
-                if let Some(skill) = find_skill(db, &skills, sp, |def| {
-                    matches!(def.target, TargetKind::OneAlly | TargetKind::AllAllies)
-                        && def
-                            .effects
-                            .iter()
-                            .any(|effect| matches!(effect, Effect::Heal { .. }))
-                }) {
-                    return Command::Skill {
-                        skill,
-                        target: wounded,
-                    };
-                }
-            }
-        }
-    }
-
-    let offensive: Vec<Id> = skills
-        .iter()
-        .filter(|id| {
-            db.skill(id)
-                .map(|def| def.target.is_hostile() && def.sp_cost <= sp)
-                .unwrap_or(false)
-        })
-        .cloned()
-        .collect();
-
-    // Focus fire the weakest target: removing a combatant removes its entire
-    // future action economy, which beats spreading damage evenly.
-    let focus = enemies
+    // Focus fire. Ties break on the lower index so the choice is deterministic
+    // rather than dependent on iteration details.
+    let weakest_enemy = enemies
         .iter()
         .copied()
-        .min_by_key(|&index| st.combatants[index].hp)
+        .min_by_key(|&index| (st.combatants[index].hp, index))
         .unwrap_or(enemies[0]);
 
-    match ai {
-        AiProfile::Trickster => {
-            let target = st.rng.pick(&enemies).unwrap_or(focus);
-            if !offensive.is_empty() && st.rng.chance(50) {
-                let index = st.rng.below(offensive.len() as u32) as usize;
+    match profile {
+        AiProfile::Support => {
+            let wounded = allies
+                .iter()
+                .copied()
+                .filter(|&index| {
+                    st.combatants[index].hp * 100
+                        < st.combatants[index].max_hp * SUPPORT_HEAL_THRESHOLD_PERCENT
+                })
+                .min_by_key(|&index| {
+                    (
+                        st.combatants[index].hp * 100 / st.combatants[index].max_hp.max(1),
+                        index,
+                    )
+                });
+            if let Some(target) = wounded {
+                if let Some(skill) = affordable(db, &skills, sp, is_healing) {
+                    return Command::Skill { skill, target };
+                }
+            }
+            if let Some(skill) = best_offensive(db, &skills, sp) {
                 return Command::Skill {
-                    skill: offensive[index].clone(),
-                    target,
+                    skill,
+                    target: weakest_enemy,
                 };
             }
-            Command::Attack { target }
+            Command::Attack {
+                target: weakest_enemy,
+            }
         }
-        AiProfile::Aggressive | AiProfile::Support => {
-            // Not always the biggest hit: holding SP back some of the time keeps
-            // fights from being decided entirely in the first two turns.
-            if !offensive.is_empty() && st.rng.chance(65) {
-                let best = offensive
-                    .iter()
-                    .max_by_key(|id| db.skill(id).map(declared_power).unwrap_or(0))
-                    .cloned();
-                if let Some(skill) = best {
+        AiProfile::Aggressive => {
+            if st.rng.chance(AGGRESSIVE_SKILL_CHANCE) {
+                if let Some(skill) = best_offensive(db, &skills, sp) {
                     return Command::Skill {
                         skill,
-                        target: focus,
+                        target: weakest_enemy,
                     };
                 }
             }
-            Command::Attack { target: focus }
+            Command::Attack {
+                target: weakest_enemy,
+            }
+        }
+        AiProfile::Trickster => {
+            // Random on purpose: this profile is for low-tier enemies that must
+            // not feel optimal.
+            let target = st
+                .rng
+                .pick(&enemies)
+                .unwrap_or(weakest_enemy);
+            let usable: Vec<Id> = skills
+                .iter()
+                .filter_map(|id| db.skill(id))
+                .filter(|def| def.sp_cost <= sp && def.target.is_hostile())
+                .map(|def| def.id.clone())
+                .collect();
+            if usable.is_empty() {
+                return Command::Attack { target };
+            }
+            let index = st.rng.below(usable.len() as u32) as usize;
+            Command::Skill {
+                skill: usable[index].clone(),
+                target,
+            }
         }
     }
 }
 
-fn health_percent(st: &BattleState, index: usize) -> i32 {
-    let combatant = &st.combatants[index];
-    combatant.hp * 100 / combatant.max_hp.max(1)
-}
-
-fn find_skill<F>(db: &Database, skills: &[Id], sp: i32, predicate: F) -> Option<Id>
-where
-    F: Fn(&SkillDef) -> bool,
-{
-    skills
+fn is_healing(def: &SkillDef) -> bool {
+    def.effects
         .iter()
-        .find(|id| {
-            db.skill(id)
-                .map(|def| def.sp_cost <= sp && predicate(def))
-                .unwrap_or(false)
-        })
-        .cloned()
+        .any(|effect| matches!(effect, Effect::Heal { .. }))
 }
 
-/// Crude heuristic weight used only for AI ordering. Not a balance metric.
-fn declared_power(def: &SkillDef) -> i32 {
+/// Total nominal offensive power of a skill. A crude proxy, but it reads the
+/// same data a designer edits, so tuning JSON also tunes the AI.
+fn total_power(def: &SkillDef) -> i32 {
     def.effects
         .iter()
         .map(|effect| match effect {
             Effect::Damage { power, .. } | Effect::Drain { power, .. } => *power,
-            Effect::TempoLock { ticks } => *ticks as i32 * 30,
-            Effect::Status { potency, .. } => *potency,
-            Effect::Heal { .. } => 0,
+            _ => 0,
         })
         .sum()
+}
+
+fn affordable(
+    db: &Database,
+    skills: &[Id],
+    sp: i32,
+    predicate: fn(&SkillDef) -> bool,
+) -> Option<Id> {
+    skills
+        .iter()
+        .filter_map(|id| db.skill(id))
+        .find(|def| def.sp_cost <= sp && predicate(def))
+        .map(|def| def.id.clone())
+}
+
+fn best_offensive(db: &Database, skills: &[Id], sp: i32) -> Option<Id> {
+    skills
+        .iter()
+        .filter_map(|id| db.skill(id))
+        .filter(|def| def.sp_cost <= sp && def.target.is_hostile() && total_power(def) > 0)
+        .max_by_key(|def| total_power(def))
+        .map(|def| def.id.clone())
 }

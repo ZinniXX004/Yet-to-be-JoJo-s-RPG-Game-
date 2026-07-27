@@ -1,22 +1,29 @@
-//! The battle driver: scheduler, turn lifecycle, and public API.
+//! The scheduler and the public entry point of the simulation.
 //!
-//! Control flow is pull-based, not callback-based. The caller repeatedly asks
-//! [`Battle::advance`] what should happen next; the core never calls back into
-//! the presentation layer. That keeps the engine boundary one-directional and
-//! makes the whole simulation trivially driveable from a test.
+//! Turn order is a tempo (ATB) model, not round-robin: each tick every living
+//! combatant accumulates tempo equal to its effective speed, and acts once it
+//! crosses [`TEMPO_THRESHOLD`]. Acting subtracts the action's own cost, so a slow
+//! heavy skill genuinely delays the next turn. That single rule is what makes
+//! speed a resource and makes tempo denial a real strategy.
+//!
+//! The loop is driven by the caller. [`Battle::advance`] runs until a decision
+//! is required and returns; it never blocks and never calls back into the
+//! presentation layer.
 
 use serde::{Deserialize, Serialize};
 
 use crate::ai;
 use crate::command::Command;
-use crate::data::{CombatantDef, DataError, Database, Element, Id, SkillDef, StandDef, StatusKind};
+use crate::data::{
+    CombatantDef, DataError, Database, Element, Id, SkillDef, StandDef, StatusKind, Team,
+};
 use crate::event::Event;
 use crate::resolve;
 use crate::state::{BattleState, TEMPO_THRESHOLD};
 
-/// Safety valve. A correctly configured battle resolves in far fewer ticks; if
-/// this is ever reached, the content is broken (for example, mutual immortality)
-/// and reporting a stalemate is better than hanging the game loop.
+/// Hard stop on scheduler ticks. Without it, a content bug (every combatant
+/// tempo-locked forever, zero-damage stalemate) would hang the game instead of
+/// reporting a stalemate.
 const MAX_TICKS: u64 = 100_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +34,7 @@ pub enum BattleOutcome {
     Stalemate,
 }
 
+/// What the simulation needs from the caller next.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "phase", rename_all = "snake_case")]
 pub enum Phase {
@@ -34,9 +42,8 @@ pub enum Phase {
     Finished { outcome: BattleOutcome },
 }
 
-/// Everything needed to start a battle, in one deserializable payload. This is
-/// the shape the GDExtension bridge accepts, so the FFI signature never has to
-/// change when content gains fields.
+/// Everything needed to start a battle from JSON, so the Godot layer never has
+/// to construct Rust types.
 #[derive(Clone, Debug, Deserialize)]
 pub struct BattleConfig {
     #[serde(default)]
@@ -52,6 +59,8 @@ pub struct Battle {
     db: Database,
     state: BattleState,
     log: Vec<Event>,
+    /// Set while a command is expected. Kept on failure so a rejected command
+    /// can be retried without losing the turn.
     awaiting: Option<usize>,
     finished: Option<BattleOutcome>,
 }
@@ -87,22 +96,21 @@ impl Battle {
         &self.db
     }
 
-    pub fn events(&self) -> &[Event] {
+    pub fn log(&self) -> &[Event] {
         &self.log
     }
 
-    /// Hands the accumulated events to the caller and clears the buffer. The
-    /// presentation layer drains after each step so memory does not grow without
-    /// bound during long fights.
+    /// Drains the event log. The caller is expected to animate what it takes;
+    /// calling twice without consuming the first batch loses it.
     pub fn take_events(&mut self) -> Vec<Event> {
         std::mem::take(&mut self.log)
     }
 
-    pub fn awaiting(&self) -> Option<usize> {
-        self.awaiting
+    pub fn outcome(&self) -> Option<BattleOutcome> {
+        self.finished
     }
 
-    /// Runs the scheduler until someone must act or the battle ends.
+    /// Runs the scheduler until a command is required or the battle ends.
     pub fn advance(&mut self) -> Phase {
         if let Some(outcome) = self.finished {
             return Phase::Finished { outcome };
@@ -112,80 +120,89 @@ impl Battle {
         }
 
         loop {
-            if let Some(outcome) = self.outcome() {
+            if let Some(outcome) = self.check_end() {
                 return self.finish(outcome);
-            }
-            if let Some(actor) = self.ready_actor() {
-                if self.state.combatants[actor].has(StatusKind::Stun) {
-                    self.log.push(Event::TurnSkipped {
-                        actor,
-                        reason: "stun".to_string(),
-                    });
-                    self.end_turn(actor, TEMPO_THRESHOLD);
-                    continue;
-                }
-                self.log.push(Event::TurnStarted {
-                    actor,
-                    tick: self.state.tick,
-                });
-                self.awaiting = Some(actor);
-                return Phase::AwaitingCommand { actor };
             }
             if self.state.tick >= MAX_TICKS {
                 return self.finish(BattleOutcome::Stalemate);
             }
-            self.tick();
+
+            match self.ready_actor() {
+                None => self.tick(),
+                Some(actor) => {
+                    if self.state.combatants[actor].has(StatusKind::Stun) {
+                        // A stunned actor still pays a full turn of tempo, so
+                        // stun costs time rather than merely delaying an action.
+                        self.log.push(Event::TurnSkipped {
+                            actor,
+                            reason: "stun".to_string(),
+                        });
+                        self.end_turn(actor, TEMPO_THRESHOLD);
+                        continue;
+                    }
+                    self.log.push(Event::TurnStarted {
+                        actor,
+                        tick: self.state.tick,
+                    });
+                    self.awaiting = Some(actor);
+                    return Phase::AwaitingCommand { actor };
+                }
+            }
         }
     }
 
     /// Submits a command for the awaiting actor.
     ///
-    /// On `Err` the actor keeps the turn, so the UI can report the reason and let
-    /// the player choose again. Never auto-substitute a different action here;
-    /// that hides input bugs.
-    pub fn submit(&mut self, cmd: &Command) -> Result<(), String> {
+    /// On `Err` the actor keeps the turn on purpose: illegal input should produce
+    /// a message and a re-prompt, never a silently wasted turn.
+    pub fn submit(&mut self, command: &Command) -> Result<(), String> {
         let actor = self
             .awaiting
             .ok_or_else(|| "no actor is awaiting a command".to_string())?;
-        let cost = resolve::resolve_command(&self.db, &mut self.state, actor, cmd, &mut self.log)?;
+        let cost = resolve::resolve_command(&self.db, &mut self.state, actor, command, &mut self.log)?;
         self.awaiting = None;
         self.end_turn(actor, cost);
         Ok(())
     }
 
-    /// Advances one step, letting the AI act for whoever is up. Used for enemy
-    /// turns, auto-battle, and the headless test suite.
+    /// Advances one decision point, letting the AI act for whoever is up.
     pub fn step_with_ai(&mut self) -> Phase {
         let phase = self.advance();
-        if let Phase::AwaitingCommand { actor } = phase {
-            let cmd = ai::choose(&self.db, &mut self.state, actor);
-            if let Err(reason) = self.submit(&cmd) {
-                // An AI that proposes an illegal command is a bug, but stalling
-                // the battle would be worse. Record it and pass the turn.
-                debug_assert!(false, "ai produced an illegal command: {reason}");
-                let _ = self.submit(&Command::Wait);
-            }
+        let actor = match phase {
+            Phase::AwaitingCommand { actor } => actor,
+            Phase::Finished { .. } => return phase,
+        };
+
+        let command = ai::choose(&self.db, &mut self.state, actor);
+        if let Err(reason) = self.submit(&command) {
+            // An AI that cannot produce a legal move must not stall the
+            // scheduler; burn the turn and record why.
+            self.log.push(Event::TurnSkipped { actor, reason });
+            self.awaiting = None;
+            self.end_turn(actor, TEMPO_THRESHOLD);
         }
-        phase
+        self.advance()
     }
 
-    /// Drives both sides with the AI until the battle resolves. `max_turns`
-    /// bounds the loop independently of the tick safety valve.
-    pub fn run_with_ai(&mut self, max_turns: u64) -> BattleOutcome {
-        for _ in 0..max_turns {
-            if let Phase::Finished { outcome } = self.step_with_ai() {
-                return outcome;
-            }
+    /// Runs an unattended battle to its end. Used by tests and by the balance
+    /// harness. `max_turns` bounds the run independently of `MAX_TICKS`.
+    pub fn run_to_completion(&mut self, max_turns: u64) -> BattleOutcome {
+        while self.finished.is_none() && self.state.turn < max_turns {
+            self.step_with_ai();
         }
-        BattleOutcome::Stalemate
+        if self.finished.is_none() {
+            self.finish(BattleOutcome::Stalemate);
+        }
+        self.finished.unwrap_or(BattleOutcome::Stalemate)
     }
 
-    fn outcome(&self) -> Option<BattleOutcome> {
-        let party = self.state.team_alive(crate::data::Team::Party);
-        let foes = self.state.team_alive(crate::data::Team::Foe);
-        match (party, foes) {
-            (true, false) => Some(BattleOutcome::PartyWins),
+    fn check_end(&self) -> Option<BattleOutcome> {
+        match (
+            self.state.team_alive(Team::Party),
+            self.state.team_alive(Team::Foe),
+        ) {
             (false, _) => Some(BattleOutcome::PartyWipes),
+            (true, false) => Some(BattleOutcome::PartyWins),
             _ => None,
         }
     }
@@ -196,96 +213,195 @@ impl Battle {
             self.awaiting = None;
             self.log.push(Event::BattleEnded { outcome });
         }
-        Phase::Finished { outcome }
-    }
-
-    /// Highest tempo acts first; ties break to the lowest index. Explicit and
-    /// stable, because "whoever the iterator happened to yield" is how replay
-    /// determinism dies.
-    fn ready_actor(&self) -> Option<usize> {
-        self.state
-            .combatants
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c.alive() && c.tempo_lock == 0 && c.tempo >= TEMPO_THRESHOLD)
-            .max_by_key(|(index, c)| (c.tempo, std::cmp::Reverse(*index)))
-            .map(|(index, _)| index)
-    }
-
-    fn tick(&mut self) {
-        self.state.tick += 1;
-        for combatant in self.state.combatants.iter_mut() {
-            if !combatant.alive() {
-                continue;
-            }
-            if combatant.tempo_lock > 0 {
-                combatant.tempo_lock -= 1;
-                continue;
-            }
-            let speed = combatant.spd().max(1) as u32;
-            combatant.tempo = combatant.tempo.saturating_add(speed);
+        Phase::Finished {
+            outcome: self.finished.unwrap_or(outcome),
         }
     }
 
-    /// Charges tempo, resolves damage/heal over time, then ages statuses.
-    ///
-    /// Order matters: ticking a status before it has had a chance to act would
-    /// make a 1-turn buff effectively worthless.
+    /// Charges tempo, then ticks the actor's own statuses. Status duration is
+    /// counted per *turn of its bearer*, not per global tick, so a fast
+    /// character burns through its buffs faster. That is intentional.
     fn end_turn(&mut self, actor: usize, cost: u32) {
-        self.state.turn += 1;
         {
             let combatant = &mut self.state.combatants[actor];
             combatant.tempo = combatant.tempo.saturating_sub(cost.max(1));
         }
+        self.tick_statuses(actor);
+        self.state.turn += 1;
+    }
 
-        let bleed = self
-            .state
-            .combatants[actor]
-            .status(StatusKind::Bleed)
-            .map(|status| status.potency)
-            .unwrap_or(0);
-        let regen = self
-            .state
-            .combatants[actor]
-            .status(StatusKind::Regen)
-            .map(|status| status.potency)
-            .unwrap_or(0);
-
-        if bleed > 0 {
-            resolve::deal_flat_damage(
-                &mut self.state,
-                actor,
-                actor,
-                bleed,
-                Element::Fire,
-                false,
-                &mut self.log,
-            );
-        }
-        if regen > 0 {
-            resolve::heal(&mut self.state, actor, regen, &mut self.log);
-        }
-
+    fn tick_statuses(&mut self, actor: usize) {
+        let mut bleed = 0;
+        let mut regen = 0;
         let mut expired: Vec<StatusKind> = Vec::new();
-        {
-            let combatant = &mut self.state.combatants[actor];
-            for status in combatant.statuses.iter_mut() {
-                status.remaining = status.remaining.saturating_sub(1);
+
+        for status in &mut self.state.combatants[actor].statuses {
+            match status.kind {
+                StatusKind::Bleed => bleed += status.potency.max(1),
+                StatusKind::Regen => regen += status.potency.max(1),
+                _ => {}
             }
-            combatant.statuses.retain(|status| {
-                if status.remaining == 0 {
-                    expired.push(status.kind);
-                    false
-                } else {
-                    true
-                }
-            });
+            status.remaining = status.remaining.saturating_sub(1);
+            if status.remaining == 0 {
+                expired.push(status.kind);
+            }
         }
+        self.state.combatants[actor]
+            .statuses
+            .retain(|status| status.remaining > 0);
+
         for status in expired {
             self.log.push(Event::StatusExpired {
                 target: actor,
                 status,
             });
         }
+
+        if bleed > 0 {
+            // Source and target are the same index: damage over time has no
+            // attacker at resolution time, and inventing one would produce a
+            // misleading event.
+            resolve::deal_damage(
+                &mut self.state,
+                actor,
+                actor,
+                bleed,
+                false,
+                Element::Physical,
+                &mut self.log,
+            );
+        }
+        if regen > 0 {
+            let healed = resolve::heal(&mut self.state, actor, regen);
+            if healed > 0 {
+                self.log.push(Event::Healed {
+                    target: actor,
+                    amount: healed,
+                });
+            }
+        }
+    }
+
+    fn tick(&mut self) {
+        self.state.tick += 1;
+        for combatant in &mut self.state.combatants {
+            if !combatant.alive() {
+                continue;
+            }
+            if combatant.tempo_lock > 0 {
+                combatant.tempo_lock -= 1;
+            } else {
+                let speed = combatant.spd().max(1) as u32;
+                combatant.tempo = combatant.tempo.saturating_add(speed);
+            }
+        }
+    }
+
+    /// Highest tempo above the threshold acts first; ties break on the lower
+    /// index. Deterministic tie-breaking is not a detail -- without it, replay
+    /// would depend on iteration order.
+    fn ready_actor(&self) -> Option<usize> {
+        self.state
+            .combatants
+            .iter()
+            .enumerate()
+            .filter(|(_, combatant)| {
+                combatant.alive() && combatant.tempo_lock == 0 && combatant.tempo >= TEMPO_THRESHOLD
+            })
+            .max_by_key(|(index, combatant)| (combatant.tempo, std::cmp::Reverse(*index)))
+            .map(|(index, _)| index)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{AiProfile, Effect, Stats, TargetKind};
+
+    fn stats(hp: i32, atk: i32, spd: i32) -> Stats {
+        Stats {
+            hp,
+            sp: 50,
+            atk,
+            def: 10,
+            spd,
+            will: 10,
+        }
+    }
+
+    fn strike() -> SkillDef {
+        SkillDef {
+            id: resolve::BASIC_ATTACK_ID.to_string(),
+            name: "Strike".to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneEnemy,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Damage {
+                power: 100,
+                element: Element::Physical,
+                variance: 0,
+            }],
+        }
+    }
+
+    fn combatant(id: &str, team: Team, hp: i32, atk: i32, spd: i32) -> CombatantDef {
+        CombatantDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            team,
+            stats: stats(hp, atk, spd),
+            stand: None,
+            skills: vec![resolve::BASIC_ATTACK_ID.to_string()],
+            ai: AiProfile::Aggressive,
+        }
+    }
+
+    fn battle(hero_spd: i32, foe_spd: i32) -> Battle {
+        let db = Database::new(
+            vec![],
+            vec![strike()],
+            vec![
+                combatant("hero", Team::Party, 200, 100, hero_spd),
+                combatant("foe", Team::Foe, 60, 20, foe_spd),
+            ],
+        )
+        .expect("fixture content must be valid");
+        Battle::new(db, &["hero".to_string()], &["foe".to_string()], 42)
+            .expect("fixture battle must build")
+    }
+
+    #[test]
+    fn faster_combatant_acts_first() {
+        let mut battle = battle(120, 40);
+        match battle.advance() {
+            Phase::AwaitingCommand { actor } => assert_eq!(actor, 0),
+            other => panic!("expected a command request, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn illegal_command_does_not_consume_the_turn() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        assert!(battle.submit(&Command::Attack { target: 99 }).is_err());
+        // Still the same actor's turn: the rejection cost nothing.
+        match battle.advance() {
+            Phase::AwaitingCommand { actor: again } => assert_eq!(actor, again),
+            other => panic!("expected the same actor to retain the turn, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn battle_reaches_a_decisive_outcome() {
+        let mut battle = battle(120, 40);
+        assert_eq!(battle.run_to_completion(200), BattleOutcome::PartyWins);
+        assert!(matches!(
+            battle.log().last(),
+            Some(Event::BattleEnded { .. })
+        ));
     }
 }
