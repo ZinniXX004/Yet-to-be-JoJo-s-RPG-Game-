@@ -13,9 +13,12 @@
 //! Every method returns a JSON object containing at least `ok`. On failure it
 //! carries `error` with a human-readable reason, which the UI is expected to
 //! surface rather than swallow.
+//!
+//! Incoming payloads are normalized before deserialization, because Godot's
+//! JSON has no integer type. See [`rpg_core::json_compat`].
 
 use godot::prelude::*;
-use rpg_core::{Battle, Command};
+use rpg_core::{json_compat, Battle, Command};
 
 struct RpgBridge;
 
@@ -41,6 +44,17 @@ fn error_json(message: &str) -> GString {
     json_to_gstring(&payload)
 }
 
+/// Converts a payload authored in GDScript into one the schema accepts.
+///
+/// GDScript has no JSON integer: `JSON.parse_string` yields floats and
+/// `JSON.stringify` writes `95.0`, which `serde` rejects for an `i32` field.
+/// Normalizing here keeps the fix in the translation layer, where it belongs,
+/// instead of weakening the simulation's integer-only schema.
+fn normalize_incoming(json: &GString, what: &str) -> Result<String, GString> {
+    json_compat::normalize_json_str(&json.to_string())
+        .map_err(|error| error_json(&format!("malformed {what} json: {error}")))
+}
+
 #[derive(GodotClass)]
 #[class(init, base = RefCounted)]
 pub struct BattleSession {
@@ -53,7 +67,11 @@ impl BattleSession {
     /// `{ seed, stands, skills, combatants, party, foes }`.
     #[func]
     fn create(&mut self, config_json: GString) -> GString {
-        match Battle::from_json(&config_json.to_string()) {
+        let normalized = match normalize_incoming(&config_json, "battle config") {
+            Ok(json) => json,
+            Err(failure) => return failure,
+        };
+        match Battle::from_json(&normalized) {
             Ok(battle) => {
                 self.battle = Some(battle);
                 GString::from("{\"ok\":true}")
@@ -92,7 +110,11 @@ impl BattleSession {
         let Some(battle) = self.battle.as_mut() else {
             return error_json("session not created");
         };
-        let command: Command = match serde_json::from_str(&command_json.to_string()) {
+        let normalized = match normalize_incoming(&command_json, "command") {
+            Ok(json) => json,
+            Err(failure) => return failure,
+        };
+        let command: Command = match serde_json::from_str(&normalized) {
             Ok(command) => command,
             Err(error) => return error_json(&format!("malformed command: {error}")),
         };

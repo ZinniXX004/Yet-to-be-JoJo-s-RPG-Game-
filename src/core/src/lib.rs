@@ -17,6 +17,7 @@ pub mod battle;
 pub mod command;
 pub mod data;
 pub mod event;
+pub mod json_compat;
 pub mod resolve;
 pub mod rng;
 pub mod state;
@@ -28,5 +29,6 @@ pub use data::{
     StatusKind, TargetKind, Team,
 };
 pub use event::Event;
+pub use json_compat::{normalize_integral_floats, normalize_json_str};
 pub use rng::Rng;
 pub use state::{BattleState, Combatant, Status, TEMPO_THRESHOLD};

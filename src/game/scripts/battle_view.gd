@@ -8,9 +8,17 @@ extends Control
 ##  3. Never assume an action succeeded. Check `ok` and surface `error`.
 ##
 ## Data note: Godot cannot read outside res://, while the canonical content lives
-## in the repository-level /data directory. `tools/sync_data.sh` (see ROADMAP M1)
-## copies it into res://data as a build step. Do not fork the JSON by hand; two
-## divergent copies of content is a bug factory.
+## in the repository-level /data directory. `tools/sync_data.ps1` on Windows and
+## `tools/sync_data.sh` elsewhere copy it into res://data as a build step. Do not
+## fork the JSON by hand; two divergent copies of content is a bug factory.
+##
+## Number note: GDScript's JSON has no integer type, so `JSON.parse_string`
+## turns every number into a float and `JSON.stringify` writes it back as `95.0`.
+## The simulation's schema is integer-only on purpose (floats are not
+## bit-reproducible, and determinism is the point of this architecture), so the
+## Rust bridge normalizes integral floats before deserializing. Do not "fix"
+## this by rounding numbers here: the boundary is the correct place for it, and
+## duplicating the repair in two languages guarantees they drift apart.
 
 const DATA_DIR := "res://data"
 const PARTY := ["pc.jotaro", "pc.josuke", "pc.kakyoin"]
@@ -146,7 +154,7 @@ func _call_bridge(method: String, args: Array) -> Dictionary:
 func _load_json(path: String) -> Variant:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		push_error("missing content file: %s (run tools/sync_data.sh)" % path)
+		push_error("missing content file: %s (run tools/sync_data.ps1 or tools/sync_data.sh)" % path)
 		return []
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	return parsed if parsed != null else []
