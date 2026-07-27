@@ -13,9 +13,6 @@ yanked = "deny"
 # Add ignore entries here only with a dated comment explaining the exposure.
 ignore = []
 
-[licences]
-# Note: cargo-deny spells this section [licenses]; the alias above is not read.
-
 [licenses]
 version = 2
 confidence-threshold = 0.9
@@ -37,6 +34,10 @@ allow = [
 ]
 
 [bans]
+# Duplicate versions are reported, not denied. In a dependency tree that
+# includes proc-macro crates, a second copy of syn or bitflags is normal and
+# outside our control; failing the build on it would train us to ignore this
+# job. Wildcard version requirements are our own doing, so those are denied.
 multiple-versions = "warn"
 wildcards = "deny"
 

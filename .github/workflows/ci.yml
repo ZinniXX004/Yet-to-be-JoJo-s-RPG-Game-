@@ -9,6 +9,9 @@
 #  - Every job is cheap and independent, so a failure points at one cause.
 #  - The final `ci` job is the single status check to require in branch
 #    protection; adding a job later then does not require reconfiguring GitHub.
+#  - The toolchain is not installed by an action. ../rust-toolchain.toml pins
+#    1.94.1 and rustup honours it for every cargo invocation, so CI and the
+#    development machine cannot diverge. Each job prints what it resolved.
 
 name: CI
 
@@ -29,37 +32,48 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Fail on warnings in rustc as well as clippy.
-  RUSTFLAGS: -D warnings
   RUST_BACKTRACE: 1
+  # RUSTFLAGS is deliberately NOT set to "-D warnings" here.
+  #
+  # A workflow-level RUSTFLAGS applies to every crate cargo compiles, including
+  # the whole dependency tree. One warning emitted by gdext, glam, venial or syn
+  # under a pinned rustc then turns CI red on a commit that touched none of them,
+  # and the error message points at somebody else's source file. Denying warnings
+  # is a policy for code we own, so it is passed to clippy per job instead.
 
 jobs:
   format:
     name: rustfmt
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: src
     steps:
       - uses: actions/checkout@v4
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo fmt --version
       - run: cargo fmt --all --check
 
   content:
     name: content validation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       # Stdlib only on purpose: a content validator that needs a dependency tree
-      # is a validator people stop running.
+      # is a validator people stop running. The script defaults to ./data, so it
+      # must run from the repository root.
       - name: Validate data/*.json
         run: python src/data-pipeline/validate_data.py
 
   core:
     name: core (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +83,8 @@ jobs:
         working-directory: src
     steps:
       - uses: actions/checkout@v4
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo --version && cargo clippy --version
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src
@@ -83,6 +99,7 @@ jobs:
   bridge:
     name: bridge (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -98,10 +115,14 @@ jobs:
       - name: Install libclang (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo --version
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src
           key: bridge-${{ matrix.os }}
+      # Only our crate is linted. The generated gdext bindings are not ours to
+      # fix, and -D warnings across them is how you get an unfixable red build.
       - name: Clippy
         run: cargo clippy -p rpg-bridge --all-targets -- -D warnings
       - name: Build cdylib
@@ -110,6 +131,7 @@ jobs:
   audit:
     name: supply chain
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
@@ -120,21 +142,33 @@ jobs:
   spelling:
     name: spelling
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: crate-ci/typos@master
+      # Pinned to a release tag. Tracking master means an upstream dictionary
+      # change can fail a build on a commit that changed no prose.
+      - uses: crate-ci/typos@v1
 
   links:
     name: markdown links
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: lycheeverse/lychee-action@v2
         with:
           # Dead links in a README are the most visible kind of rot on a
-          # portfolio repository. Rate-limited hosts are excluded rather than
-          # allowed to produce flaky failures.
-          args: --no-progress --exclude-mail --exclude 'crates\.io' './**/*.md'
+          # portfolio repository, so this job stays blocking.
+          #
+          # 403 and 429 are accepted because they mean "the host dislikes CI
+          # traffic", not "the page is gone". Hosts that answer that way
+          # unconditionally are listed in .lycheeignore with a reason each.
+          args: >-
+            --no-progress
+            --exclude-mail
+            --max-retries 2
+            --accept 200,206,301,302,303,304,307,308,403,429
+            './**/*.md'
           fail: true
 
   ci:
@@ -142,10 +176,16 @@ jobs:
     if: always()
     needs: [format, content, core, bridge, audit, spelling, links]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
+      # A skipped job counts as a failure. Requiring only this check in branch
+      # protection is safe precisely because it refuses to be green by default.
       - name: Verify all jobs succeeded
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        if: >-
+          contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+          || contains(needs.*.result, 'skipped')
         run: |
-          echo "One or more required jobs failed."
+          echo "One or more required jobs did not succeed."
           exit 1
       - run: echo "All checks passed."

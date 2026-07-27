@@ -1,0 +1,18 @@
+# URLs the link checker must not fail on, with a reason for each. An entry here
+# is a check switched off, so the list stays short and justified.
+#
+# These are regular expressions, one per line.
+
+# ACM's DOI host answers 403 to non-browser user agents. The DOI is stable and
+# citing it is the point; it cannot be verified from CI.
+dl\.acm\.org
+
+# crates.io rate limits automated traffic and answers 429 in bursts. Crate
+# existence is already proven by the build resolving the dependency.
+crates\.io
+
+# Cloudflare-fronted mirrors of the winget catalogue block datacentre IPs.
+winstall\.app
+
+# Requires an authenticated session; always 999 for anonymous requests.
+linkedin\.com
