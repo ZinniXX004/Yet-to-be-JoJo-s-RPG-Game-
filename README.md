@@ -170,7 +170,7 @@ not match `Cargo.toml` or the changelog has no section for it. Details in
 - [godot-rust book](https://godot-rust.github.io/book/) · [gdext API docs](https://godot-rust.github.io/docs/gdext) · [gdext repository](https://github.com/godot-rust/gdext)
 - [godot-rust compatibility matrix](https://godot-rust.github.io/book/toolchain/compatibility.html) — API version must be at most the runtime version
 - [Selecting a Godot version](https://godot-rust.github.io/book/toolchain/godot-version.html) — why `compatibility_minimum` is 4.6 here
-- [Godot 4 documentation](https://docs.godotengine.org/en/stable/) · [GDExtension C++ overview](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html)
+- [Godot 4 documentation](https://docs.godotengine.org/en/stable/) · [The GDExtension system](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/index.html)
 
 **Design and algorithms**
 
