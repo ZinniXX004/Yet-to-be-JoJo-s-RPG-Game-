@@ -40,6 +40,32 @@ Command (intent)  ->  resolve()  ->  Vec<Event> (facts)  ->  presentation
   log can be replayed, serialized to disk for a bug report, or diffed in a
   regression test.
 
+### Event taxonomy and the attribution invariant
+
+Events are serialized with `#[serde(tag = "kind", rename_all = "snake_case")]`,
+so every payload carries a `kind` discriminator and the presentation layer can
+match on it without positional assumptions.
+
+Two damage-bearing variants exist, deliberately:
+
+| Variant | Fields | Meaning |
+| --- | --- | --- |
+| `damaged` | `actor`, `target`, `amount`, `crit`, `element` | A combatant acted and hit something. `actor` is always a real attacker |
+| `status_damaged` | `target`, `status`, `amount` | A status ticked. There is no actor, no element and no crit roll, so those fields do not exist |
+
+This split is the single most important rule in the event schema, and it was
+learned the hard way. Before it existed, damage-over-time reused `damaged` with
+`actor` set to the victim's own index. The log then claimed that the bleeding
+character had hit itself with a physical attack: the numbers were correct, the
+story was a lie, and every future consumer of the log (animator, combat log UI,
+damage-attribution statistics, replay analysis) would have needed an
+`actor == target` special case to undo the damage.
+
+The invariant to preserve: **if an event carries an `actor`, that actor chose to
+do it.** Anything the simulation does on its own gets its own variant.
+`battle::tests::bleed_is_attributed_to_the_status_not_to_its_victim` fails if
+this regresses.
+
 ### Determinism
 
 `Rng` (SplitMix64) is stored inside `BattleState`, not in a global. Combined with
@@ -68,21 +94,58 @@ resistance table is applied yet.
 
 ## FFI contract
 
-`rpg-bridge` exposes a Godot `RefCounted` class with four methods, all exchanging
-JSON strings:
+`rpg-bridge` exposes a Godot `RefCounted` class, `BattleSession`, whose methods
+all exchange JSON strings (`GString`):
 
 | Method | Input | Output |
 |---|---|---|
 | `create(config_json)` | full battle config, incl. seed and content | session handle |
 | `advance()` | none | `{ "phase": ..., "events": [...] }` |
 | `submit(command_json)` | one command | `{ "ok": true, "events": [...] }` |
+| `step_with_ai()` | none | resolves the pending actor's turn with the built-in AI |
 | `state_json()` | none | full `BattleState` snapshot |
+
+`step_with_ai` exists so that a battle can run to completion with no UI at all.
+That is what makes the headless balance harness possible, and it is also how the
+bridge is smoke-tested without a scene.
 
 Why JSON and not native structs: the schema will churn heavily during design
 iteration. A struct-based ABI would require recompiling both sides in lockstep
 and would risk undefined behavior on mismatch. Here, a mismatch is a parse error
 with a message. Serialization happens once per player action, so the cost is
 irrelevant at this scale.
+
+### Numeric normalisation at the boundary
+
+Godot's `JSON` class has no integer type. Every number it produces is a float64,
+so a `95` authored in GDScript arrives in Rust as `95.0`, and `serde` correctly
+refuses to deserialize that into an `i32`:
+
+```
+invalid type: floating point `95.0`, expected i32
+```
+
+The fix belongs at the boundary, not in the schema. Weakening `i32` to `f64` in
+`rpg-core` would import floats into the one crate that must not have them and
+would destroy replay determinism across architectures. Instead,
+`rpg_core::json_compat::normalize_json_str` walks the parsed value and rewrites
+every float whose fractional part is zero into an integer;
+`rpg-bridge::normalize_incoming` applies it to every inbound payload before
+deserialization. Fractional numbers are left untouched, so genuine decimals in
+future schemas still work.
+
+Two consequences worth knowing before debugging:
+
+1. **Integers crossing the boundary must stay below 2^53**, the float64 mantissa
+   limit. This is why the seed is derived from a Unix timestamp rather than a
+   full `u64`: a larger value would be silently rounded on the GDScript side,
+   before Rust ever sees it, and the run would not be reproducible from the seed
+   it printed.
+2. **The outbound direction cannot be fixed from Rust.** `rpg-core` emits
+   `"seed":1785176952`, then Godot parses and re-stringifies it for printing as
+   `1785176952.0`. The trailing `.0` in console output is Godot's formatting, not
+   corrupted data. Use `%d` or `int()` when a value must be displayed as an
+   integer.
 
 ## Build and wiring
 
@@ -97,5 +160,11 @@ cp target/release/rpg_bridge.dll     game/bin/
 cp target/release/librpg_bridge.dylib game/bin/
 ```
 
-`src/game/rpg.gdextension` maps those paths per platform. `src/game/bin/` is
-gitignored: it is build output.
+`src/game/rpg.gdextension` maps those paths per platform and pins
+`compatibility_minimum` to the Godot API level the `godot` crate was built
+against, which is not the same as the editor version in use.
+
+`src/game/bin/` and `src/game/data/` are both gitignored: one is build output,
+the other is a copy of `data/` produced by `tools/sync_data.ps1` (or `.sh`).
+After a fresh clone, neither exists, and the project will not run until both are
+regenerated. See [DEVELOPMENT.md](DEVELOPMENT.md).
