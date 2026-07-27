@@ -22,9 +22,23 @@ struct RpgBridge;
 #[gdextension]
 unsafe impl ExtensionLibrary for RpgBridge {}
 
+/// Serializes a JSON value into a Godot string.
+///
+/// `GString` implements `From<&str>` and `From<&String>` but deliberately not
+/// `From<String>`: the conversion copies into Godot-managed memory, so accepting
+/// an owned `String` would silently discard an allocation. Borrowing makes that
+/// visible.
+///
+/// Funnelling every conversion through one function is not ceremony. godot-rust
+/// is pre-1.0, and when its string API shifts again this is the only line that
+/// has to change instead of one per method.
+fn json_to_gstring(payload: &serde_json::Value) -> GString {
+    GString::from(&payload.to_string())
+}
+
 fn error_json(message: &str) -> GString {
     let payload = serde_json::json!({ "ok": false, "error": message });
-    GString::from(payload.to_string())
+    json_to_gstring(&payload)
 }
 
 #[derive(GodotClass)]
@@ -62,7 +76,7 @@ impl BattleSession {
             "phase": phase,
             "events": battle.take_events(),
         });
-        GString::from(payload.to_string())
+        json_to_gstring(&payload)
     }
 
     /// Submits one command for the awaiting actor.
@@ -88,7 +102,7 @@ impl BattleSession {
                     "ok": true,
                     "events": battle.take_events(),
                 });
-                GString::from(payload.to_string())
+                json_to_gstring(&payload)
             }
             Err(reason) => error_json(&reason),
         }
@@ -107,7 +121,7 @@ impl BattleSession {
             "phase": phase,
             "events": battle.take_events(),
         });
-        GString::from(payload.to_string())
+        json_to_gstring(&payload)
     }
 
     /// Full state snapshot for the HUD. Also a complete save payload: there is
@@ -118,7 +132,7 @@ impl BattleSession {
             return error_json("session not created");
         };
         match serde_json::to_string(battle.state()) {
-            Ok(json) => GString::from(json),
+            Ok(json) => GString::from(&json),
             Err(error) => error_json(&error.to_string()),
         }
     }
