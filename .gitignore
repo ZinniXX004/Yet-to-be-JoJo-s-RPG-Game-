@@ -1,22 +1,42 @@
-# Unity / Godot generated
-/[Ll]ibrary/
-/[Tt]emp/
-/[Oo]bj/
-/[Bb]uild/
-/[Bb]uilds/
-*.csproj
-*.sln
-.vs/
+# ---------- Godot 4 ----------
+.godot/
+export_presets.cfg
+*.translation
 
-# Rust
-/src/core/target/
+# Godot 3 legacy import cache
+.import/
+
+# Compiled GDExtension binaries are build output, not source
+src/game/bin/
+
+# ---------- Rust ----------
+# Match target/ at any depth (workspace members each have one)
+**/target/
 **/*.rs.bk
+*.pdb
 
-# Python
+# NOTE: Cargo.lock is intentionally NOT ignored.
+# This repo builds a binary (a game), so the lockfile must be committed
+# to keep builds reproducible across machines and CI.
+
+# ---------- Python ----------
 __pycache__/
 *.py[cod]
-/src/data-pipeline/venv/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
 
-# OS
-Thumbs.db
+# ---------- Editors / OS ----------
+.vscode/
+.idea/
+*.swp
 .DS_Store
+Thumbs.db
+
+# ---------- Build output ----------
+/build/
+/builds/
+/dist/
+*.apk
+*.aab

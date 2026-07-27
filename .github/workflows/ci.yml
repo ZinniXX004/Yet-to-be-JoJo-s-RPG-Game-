@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  data:
+    name: Validate content data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate data/*.json
+        run: python3 src/data-pipeline/validate_data.py data
+
+  core:
+    name: Build and test simulation core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy (core only, denies warnings)
+        run: cargo clippy -p rpg-core --all-targets -- -D warnings
+      - name: Test
+        run: cargo test -p rpg-core --all-targets

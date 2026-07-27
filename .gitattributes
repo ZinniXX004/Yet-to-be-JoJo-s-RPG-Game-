@@ -1,0 +1,42 @@
+# Normalize line endings so Windows/Linux/macOS collaborators do not
+# generate whole-file diffs.
+* text=auto eol=lf
+
+# Explicit text types
+*.rs      text
+*.gd      text
+*.toml    text
+*.json    text
+*.md      text
+*.py      text
+*.tscn    text
+*.tres    text
+*.godot   text
+*.gdextension text
+
+# ---------------------------------------------------------------------------
+# Git LFS. Configured NOW, while history is still tiny.
+# Once a large binary enters normal Git history, the only fix is a history
+# rewrite (git filter-repo), which invalidates every existing clone.
+# ---------------------------------------------------------------------------
+*.png   filter=lfs diff=lfs merge=lfs -text
+*.jpg   filter=lfs diff=lfs merge=lfs -text
+*.jpeg  filter=lfs diff=lfs merge=lfs -text
+*.webp  filter=lfs diff=lfs merge=lfs -text
+*.gif   filter=lfs diff=lfs merge=lfs -text
+*.aseprite filter=lfs diff=lfs merge=lfs -text
+*.ase   filter=lfs diff=lfs merge=lfs -text
+*.psd   filter=lfs diff=lfs merge=lfs -text
+*.kra   filter=lfs diff=lfs merge=lfs -text
+*.wav   filter=lfs diff=lfs merge=lfs -text
+*.ogg   filter=lfs diff=lfs merge=lfs -text
+*.mp3   filter=lfs diff=lfs merge=lfs -text
+*.flac  filter=lfs diff=lfs merge=lfs -text
+*.ttf   filter=lfs diff=lfs merge=lfs -text
+*.otf   filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.glb   filter=lfs diff=lfs merge=lfs -text
+*.mp4   filter=lfs diff=lfs merge=lfs -text
+*.so    filter=lfs diff=lfs merge=lfs -text
+*.dll   filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
