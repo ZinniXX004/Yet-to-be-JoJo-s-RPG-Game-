@@ -1,0 +1,31 @@
+# Automated dependency updates.
+#
+# Weekly rather than daily: on a solo project, a daily PR firehose gets ignored,
+# and ignored automation is worse than none. Grouped so that one review covers
+# one ecosystem.
+
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /src
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      rust-dependencies:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"

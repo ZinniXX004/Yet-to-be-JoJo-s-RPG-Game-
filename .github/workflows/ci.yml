@@ -1,43 +1,151 @@
+# Continuous integration.
+#
+# Design notes:
+#  - Windows is a first-class CI target because that is the primary development
+#    machine. A Linux-only pipeline would let Windows-specific breakage (path
+#    separators, line endings, DLL naming) reach main unnoticed.
+#  - clippy runs with -D warnings. A lint that is merely reported is a lint that
+#    accumulates.
+#  - Every job is cheap and independent, so a failure points at one cause.
+#  - The final `ci` job is the single status check to require in branch
+#    protection; adding a job later then does not require reconfiguring GitHub.
+
 name: CI
 
 on:
   push:
     branches: [main, development]
   pull_request:
+    branches: [main, development]
+  workflow_dispatch:
 
+# Superseded runs on the same ref are pointless; cancel them.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  data:
-    name: Validate content data
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Validate data/*.json
-        run: python3 src/data-pipeline/validate_data.py data
+permissions:
+  contents: read
 
-  core:
-    name: Build and test simulation core
+env:
+  CARGO_TERM_COLOR: always
+  # Fail on warnings in rustc as well as clippy.
+  RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: 1
+
+jobs:
+  format:
+    name: rustfmt
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all --check
+
+  content:
+    name: content validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          components: rustfmt, clippy
+          python-version: "3.12"
+      # Stdlib only on purpose: a content validator that needs a dependency tree
+      # is a validator people stop running.
+      - name: Validate data/*.json
+        run: python src/data-pipeline/validate_data.py
+
+  core:
+    name: core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-      - name: Clippy (core only, denies warnings)
-        run: cargo clippy -p rpg-core --all-targets -- -D warnings
-      - name: Test
-        run: cargo test -p rpg-core --all-targets
+          key: core-${{ matrix.os }}
+      - name: Clippy
+        run: cargo clippy -p rpg-core --all-targets --all-features -- -D warnings
+      - name: Tests
+        run: cargo test -p rpg-core --all-targets --all-features
+      - name: Doc build
+        run: cargo doc -p rpg-core --no-deps
+
+  bridge:
+    name: bridge (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      # godot-rust uses prebuilt GDExtension bindings by default, so no Godot
+      # binary is needed here. libclang is installed anyway because bindgen is
+      # pulled in on some feature paths and the failure mode is cryptic.
+      - name: Install libclang (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: bridge-${{ matrix.os }}
+      - name: Clippy
+        run: cargo clippy -p rpg-bridge --all-targets -- -D warnings
+      - name: Build cdylib
+        run: cargo build -p rpg-bridge
+
+  audit:
+    name: supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: src/Cargo.toml
+          command: check advisories bans licenses sources
+
+  spelling:
+    name: spelling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@master
+
+  links:
+    name: markdown links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          # Dead links in a README are the most visible kind of rot on a
+          # portfolio repository. Rate-limited hosts are excluded rather than
+          # allowed to produce flaky failures.
+          args: --no-progress --exclude-mail --exclude 'crates\.io' './**/*.md'
+          fail: true
+
+  ci:
+    name: ci
+    if: always()
+    needs: [format, content, core, bridge, audit, spelling, links]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all jobs succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "One or more required jobs failed."
+          exit 1
+      - run: echo "All checks passed."

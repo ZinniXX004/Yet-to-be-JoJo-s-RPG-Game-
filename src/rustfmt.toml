@@ -1,0 +1,6 @@
+# Deliberately close to default rustfmt. Custom formatting is a bikeshed that
+# costs review time and gains nothing; the only setting here enforces import
+# hygiene so diffs stay small.
+
+edition = "2021"
+max_width = 100
