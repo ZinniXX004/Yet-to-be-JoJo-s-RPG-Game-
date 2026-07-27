@@ -293,7 +293,11 @@ impl Database {
     /// matters because it is surfaced directly in the command menu.
     pub fn skills_for(&self, def: &CombatantDef) -> Vec<Id> {
         let mut out: Vec<Id> = Vec::new();
-        let mut push = |id: &Id, out: &mut Vec<Id>| {
+        // Not `let mut push`: the closure mutates through its `&mut Vec<Id>`
+        // parameter rather than capturing anything, so the binding is immutable.
+        // Passing the vector explicitly is what keeps the borrow checker happy
+        // while `out` is also read inside the loop.
+        let push = |id: &Id, out: &mut Vec<Id>| {
             if !out.iter().any(|existing| existing == id) {
                 out.push(id.clone());
             }
