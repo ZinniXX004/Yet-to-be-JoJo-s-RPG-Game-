@@ -113,12 +113,15 @@ godot --version
 ```
 
 Adjust the path to your own extraction directory. If the alias reports
-`is not recognized`, the path is wrong — most often because the archive was
+`is not recognized`, the path is wrong -- most often because the archive was
 extracted into a subdirectory named after the archive itself. Verify with:
 
 ```powershell
 Get-ChildItem -Recurse C:\Tools\Godot\*.exe
 ```
+
+The `..._console.exe` variant beside it is the one to use from a terminal: it
+keeps `print()` output and errors in the console instead of discarding them.
 
 ---
 
@@ -141,6 +144,10 @@ pwsh -File tools/sync_data.ps1
 If `pwsh` is not on your machine (you are on Windows PowerShell 5.1 rather than
 PowerShell 7), use `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1`.
 
+The copy step is not optional bookkeeping. Godot loads the library from
+`res://bin/`, never from `target/`, so skipping it means testing the previous
+build and wondering why a fix had no effect.
+
 Linux/macOS equivalent:
 
 ```sh
@@ -153,7 +160,8 @@ sh tools/sync_data.sh
 Then open the project and run the main scene:
 
 ```powershell
-godot --path src\game --editor
+godot --path src\game --editor          # editor
+& "C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game   # run headless-ish
 ```
 
 A correct load prints, before any scene runs:
@@ -201,15 +209,21 @@ typos                                              # optional tool
 
 ## 5. Troubleshooting
 
+Every row below is a failure that actually occurred, not a hypothetical.
+
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `error: linker 'link.exe' not found` | MSVC Build Tools missing | Install VS Build Tools 2022 with *Desktop development with C++*, then reopen the terminal |
 | `& was unexpected at this time.` | You are in `cmd.exe`, where `&` is not the call operator | Run `powershell`, then retry. Every block in this document is PowerShell |
 | `where` returns a parameter-binding error | In PowerShell, `where` is an alias for `Where-Object` | Use `where.exe /r C:\ Godot*.exe`, or `Get-ChildItem -Recurse -Filter` |
+| Alias `godot` reports the full path as unrecognized | The archive extracted into a directory named after the archive, so the path points at a folder | `Get-ChildItem -Recurse C:\Tools\Godot\*.exe`, flatten the directory, then `. $PROFILE` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
 | Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.6+, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
+| `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
+| Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
+| A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force`, then restart Godot |
 | `missing content file: res://data/...` | Sync script not run | `pwsh -File tools/sync_data.ps1` |
 | Assets appear as small text files | Git LFS not installed before cloning | `git lfs install` then `git lfs pull` |
 | CI complains about line endings | Committed CRLF | `.gitattributes` normalises to LF; re-add the file, do not disable core.autocrlf globally |

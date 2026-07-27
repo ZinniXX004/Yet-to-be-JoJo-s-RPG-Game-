@@ -12,10 +12,40 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **GDExtension no longer fails to compile.** `GString` implements
+  `From<&str>` and `From<&String>` but not `From<String>`, because the
+  conversion copies into Godot-managed memory. Every conversion now goes
+  through a single `json_to_gstring` helper.
+- **Content authored in GDScript is accepted again.** Godot's JSON has no
+  integer type, so numbers round-tripped through `JSON.parse_string` and
+  `JSON.stringify` arrive as `95.0` where the schema declares `i32`.
+  `rpg_core::json_compat` normalizes integral floats at the FFI boundary,
+  leaving the simulation's integer-only schema intact.
+- **`compatibility_minimum` now states the truth.** It claimed 4.2 while
+  `godot` 0.5.3 compiles against the Godot 4.6 API. Lowering that number
+  never widened support; it only postponed the failure from a clear version
+  rejection to a missing-symbol crash. Verified against the engine's own
+  startup line: `API v4.6.stable.official, runtime v4.7.1.stable.official`.
+- Removed a needless `mut` in `Database::skills_for` that would have failed
+  CI, where warnings are errors.
+
+### Added
+
+- `rpg_core::json_compat` with five unit tests, including a guard assertion
+  that an un-normalized Godot-style payload must fail; without it the test
+  would pass even if the normalizer were deleted.
+- Windows setup guidance covering the failures met in practice: PowerShell
+  versus `cmd.exe`, `where` shadowed by `Where-Object`, and archives that
+  extract into a subdirectory named after the archive.
+
 ### Planned
 
 - Battle UI: HP/SP bars, tempo order preview, command menu, target picker (M1).
 - Event animator queue replacing the placeholder `print` calls in `battle_view.gd`.
+- Attribute damage-over-time ticks to the status that caused them rather than
+  to the victim, so the UI cannot narrate a character attacking itself.
 - Balance harness: thousands of headless AI-vs-AI battles reporting win rates (M2).
 
 ## [0.1.0] - 2026-07-27
@@ -55,9 +85,17 @@ a runnable stub, not a game.
 ### Known limitations
 
 - No gameplay UI yet; `battle_view.gd` auto-selects a basic attack so the loop
-  can be run end to end.
+  can be run end to end. A battle driven by that stub is not evidence about
+  balance: the party never uses a skill, never heals, and never retargets.
 - Elemental resistances are carried in events but not yet applied in damage.
 - Combat numbers are unbalanced; only determinism and termination are tested.
+- Damage-over-time ticks name the victim as the actor, which reads as
+  self-inflicted damage in the event log.
+- Seeds must stay below 2^53 when a battle is created from GDScript. Godot
+  represents every JSON number as a 64-bit float, whose mantissa is 53 bits,
+  so a larger seed would be silently rounded and the fight would not replay.
+  `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
+  `u64` seed would have to cross the boundary as a string.
 
 [Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0
