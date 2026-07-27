@@ -17,6 +17,15 @@ winstall\.app
 # Requires an authenticated session; always 999 for anonymous requests.
 linkedin\.com
 
+# docs.godotengine.org serves a bot-facing 404 for this section before a
+# client-side redirect that only a real browser executes (confirmed by eye:
+# a NOT FOUND flash, then the page that actually exists). lychee has no
+# JavaScript engine, so it only ever sees the 404. Reproduced on two
+# different paths in this same section across two separate CI runs
+# (index.html, then what_is_gdextension.html), which rules out a one-off
+# link, a typo, or a caching fluke.
+docs\.godotengine\.org/en/stable/tutorials/scripting/gdextension/
+
 # --- Temporary: delete this block once v0.1.0 is published (added 2026-07-28) ---
 #
 # These three cannot resolve before the first release exists, and the release
