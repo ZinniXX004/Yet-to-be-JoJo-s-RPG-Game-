@@ -1,0 +1,25 @@
+; Maps the compiled rpg-bridge cdylib into Godot.
+;
+; res://bin/ is gitignored: those files are build output. Produce them with
+;   cd src && cargo build -p rpg-bridge
+; then copy the artifact from src/target/<profile>/ into src/game/bin/.
+; Automate this in a task before it wastes anyone's afternoon.
+;
+; VERIFY compatibility_minimum against the Godot version you actually run.
+
+[configuration]
+
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.2
+reloadable = true
+
+[libraries]
+
+linux.debug.x86_64 = "res://bin/librpg_bridge.so"
+linux.release.x86_64 = "res://bin/librpg_bridge.so"
+windows.debug.x86_64 = "res://bin/rpg_bridge.dll"
+windows.release.x86_64 = "res://bin/rpg_bridge.dll"
+macos.debug = "res://bin/librpg_bridge.dylib"
+macos.release = "res://bin/librpg_bridge.dylib"
+macos.debug.arm64 = "res://bin/librpg_bridge.dylib"
+macos.release.arm64 = "res://bin/librpg_bridge.dylib"
