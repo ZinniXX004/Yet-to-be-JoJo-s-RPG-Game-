@@ -148,7 +148,7 @@ func _call_bridge(method: String, args: Array) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(raw)
 	if parsed is Dictionary:
 		return parsed
-	return {"ok": false, "error": "bridge returned unparseable payload: %s" % raw}
+	return {"ok": false, "error": "bridge returned an unparsable payload: %s" % raw}
 
 
 func _load_json(path: String) -> Variant:

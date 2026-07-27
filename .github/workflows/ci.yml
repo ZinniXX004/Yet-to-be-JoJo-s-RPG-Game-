@@ -50,7 +50,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo fmt --version
       - run: cargo fmt --all --check
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -82,7 +82,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo --version && cargo clippy --version
       - uses: Swatinem/rust-cache@v2
@@ -108,7 +108,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # godot-rust uses prebuilt GDExtension bindings by default, so no Godot
       # binary is needed here. libclang is installed anyway because bindgen is
       # pulled in on some feature paths and the failure mode is cryptic.
@@ -133,7 +133,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # This action runs cargo-deny inside its own container, which ships an
+      # older default toolchain and therefore has to install the pinned 1.94.1
+      # from rust-toolchain.toml on every run. That costs about thirty seconds
+      # and is the price of the pin being honoured everywhere.
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           manifest-path: src/Cargo.toml
@@ -144,7 +148,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Pinned to a release tag. Tracking master means an upstream dictionary
       # change can fail a build on a commit that changed no prose.
       - uses: crate-ci/typos@v1
@@ -154,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: lycheeverse/lychee-action@v2
         with:
           # Dead links in a README are the most visible kind of rot on a
@@ -163,9 +167,13 @@ jobs:
           # 403 and 429 are accepted because they mean "the host dislikes CI
           # traffic", not "the page is gone". Hosts that answer that way
           # unconditionally are listed in .lycheeignore with a reason each.
+          #
+          # No --exclude-mail: lychee 0.24 removed it in favour of
+          # --include-mail, which is already false by default. Passing the old
+          # flag aborts the run with "unexpected argument" before any link is
+          # checked, which reads like a link failure but is an argument error.
           args: >-
             --no-progress
-            --exclude-mail
             --max-retries 2
             --accept 200,206,301,302,303,304,307,308,403,429
             './**/*.md'
