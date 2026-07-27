@@ -91,10 +91,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
         AiProfile::Trickster => {
             // Random on purpose: this profile is for low-tier enemies that must
             // not feel optimal.
-            let target = st
-                .rng
-                .pick(&enemies)
-                .unwrap_or(weakest_enemy);
+            let target = st.rng.pick(&enemies).unwrap_or(weakest_enemy);
             let usable: Vec<Id> = skills
                 .iter()
                 .filter_map(|id| db.skill(id))

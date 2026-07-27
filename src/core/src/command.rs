@@ -18,8 +18,13 @@ use crate::data::Id;
 pub enum Command {
     /// Basic attack. Resolves through the data-defined basic attack skill so
     /// that its numbers stay tunable without a recompile.
-    Attack { target: usize },
-    Skill { skill: Id, target: usize },
+    Attack {
+        target: usize,
+    },
+    Skill {
+        skill: Id,
+        target: usize,
+    },
     Guard,
     /// Yield the turn at half the usual tempo cost. Always legal, which
     /// guarantees the scheduler can never deadlock on an actor with no options.

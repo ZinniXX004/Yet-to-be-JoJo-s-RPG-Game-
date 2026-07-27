@@ -1,15 +1,23 @@
-; Godot 4 project file. Kept minimal and hand-editable so that diffs stay
-; reviewable. Do not let the editor add rendering or import settings that are
-; not actually needed.
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="Yet-to-be JoJo's RPG"
 config/description="Turn-based RPG with a deterministic Rust simulation core."
 run/main_scene="res://scenes/battle_view.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
 

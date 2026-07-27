@@ -125,12 +125,7 @@ impl BattleState {
     /// Team membership comes from which list an id appears in, not from the
     /// definition's own `team` field. That lets the same definition be reused as
     /// an ally or an enemy without duplicating content.
-    pub fn build(
-        db: &Database,
-        party: &[Id],
-        foes: &[Id],
-        seed: u64,
-    ) -> Result<Self, DataError> {
+    pub fn build(db: &Database, party: &[Id], foes: &[Id], seed: u64) -> Result<Self, DataError> {
         let mut issues: Vec<String> = Vec::new();
         let mut combatants: Vec<Combatant> = Vec::new();
 
@@ -171,9 +166,7 @@ impl BattleState {
     }
 
     pub fn team_alive(&self, team: Team) -> bool {
-        self.combatants
-            .iter()
-            .any(|c| c.team == team && c.alive())
+        self.combatants.iter().any(|c| c.team == team && c.alive())
     }
 
     pub fn get(&self, index: usize) -> Option<&Combatant> {

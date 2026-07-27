@@ -14,9 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ai;
 use crate::command::Command;
-use crate::data::{
-    CombatantDef, DataError, Database, Id, SkillDef, StandDef, StatusKind, Team,
-};
+use crate::data::{CombatantDef, DataError, Database, Id, SkillDef, StandDef, StatusKind, Team};
 use crate::event::Event;
 use crate::resolve;
 use crate::state::{BattleState, TEMPO_THRESHOLD};
@@ -159,7 +157,8 @@ impl Battle {
         let actor = self
             .awaiting
             .ok_or_else(|| "no actor is awaiting a command".to_string())?;
-        let cost = resolve::resolve_command(&self.db, &mut self.state, actor, command, &mut self.log)?;
+        let cost =
+            resolve::resolve_command(&self.db, &mut self.state, actor, command, &mut self.log)?;
         self.awaiting = None;
         self.end_turn(actor, cost);
         Ok(())
@@ -435,9 +434,14 @@ mod tests {
             "bleed must report itself as the cause: {events:?}"
         );
         assert!(
-            !events
-                .iter()
-                .any(|event| matches!(event, Event::Damaged { actor: 0, target: 0, .. })),
+            !events.iter().any(|event| matches!(
+                event,
+                Event::Damaged {
+                    actor: 0,
+                    target: 0,
+                    ..
+                }
+            )),
             "no event may claim a combatant attacked itself: {events:?}"
         );
     }
