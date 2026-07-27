@@ -1,91 +1,200 @@
+<div align="center">
+
 # Yet-to-be JoJo's RPG Game
 
-A turn-based RPG built as a **deterministic simulation core in Rust** with a thin
-presentation layer in **Godot 4**, driven entirely by external content data.
+**A turn-based RPG whose combat rules live in a deterministic Rust simulation,
+with Godot 4 doing nothing but showing you what happened.**
 
-> Status: **pre-alpha / architecture scaffold.** The battle core is implemented
-> and unit-tested. The Godot presentation layer is a headless-driven stub.
+[![CI](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/actions/workflows/ci.yml/badge.svg)](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/actions/workflows/ci.yml)
+[![Release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/actions/workflows/release.yml/badge.svg)](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-?display_name=tag&sort=semver&logo=github)](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Why this repo is structured this way
+[![Rust](https://img.shields.io/badge/Rust-1.94.1-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Godot](https://img.shields.io/badge/Godot-4.2%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![godot-rust](https://img.shields.io/badge/godot--rust-0.5.3-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](docs/DEVELOPMENT.md)
 
-The engineering thesis is a hard separation between *rules* and *rendering*:
+[![Deterministic](https://img.shields.io/badge/simulation-deterministic-success)](src/core/tests/determinism.rs)
+[![Conventional Commits](https://img.shields.io/badge/commits-conventional-FE5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
+[![Keep a Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-E05735?logo=keepachangelog&logoColor=white)](CHANGELOG.md)
+[![SemVer](https://img.shields.io/badge/semver-2.0.0-3F4551?logo=semver&logoColor=white)](https://semver.org/spec/v2.0.0.html)
 
+[Architecture](docs/ARCHITECTURE.md) ·
+[Setup](docs/DEVELOPMENT.md) ·
+[Roadmap](docs/ROADMAP.md) ·
+[Releases](docs/RELEASING.md) ·
+[Changelog](CHANGELOG.md) ·
+[Data provenance](docs/DATA-SOURCES.md)
+
+</div>
+
+> **Status:** `v0.1.0`. The simulation is complete, tested and deterministic. The
+> Godot layer is a runnable stub, not yet a playable game. See
+> [ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+## Why this exists
+
+Most hobby RPGs put their combat rules inside engine callbacks, where the logic
+cannot be tested, replayed or reasoned about. This project inverts that: the
+rules are a plain Rust library with no engine, no globals, no clock and no
+floating point, so a battle is a pure function of a seed plus a sequence of
+commands.
+
+That single constraint buys, for free:
+
+- **Replays and bug reports** — one `u64` reproduces a fight exactly.
+- **Real tests** — `cargo test` runs battles; no engine, no scene, no mocking.
+- **Trivial saves** — serialising `BattleState` is the entire save file.
+- **Balance at scale** — thousands of headless AI battles per second.
+- **Portability** — the same simulation can drive a different frontend later.
+
+---
+
+## Architecture
+
+```text
+┌───────────────────────────────────────────────┐
+│ src/game        Godot 4  ·  GDScript          │  presentation only:
+│                 scenes, UI, animation         │  animates events,
+└───────────────────────┬───────────────────────┘  computes nothing
+                        │  JSON strings over GDExtension
+┌───────────────────────▼───────────────────────┐
+│ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
+│                 5 methods, JSON in / JSON out │  no game rules
+└───────────────────────┬───────────────────────┘
+                        │
+┌───────────────────────▼───────────────────────┐
+│ src/core        rpg-core  ·  Rust library     │  every rule lives here:
+│                 tempo scheduler, resolution,  │  deterministic,
+│                 statuses, AI, seeded RNG      │  engine-free, tested
+└───────────────────────┬───────────────────────┘
+                        │  reads
+┌───────────────────────▼───────────────────────┐
+│ data/*.json     skills · stands · combatants  │  content, not code
+│ src/data-pipeline  stdlib-only validator      │  runs in CI
+└───────────────────────────────────────────────┘
 ```
-            data/*.json                 (content: stands, skills, combatants)
-                 |
-                 v
-  +--------------------------------+
-  |  src/core   (crate: rpg-core)  |   pure Rust, zero engine deps
-  |  - deterministic RNG (SplitMix64)
-  |  - tempo/ATB scheduler          |   same seed + same commands
-  |  - command -> event pipeline    |   => byte-identical event log
-  |  - unit tested, headless        |
-  +--------------------------------+
-                 |  JSON over one narrow FFI surface
-                 v
-  +--------------------------------+
-  | src/bridge  (crate: rpg-bridge)|   cdylib, GDExtension (godot-rust)
-  +--------------------------------+
-                 |
-                 v
-  +--------------------------------+
-  | src/game    (Godot 4 project)  |   scenes, animation, input, audio
-  +--------------------------------+
-                 ^
-  src/data-pipeline (Python)  ---- validates/lints data/*.json in CI
-```
 
-Consequences that matter:
+| Concept | One-line summary |
+| --- | --- |
+| **Tempo scheduler** | Integer ATB: `tempo += spd` per tick, act at 1000, each action subtracts its own cost — so speed is a resource |
+| **Tempo denial** | `tempo_lock` suspends accumulation; time-stop abilities are ordinary data, with no special case in the scheduler |
+| **Command → Event** | Intent is validated *before* mutation; a rejected command costs no turn. Events are the only channel to the UI |
+| **Determinism** | SplitMix64 RNG stored inside `BattleState`; no floats anywhere |
+| **Data-driven** | A new skill is a JSON object. Zero code changes |
 
-- **The game logic is testable without launching the engine.** `cargo test` runs
-  full battles headlessly in milliseconds.
-- **Battles are replayable.** State carries its own RNG, so a seed plus the
-  command list fully reproduces a fight. This is the foundation for bug repro,
-  regression tests, and (later) netplay or an AI-vs-AI balance harness.
-- **No content is hardcoded.** Every character, stand, and skill is defined in
-  `data/*.json`. The core knows nothing about any specific franchise.
+Full reasoning in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the engine choice
+is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
-[`docs/ENGINE-DECISION.md`](docs/ENGINE-DECISION.md) for the reasoning and the
-rejected alternatives. Milestones live in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+---
 
-## Layout
+## Quickstart (Windows)
 
-| Path | Purpose |
-|---|---|
-| `src/core/` | Deterministic battle simulation. No engine types allowed. |
-| `src/bridge/` | GDExtension boundary. JSON in, JSON out. Kept deliberately thin. |
-| `src/game/` | Godot 4 project: scenes, UI, audio, animation. |
-| `src/data-pipeline/` | Python tooling that validates and reports on content data. |
-| `data/` | Content definitions (JSON). The only place content lives. |
-| `docs/` | Architecture decisions, design docs, roadmap. |
+Requires the Rust toolchain, MSVC Build Tools, Godot 4.2+ and Python 3.11+ —
+exact versions and install links in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Quickstart
+```powershell
+git clone https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-.git
+cd Yet-to-be-JoJo-s-RPG-Game-
+git lfs install
 
-```bash
-# 1. Run the simulation test suite (no engine required)
+# 1. The simulation must pass on its own, without Godot.
 cd src
-cargo test
+cargo test -p rpg-core --all-targets
 
-# 2. Validate content data
-python3 src/data-pipeline/validate_data.py data
-
-# 3. Build the GDExtension library
-cd src
+# 2. Build the GDExtension library.
 cargo build -p rpg-bridge
-# then copy the produced cdylib into src/game/bin/ (see docs/ARCHITECTURE.md)
+cd ..
+
+# 3. Wire it into the Godot project (both directories are gitignored build output).
+New-Item -ItemType Directory -Force -Path src\game\bin | Out-Null
+Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force
+pwsh -File tools/sync_data.ps1
+
+# 4. Open src/game/project.godot in Godot and run the main scene.
 ```
 
-## Content and IP notice
+Prebuilt libraries for Windows, Linux and macOS are attached to every
+[release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases) with
+SHA-256 checksums.
 
-All source code in this repository is licensed under the terms in `LICENSE`.
-That license covers **code only**.
+---
 
-Character names, Stand names, and related concepts referenced in `data/` are the
-intellectual property of their respective rights holders (Hirohiko Araki /
-Shueisha / Lucky Land Communications). This is a **non-commercial fan and
-portfolio project**. No official assets are redistributed here.
+## Repository layout
 
-The engine is deliberately content-agnostic: swapping `data/*.json` and the art
-layer converts this into a fully original game without touching a line of core
-logic. That is an intentional risk-mitigation design choice, not an accident.
+| Path | Contents |
+| --- | --- |
+| `src/core/` | `rpg-core`: the simulation. No engine dependency |
+| `src/bridge/` | `rpg-bridge`: GDExtension boundary, JSON in and out |
+| `src/game/` | Godot 4 project: scenes, GDScript, extension descriptor |
+| `src/data-pipeline/` | Stdlib-only Python content validator |
+| `data/` | Canonical content: skills, stands, combatants |
+| `docs/` | Architecture, ADR, roadmap, setup, release process, provenance |
+| `tools/` | Content sync scripts for the Godot project |
+| `.github/workflows/` | CI and release automation |
+
+---
+
+## Quality gates
+
+Every push and pull request runs, on **Linux and Windows**:
+
+| Check | Tool |
+| --- | --- |
+| Formatting | `cargo fmt --check` |
+| Lints, warnings are errors | `cargo clippy -- -D warnings` |
+| Tests, including determinism | `cargo test --all-targets` |
+| Docs build | `cargo doc --no-deps` |
+| Content integrity | `validate_data.py` (types, enums, cross-references, balance smells) |
+| Supply chain: advisories, licences, sources | [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) |
+| Spelling | [`typos`](https://github.com/crate-ci/typos) |
+| Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |
+| Dependency updates | Dependabot, weekly and grouped |
+
+Tagging `vX.Y.Z` builds, tests and publishes per-platform archives with release
+notes taken from the changelog. The workflow refuses to publish if the tag does
+not match `Cargo.toml` or the changelog has no section for it. Details in
+[docs/RELEASING.md](docs/RELEASING.md).
+
+---
+
+## References and further reading
+
+**Toolchain and bindings**
+
+- [The Rust Programming Language](https://doc.rust-lang.org/book/) · [Rust API guidelines](https://rust-lang.github.io/api-guidelines/)
+- [godot-rust book](https://godot-rust.github.io/book/) · [gdext API docs](https://godot-rust.github.io/docs/gdext) · [gdext repository](https://github.com/godot-rust/gdext)
+- [godot-rust compatibility matrix](https://godot-rust.github.io/book/toolchain/compatibility.html) — API version must be at most the runtime version
+- [Godot 4 documentation](https://docs.godotengine.org/en/stable/) · [GDExtension C++ overview](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html)
+
+**Design and algorithms**
+
+- Steele, Lea and Flood, *Fast Splittable Pseudorandom Number Generators*, OOPSLA 2014 — [ACM](https://dl.acm.org/doi/10.1145/2714064.2660195); reference constants at [prng.di.unimi.it](https://prng.di.unimi.it/splitmix64.c)
+- [Game Programming Patterns](https://gameprogrammingpatterns.com/) — command and event patterns, free online
+- [Determinism in games: floating point](https://gafferongames.com/post/floating_point_determinism/) — why this project has no float math
+
+**Process**
+
+- [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) · [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+- [Architecture decision records](https://adr.github.io/) — the format of `docs/ENGINE-DECISION.md`
+- [GitHub Actions documentation](https://docs.github.com/actions) · [Shields.io](https://shields.io) · [Simple Icons](https://simpleicons.org)
+
+Every external resource, licence and the project's scraping policy are catalogued
+in [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
+
+---
+
+## Licence and IP notice
+
+Code is [MIT](LICENSE) licensed.
+
+Character and ability names reference *JoJo's Bizarre Adventure* by Hirohiko
+Araki (Shueisha). This is an unaffiliated, non-commercial fan project; no
+official assets are included. `rpg-core` contains **no** character names — the
+engine is IP-agnostic, so swapping `data/*.json` produces an original game
+without touching a line of code. See
+[docs/DATA-SOURCES.md](docs/DATA-SOURCES.md#4-intellectual-property-notice).

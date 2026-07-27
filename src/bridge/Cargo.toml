@@ -3,7 +3,10 @@ name = "rpg-bridge"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
 description = "GDExtension boundary between rpg-core and the Godot 4 project."
+publish = false
 
 [lib]
 name = "rpg_bridge"
@@ -14,7 +17,12 @@ crate-type = ["cdylib"]
 rpg-core = { path = "../core" }
 serde_json = { workspace = true }
 
-# VERSION PIN REQUIRED: godot-rust is pre-1.0 and makes breaking API changes.
-# Pin this to the exact version verified against your local Godot build and keep
-# it in sync with compatibility_minimum in src/game/rpg.gdextension.
-godot = "0.2"
+# Pinned with `=` on purpose. godot-rust is pre-1.0 and ships breaking changes in
+# minor releases; an accidental bump would break the build at the worst possible
+# time. Bump this deliberately, read the migration guide, and note it in
+# CHANGELOG.md.
+#
+# godot 0.5.3 requires rustc >= 1.94.0 and targets the Godot 4 GDExtension API.
+# Keep compatibility_minimum in src/game/rpg.gdextension consistent with the
+# Godot build you actually run.
+godot = "=0.5.3"
