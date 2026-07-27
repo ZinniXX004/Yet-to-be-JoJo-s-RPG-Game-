@@ -12,7 +12,7 @@
 //! guard are ordinary data entries; the only thing the code knows is their id.
 
 use crate::command::Command;
-use crate::data::{Database, Effect, Element, SkillDef, TargetKind};
+use crate::data::{Database, Effect, Element, SkillDef, StatusKind, TargetKind};
 use crate::event::Event;
 use crate::state::{BattleState, TEMPO_THRESHOLD};
 
@@ -52,7 +52,7 @@ fn fallback_guard() -> SkillDef {
         accuracy: 100,
         tempo_cost: TEMPO_THRESHOLD * 3 / 5,
         effects: vec![Effect::Status {
-            status: crate::data::StatusKind::DefUp,
+            status: StatusKind::DefUp,
             potency: 50,
             duration: 2,
             chance: 100,
@@ -300,8 +300,33 @@ fn compute_damage(
     (damage, crit)
 }
 
-/// Applies damage and returns the amount actually dealt (never more than the
-/// target's remaining HP).
+/// Subtracts HP without emitting anything, returning the amount actually lost.
+///
+/// `None` means the target was already down. Both damage paths share this so
+/// that HP can never go negative in one of them and not the other.
+fn subtract_hp(st: &mut BattleState, target: usize, amount: i32) -> Option<i32> {
+    if !st.combatants[target].alive() {
+        return None;
+    }
+    let before = st.combatants[target].hp;
+    let lost = amount.clamp(0, before);
+    st.combatants[target].hp = before - lost;
+    Some(lost)
+}
+
+/// Emits [`Event::Downed`] if the target just reached zero HP.
+///
+/// Shared by every damage path on purpose: a lethal bleed must end the battle
+/// exactly like a lethal sword blow, and duplicating this check is how one of
+/// them eventually stops doing it.
+fn note_if_downed(st: &BattleState, target: usize, log: &mut Vec<Event>) {
+    if st.combatants[target].hp == 0 {
+        log.push(Event::Downed { target });
+    }
+}
+
+/// Applies damage from an actor's action and returns the amount actually dealt
+/// (never more than the target's remaining HP).
 pub(crate) fn deal_damage(
     st: &mut BattleState,
     actor: usize,
@@ -311,12 +336,9 @@ pub(crate) fn deal_damage(
     element: Element,
     log: &mut Vec<Event>,
 ) -> i32 {
-    if !st.combatants[target].alive() {
+    let Some(dealt) = subtract_hp(st, target, amount) else {
         return 0;
-    }
-    let before = st.combatants[target].hp;
-    let dealt = amount.clamp(0, before);
-    st.combatants[target].hp = before - dealt;
+    };
 
     log.push(Event::Damaged {
         actor,
@@ -325,9 +347,32 @@ pub(crate) fn deal_damage(
         crit,
         element,
     });
-    if st.combatants[target].hp == 0 {
-        log.push(Event::Downed { target });
-    }
+    note_if_downed(st, target, log);
+    dealt
+}
+
+/// Applies damage caused by a status the target is carrying, such as bleed.
+///
+/// Deliberately separate from [`deal_damage`]: there is no attacker and no
+/// element, so passing the victim's own index as the actor would emit a log
+/// entry claiming the character attacked itself. See [`Event::StatusDamaged`].
+pub(crate) fn status_damage(
+    st: &mut BattleState,
+    target: usize,
+    status: StatusKind,
+    amount: i32,
+    log: &mut Vec<Event>,
+) -> i32 {
+    let Some(dealt) = subtract_hp(st, target, amount) else {
+        return 0;
+    };
+
+    log.push(Event::StatusDamaged {
+        target,
+        status,
+        amount: dealt,
+    });
+    note_if_downed(st, target, log);
     dealt
 }
 

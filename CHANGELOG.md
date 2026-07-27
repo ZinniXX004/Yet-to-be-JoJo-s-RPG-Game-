@@ -28,6 +28,13 @@ with prebuilt libraries. A section here without a tag is not a release.
   never widened support; it only postponed the failure from a clear version
   rejection to a missing-symbol crash. Verified against the engine's own
   startup line: `API v4.6.stable.official, runtime v4.7.1.stable.official`.
+- **Damage over time is attributed to the status, not to its victim.** A bleed
+  tick was logged as `Damaged { actor, target }` with both fields set to the
+  victim and the element hard-coded to `physical`, so the log claimed a
+  character attacked itself with a blow it never made. It now emits
+  `status_damaged { target, status, amount }`, with no attacker, no element
+  and no crit -- none of which exist for a condition. `Damaged` consequently
+  means exactly one thing, which an animator can rely on.
 - Removed a needless `mut` in `Database::skills_for` that would have failed
   CI, where warnings are errors.
 
@@ -36,6 +43,9 @@ with prebuilt libraries. A section here without a tag is not a release.
 - `rpg_core::json_compat` with five unit tests, including a guard assertion
   that an un-normalized Godot-style payload must fail; without it the test
   would pass even if the normalizer were deleted.
+- Regression test asserting both halves of the damage-over-time fix: the
+  presence of `status_damaged` and the absence of any self-attributed
+  `Damaged`.
 - Windows setup guidance covering the failures met in practice: PowerShell
   versus `cmd.exe`, `where` shadowed by `Where-Object`, and archives that
   extract into a subdirectory named after the archive.
@@ -44,8 +54,6 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 - Battle UI: HP/SP bars, tempo order preview, command menu, target picker (M1).
 - Event animator queue replacing the placeholder `print` calls in `battle_view.gd`.
-- Attribute damage-over-time ticks to the status that caused them rather than
-  to the victim, so the UI cannot narrate a character attacking itself.
 - Balance harness: thousands of headless AI-vs-AI battles reporting win rates (M2).
 
 ## [0.1.0] - 2026-07-27
@@ -89,8 +97,6 @@ a runnable stub, not a game.
   balance: the party never uses a skill, never heals, and never retargets.
 - Elemental resistances are carried in events but not yet applied in damage.
 - Combat numbers are unbalanced; only determinism and termination are tested.
-- Damage-over-time ticks name the victim as the actor, which reads as
-  self-inflicted damage in the event log.
 - Seeds must stay below 2^53 when a battle is created from GDScript. Godot
   represents every JSON number as a 64-bit float, whose mantissa is 53 bits,
   so a larger seed would be silently rounded and the fight would not replay.

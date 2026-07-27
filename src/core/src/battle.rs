@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::ai;
 use crate::command::Command;
 use crate::data::{
-    CombatantDef, DataError, Database, Element, Id, SkillDef, StandDef, StatusKind, Team,
+    CombatantDef, DataError, Database, Id, SkillDef, StandDef, StatusKind, Team,
 };
 use crate::event::Event;
 use crate::resolve;
@@ -258,16 +258,13 @@ impl Battle {
         }
 
         if bleed > 0 {
-            // Source and target are the same index: damage over time has no
-            // attacker at resolution time, and inventing one would produce a
-            // misleading event.
-            resolve::deal_damage(
+            // Damage over time has no attacker, so it gets its own event rather
+            // than a Damaged with the victim named as its own assailant.
+            resolve::status_damage(
                 &mut self.state,
                 actor,
-                actor,
+                StatusKind::Bleed,
                 bleed,
-                false,
-                Element::Physical,
                 &mut self.log,
             );
         }
@@ -316,7 +313,7 @@ impl Battle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{AiProfile, Effect, Stats, TargetKind};
+    use crate::data::{AiProfile, Effect, Element, Stats, TargetKind};
 
     fn stats(hp: i32, atk: i32, spd: i32) -> Stats {
         Stats {
@@ -403,5 +400,45 @@ mod tests {
             battle.log().last(),
             Some(Event::BattleEnded { .. })
         ));
+    }
+
+    /// Regression test for a defect found in the first end-to-end run, where a
+    /// bleed tick was logged as `Damaged { actor: 0, target: 0 }` -- the victim
+    /// attacking itself with a physical hit it never made.
+    #[test]
+    fn bleed_is_attributed_to_the_status_not_to_its_victim() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        assert_eq!(actor, 0, "the fast hero should be up first");
+
+        battle.state.combatants[actor].apply_status(StatusKind::Bleed, 7, 3);
+        // Discard the opening events so the assertions below can only see what
+        // this turn produced.
+        battle.take_events();
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+        let events = battle.take_events();
+
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                Event::StatusDamaged {
+                    target: 0,
+                    status: StatusKind::Bleed,
+                    amount: 7,
+                }
+            )),
+            "bleed must report itself as the cause: {events:?}"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, Event::Damaged { actor: 0, target: 0, .. })),
+            "no event may claim a combatant attacked itself: {events:?}"
+        );
     }
 }
