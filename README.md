@@ -11,7 +11,7 @@ with Godot 4 doing nothing but showing you what happened.**
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![Rust](https://img.shields.io/badge/Rust-1.94.1-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
-[![Godot](https://img.shields.io/badge/Godot-4.2%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![Godot](https://img.shields.io/badge/Godot-4.6%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
 [![godot-rust](https://img.shields.io/badge/godot--rust-0.5.3-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](docs/DEVELOPMENT.md)
@@ -94,7 +94,7 @@ is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
 
 ## Quickstart (Windows)
 
-Requires the Rust toolchain, MSVC Build Tools, Godot 4.2+ and Python 3.11+ —
+Requires the Rust toolchain, MSVC Build Tools, Godot 4.6+ and Python 3.11+ —
 exact versions and install links in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ```powershell
@@ -169,6 +169,7 @@ not match `Cargo.toml` or the changelog has no section for it. Details in
 - [The Rust Programming Language](https://doc.rust-lang.org/book/) · [Rust API guidelines](https://rust-lang.github.io/api-guidelines/)
 - [godot-rust book](https://godot-rust.github.io/book/) · [gdext API docs](https://godot-rust.github.io/docs/gdext) · [gdext repository](https://github.com/godot-rust/gdext)
 - [godot-rust compatibility matrix](https://godot-rust.github.io/book/toolchain/compatibility.html) — API version must be at most the runtime version
+- [Selecting a Godot version](https://godot-rust.github.io/book/toolchain/godot-version.html) — why `compatibility_minimum` is 4.6 here
 - [Godot 4 documentation](https://docs.godotengine.org/en/stable/) · [GDExtension C++ overview](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/what_is_gdextension.html)
 
 **Design and algorithms**

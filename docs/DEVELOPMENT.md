@@ -6,9 +6,14 @@ Written against the exact environment this project is developed on:
 Windows 10.0.26200
 rustc 1.94.1 (e408947bf 2026-03-25)
 cargo 1.94.1 (29ea6fb6a 2026-03-24)
+Godot 4.7.1.stable.official
 ```
 
 Linux and macOS work too; where a command differs, both forms are given.
+
+Every PowerShell block below is PowerShell, not `cmd.exe`. Cmdlets such as
+`New-Item`, `Copy-Item` and the call operator `&` do not exist in `cmd.exe`; if
+your prompt reads `C:\...>` instead of `PS C:\...>`, run `powershell` first.
 
 ---
 
@@ -20,7 +25,7 @@ Linux and macOS work too; where a command differs, both forms are given.
 | --- | --- | --- | --- |
 | Rust toolchain | **1.94.1** (pinned) | Simulation and GDExtension library. `godot` 0.5 sets the floor at 1.94.0 | [rustup.rs](https://rustup.rs) |
 | MSVC Build Tools | 2022, workload *Desktop development with C++* | Rust on Windows uses `link.exe`. Without it, every build fails at link time | [Visual Studio downloads](https://visualstudio.microsoft.com/downloads/) |
-| Godot | **4.2 or newer**, standard build (not .NET) | Runs the GDExtension. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
+| Godot | **4.6 or newer**, standard build (not .NET) | Runs the GDExtension. `godot` 0.5.3 compiles against the Godot 4.6 API, so 4.6 is a hard floor, not a preference. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
 | Python | 3.11+ | Content validator in CI and locally | [python.org](https://www.python.org/downloads/) |
 | Git | any recent | Version control | [git-scm.com](https://git-scm.com/downloads) |
 | Git LFS | any recent | `.gitattributes` routes binary assets to LFS. **Install before your first asset commit** | [git-lfs.com](https://git-lfs.com) |
@@ -28,6 +33,11 @@ Linux and macOS work too; where a command differs, both forms are given.
 The toolchain version is not a suggestion: [`rust-toolchain.toml`](../rust-toolchain.toml)
 pins it, and rustup will install and use 1.94.1 automatically for any cargo
 command run inside the repository.
+
+Godot is **not** installed into this repository. It is a self-contained external
+editor; extract it anywhere (`C:\Tools\Godot` is a reasonable choice) and never
+commit the executable. The only things that enter the project tree are the built
+library and the synced content, both gitignored.
 
 ### 1.2 Optional but recommended
 
@@ -91,6 +101,25 @@ python src/data-pipeline/validate_data.py
 Expected result: tests green, validator exits 0. If step 3 fails, stop. The
 Godot layer is meaningless if the simulation is broken.
 
+### 2.1 Making `godot` callable
+
+Optional, but every command below reads better for it:
+
+```powershell
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
+Add-Content $PROFILE 'Set-Alias godot "C:\Tools\Godot\Godot_v4.7.1-stable_win64.exe"'
+. $PROFILE
+godot --version
+```
+
+Adjust the path to your own extraction directory. If the alias reports
+`is not recognized`, the path is wrong — most often because the archive was
+extracted into a subdirectory named after the archive itself. Verify with:
+
+```powershell
+Get-ChildItem -Recurse C:\Tools\Godot\*.exe
+```
+
 ---
 
 ## 3. Building the GDExtension
@@ -109,6 +138,9 @@ Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force
 pwsh -File tools/sync_data.ps1
 ```
 
+If `pwsh` is not on your machine (you are on Windows PowerShell 5.1 rather than
+PowerShell 7), use `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1`.
+
 Linux/macOS equivalent:
 
 ```sh
@@ -118,8 +150,20 @@ cp src/target/debug/librpg_bridge.* src/game/bin/
 sh tools/sync_data.sh
 ```
 
-Then open `src/game/project.godot` in Godot and run the main scene. `src/game/bin/`
-and `src/game/data/` are gitignored: they are build output, not source.
+Then open the project and run the main scene:
+
+```powershell
+godot --path src\game --editor
+```
+
+A correct load prints, before any scene runs:
+
+```text
+Initialize godot-rust (API v4.6.stable.official, runtime v4.7.1.stable.official, safeguards strict)
+```
+
+`src/game/bin/` and `src/game/data/` are gitignored: they are build output, not
+source.
 
 ### Iteration loop
 
@@ -160,9 +204,12 @@ typos                                              # optional tool
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `error: linker 'link.exe' not found` | MSVC Build Tools missing | Install VS Build Tools 2022 with *Desktop development with C++*, then reopen the terminal |
+| `& was unexpected at this time.` | You are in `cmd.exe`, where `&` is not the call operator | Run `powershell`, then retry. Every block in this document is PowerShell |
+| `where` returns a parameter-binding error | In PowerShell, `where` is an alias for `Where-Object` | Use `where.exe /r C:\ Godot*.exe`, or `Get-ChildItem -Recurse -Filter` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
-| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Lower it, or upgrade Godot; API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
+| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.6+, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
+| `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
 | `missing content file: res://data/...` | Sync script not run | `pwsh -File tools/sync_data.ps1` |
 | Assets appear as small text files | Git LFS not installed before cloning | `git lfs install` then `git lfs pull` |
 | CI complains about line endings | Committed CRLF | `.gitattributes` normalises to LF; re-add the file, do not disable core.autocrlf globally |
