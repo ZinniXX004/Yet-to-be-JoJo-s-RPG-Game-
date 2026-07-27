@@ -1,0 +1,16 @@
+[package]
+name = "rpg-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic, engine-agnostic turn-based battle simulation."
+
+[lib]
+name = "rpg_core"
+path = "src/lib.rs"
+
+# HARD RULE: no engine crate may ever appear here. If it does, the layering
+# described in docs/ARCHITECTURE.md is broken.
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
