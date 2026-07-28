@@ -25,6 +25,7 @@ with Godot 4 doing nothing but showing you what happened.**
 [Architecture](docs/ARCHITECTURE.md) ·
 [Setup](docs/DEVELOPMENT.md) ·
 [Roadmap](docs/ROADMAP.md) ·
+[Triage](docs/TRIAGE.md) ·
 [Balance log](docs/BALANCE-LOG.md) ·
 [Balance curve](docs/BALANCE-CURVE.md) ·
 [Releases](docs/RELEASING.md) ·
@@ -33,17 +34,22 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status: `0.3.0`, playable and measured.** M1 shipped as `0.2.0`: a full
-> battle -- command menu, target picker, animated event log, resolution screen
-> -- played start to finish in Godot 4.7.1 with a clean console. M2 ships as
-> `0.3.0`: every encounter now declares the win rate it is supposed to produce,
-> a headless harness measures whether it does, and CI fails the build when it
-> does not. The first playthrough's defeat turned out to be an anecdote pointing
-> the wrong way -- unattended, the party won that fight 92% of the time. Two of
-> three encounters were outside their intended range and are not any more.
-> Next is M3, the content pass, which is where the five skills no AI profile can
-> currently choose become reachable. See [BALANCE-LOG.md](docs/BALANCE-LOG.md),
-> [ROADMAP.md](docs/ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md).
+> **Status: `0.3.0` released. `0.4.0` (M3, content depth) in progress.**
+> `0.2.0` made one battle playable start to finish in Godot 4.7.1 with a clean
+> console. `0.3.0` made the numbers accountable: every encounter declares the
+> win rate it is supposed to produce, a headless harness measures the real one
+> over twelve fixed seeds, and CI fails the build when the two disagree. The
+> first playthrough's defeat turned out to be an anecdote pointing the wrong
+> way — unattended, the party won that same fight 92% of the time, and two of
+> three encounters sat outside their intended range.
+>
+> `0.4.0` closes the hole those measurements were taken through: the AI can
+> choose only six of eleven skills, so every win rate published so far measures
+> a subset of the game. Rules first, then a wider seed list, then new content —
+> in that order, because changing the rules invalidates every number measured
+> before it. Plan in [ROADMAP.md](docs/ROADMAP.md), reporting rules in
+> [TRIAGE.md](docs/TRIAGE.md), evidence in
+> [BALANCE-LOG.md](docs/BALANCE-LOG.md).
 
 ---
 
@@ -207,7 +213,8 @@ repository rather than an appendix to it:
 A win rate here is a **floor for a competent player**, not a forecast: the AI
 takes the strongest affordable skill and never sets up, and twelve seeds resolve
 to 8.3 percentage points. Both limits, and five more, are listed at the end of
-the balance log.
+the balance log. If you want to dispute a number, [TRIAGE.md](docs/TRIAGE.md)
+says what a balance finding has to contain before it can be acted on.
 
 ---
 
@@ -220,10 +227,11 @@ the balance log.
 | `src/game/` | Godot 4 project: scenes, GDScript, extension descriptor |
 | `src/data-pipeline/` | Stdlib-only Python content validator |
 | `data/` | Canonical content: skills, stands, combatants, matchups |
-| `docs/` | Architecture, ADR, roadmap, setup, release process, provenance, balance |
+| `docs/` | Architecture, ADR, roadmap, setup, release process, triage, provenance, balance |
 | `tools/` | Content sync scripts for the Godot project |
 | `tools/probe/` | Throwaway content for curve sweeps. Not game content |
 | `.github/workflows/` | CI and release automation |
+| `.github/ISSUE_TEMPLATE/` | Defect, balance and task forms; blank issues are disabled |
 
 ---
 
@@ -252,6 +260,20 @@ Tagging `vX.Y.Z` builds, tests and publishes per-platform archives with release
 notes taken from the changelog. The workflow refuses to publish if the tag does
 not match `Cargo.toml` or the changelog has no section for it. Details in
 [docs/RELEASING.md](docs/RELEASING.md).
+
+---
+
+## Contributing and reporting
+
+Issues use three forms — defect, balance finding, task — and blank issues are
+disabled, because a report this project cannot reproduce is a report it cannot
+act on. A defect report needs the seed, the encounter id and the version; the
+simulation is deterministic, so those three reproduce the fight exactly. A
+balance finding needs the pasted harness output, not an impression. Labels,
+severity and the triage rules are in [docs/TRIAGE.md](docs/TRIAGE.md).
+
+Pull requests carry the local gate as a checklist. Run it before opening one;
+the commands are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-checks-to-run-before-pushing).
 
 ---
 
