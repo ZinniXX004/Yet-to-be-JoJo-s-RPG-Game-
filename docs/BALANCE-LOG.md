@@ -9,7 +9,9 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and two of them are already wrong below.
+the fact is a rationalisation, and four of them are already wrong below. That
+score is the argument for the harness: the same wrong guesses shipped as
+content, without measurement, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -237,29 +239,120 @@ harder, and enemy behaviour becomes illegible to a player -- the property
 `ai.rs` was written to protect. 55 keeps a wounded target the single most likely
 victim while making no death certain.
 
-**Prediction, written before the run:**
+**Prediction:** `thug_solo` unchanged at 100%; `assassin_ambush` 80-95%;
+`dio_boss` 70-88%, with the direction explicitly allowed to be upward.
 
-| Matchup | Now | Predicted | Reasoning |
+**Result: one of three predictions correct. The boss fight went up, to 100%.**
+
+| Matchup | Before | After | Predicted |
 | --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 100% | one enemy, one ally; targeting cannot differ |
-| `matchup.assassin_ambush` | 100% | **80-95%** | the party can no longer delete the 300 HP thug first every time, so enemy output decays later; may still exceed 90 |
-| `matchup.dio_boss` | 83% | **70-88%** | two effects fight each other: Kakyoin survives more, which *helps* the party, while damage spread across three party members is less efficient for the enemy. Direction genuinely uncertain, and it may rise |
+| `matchup.thug_solo` | 100% | 100% | 100% -- correct |
+| `matchup.assassin_ambush` | 100% | **100%** | 80-95% -- wrong |
+| `matchup.dio_boss` | 83% | **100%** | 70-88% -- wrong, and above the range |
 
-The boss prediction is deliberately allowed to move upward. If it does, that is
-information, not a failure: it would mean the party was previously being *saved*
-by having a designated victim.
+`matchup.dio_boss`, per battle, before -> after:
 
-**Secondary expectations:** Kakyoin's survival rises off 0%; Jotaro's and
-Josuke's damage taken rises; Flame Assassin's lifetime lengthens in the boss
-fight without any further content change; `median_turns` rises in every
-multi-combatant matchup.
+| Combatant | Dealt | Taken | SP | Alive |
+| --- | --- | --- | --- | --- |
+| Jotaro | 1284 -> 1304 | 547 -> **422** | 72 -> 72 | 42% -> **83%** |
+| Josuke | 461 -> 446 | 273 -> 336 | 83 -> 83 | 83% -> 92% |
+| Kakyoin | 295 -> **410** | 1053 -> **956** | 122 -> 144 | 0% -> **33%** |
+| Dio | 1665 -> **1474** | 1400 -> **1520** | 177 -> 176 | 17% -> **0%** |
+| Flame Assassin | 209 -> 215 | 640 -> 640 | 33 -> 26 | 16% -> 0% |
+
+`matchup.assassin_ambush`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | Alive |
+| --- | --- | --- | --- |
+| Jotaro | 662 -> 676 | 10 -> **106** | 100% -> 100% |
+| Kakyoin | 278 -> 264 | 404 -> **272** | 92% -> **100%** |
+| Flame Assassin | 396 -> **353** | 640 -> 640 | 0% -> 0% |
+
+### Focus fire was the enemy's weapon, not a symmetric rule
+
+The rule was symmetric in code and wildly asymmetric in effect. A kill is only
+worth something if the dead combatant was producing something:
+
+- **What the enemy lost.** Deleting Kakyoin removed a third of the party's output
+  for most of the fight. Under weighted targeting Kakyoin survives 33% of
+  battles, his damage rises 295 -> 410, and total party output rises 2040 ->
+  2160. Enemy output falls 1874 -> 1689, partly because damage now lands on
+  Jotaro's def 70 and Josuke's def 78 instead of Kakyoin's def 58.
+- **What the party lost: nothing.** Its focus-fire targets were the 300 HP thug
+  (13 damage per battle) and the Assassin (215). Killing them early was never
+  worth much, so giving that up cost the party almost nothing.
+
+Net effect: **the party gained an entire combatant and the enemy gave up its only
+real tactic.** Dio now dies in 12 of 12 battles, taking his full 1520 effective
+HP every time.
+
+This is not an argument to revert. A guaranteed casualty is a broken rule
+regardless of which way it moves the win rate, and 83% was never a legitimate
+83% -- it was a boss fight that the party was surviving by feeding it a
+sacrifice. The correct reading is that the encounter's *content* was always far
+too weak, and focus fire was hiding it.
+
+### The ambush is not reachable by any combatant stat
+
+The ambush did not move for the third time in a row, and the arithmetic now says
+it cannot:
+
+- Enemy lifetime damage: 353 + 13 = **366**
+- Party pool, no healer: 620 + 520 = **1140**, of which 378 is actually spent
+
+The enemy side needs roughly **3.1x** its current output before the party is at
+risk. That means the Assassin's atk at around 235 against Kakyoin's def 58, on a
+mid-tier enemy whose budget is 76. It is the same wall Change A hit from the HP
+side, and it is not a tuning failure -- it is the encounter definition. Two
+fully-equipped Stand users against one mid-tier enemy and a 300 HP thug is not a
+45-90% fight, and the `data/matchups.json` band asserts that it is.
+
+**This requires a decision, not a number.** Either the roster changes (a second
+real threat instead of the thug), or the band changes to state that this
+encounter is designed to be won. Both are legitimate; silently editing the band
+to match the measurement is not, which is why it is not being done here.
+
+### Also fixed in the same run
+
+`sim::tests::damage_is_attributed_to_both_sides_of_every_hit` failed on
+`times_downed == 1` against an actual 4. The statistic accumulates over the whole
+seed list, so a four-seed hopeless matchup downs the hero four times. This test
+had never been executed before -- it was written and pushed without a local run --
+so the failure is a wrong expectation, not a regression from Change C.
+Commit `a92600a` corrects it and also replaces the vestigial duplicate-seed check
+(a `seen` vector guarded by `any(|_| false)`, which could never fire) with a real
+membership test plus a test that covers it.
+
+---
+
+## Change D -- Dio atk 100 -> 130
+
+Commit `b279cda`.
+
+**Motivation:** with targeting fixed, the boss fight reduces to one ratio, and
+both sides of it are now measured rather than assumed:
+
+- Enemy lifetime damage: 1474 + 215 = **1689**
+- Party effective HP: 620 + 720 + 520 = 1860, plus roughly 580 healed = **2440**
+
+The enemy needs about **45% more output** before a loss is possible at all, and
+something closer to parity before the declared 35..75 band is reachable. Attack
+is the direct lever: Dio already converts 100% of his HP into lifetime, so buying
+him more turns yields less than making each turn hurt more.
+
+**Why Dio and not the Assassin:** Dio produces 87% of enemy damage in this
+encounter. A change to the 13% cannot move the result, as Change A demonstrated
+at some cost.
+
+**Prediction:** `dio_boss` lands at **78-92%**. That is *deliberately still out of
+band* -- +30% atk buys roughly +25-35% damage after Dio's damage is reduced by
+party defence and by his slightly shorter fight, which is not the 45% the
+arithmetic asks for. This entry is a calibration step: its purpose is to measure
+how much win rate one point of enemy attack actually buys, so the next change can
+be sized instead of guessed. `thug_solo` and `assassin_ambush` are unaffected;
+neither contains Dio.
 
 **Result:** pending measurement.
-
-**Consequence for this document:** the baseline, Change A and Change B are now
-historical. The run after this commit is the new reference point, and the bands
-in `data/matchups.json` must be judged against it before any further content
-number is touched.
 
 ---
 
@@ -281,3 +374,7 @@ Recorded here so a number is not over-read:
   after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the same seed no longer
   reproduces the same battle. Cross-boundary comparison is meaningless even when
   the numbers look adjacent.
+- **The harness plays worse than a player.** Auto-battle picks the
+  highest-nominal-power affordable skill and never sets up. An AI-vs-AI win rate
+  is therefore a floor for a competent player, not an estimate of their
+  experience, and a band should be read with that in mind.
