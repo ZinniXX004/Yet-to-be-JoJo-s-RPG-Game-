@@ -51,13 +51,13 @@
   {
     "id": "skill.restore",
     "name": "Restore",
-    "description": "Reverts an ally's wounds.",
+    "description": "Reverts an ally's wounds. Enough to buy a turn, not enough to undo one.",
     "sp_cost": 20,
     "target": "one_ally",
     "accuracy": 100,
     "tempo_cost": 900,
     "effects": [
-      { "kind": "heal", "power": 230 }
+      { "kind": "heal", "power": 140 }
     ]
   },
   {

@@ -28,6 +28,13 @@
     "skills": ["skill.sun_flare", "skill.rage_focus"]
   },
   {
+    "id": "stand.iron_hymn",
+    "name": "Iron Hymn",
+    "description": "Slow, heavy, and it takes back what it spills.",
+    "bonus": { "hp": 80, "atk": 22, "def": 18, "spd": 10, "will": 12 },
+    "skills": ["skill.concussive_slam"]
+  },
+  {
     "id": "stand.the_world",
     "name": "The World",
     "description": "Raw power paired with dominion over time.",
