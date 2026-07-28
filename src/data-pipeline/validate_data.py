@@ -9,9 +9,14 @@ Checks performed:
   1. Every file parses as JSON and is a top-level list of objects.
   2. Required keys are present and correctly typed.
   3. Enum-valued fields use values the Rust core actually accepts.
-  4. Cross-file references resolve (stand -> skills, combatant -> stand/skills).
+  4. Cross-file references resolve (stand -> skills, combatant -> stand/skills,
+     matchup -> combatants).
   5. IDs are unique and follow the `namespace.name` convention.
-  6. Soft balance warnings (unreachable skills, zero-cost nukes).
+  6. Soft balance warnings (unreachable skills, zero-cost nukes, encounters
+     whose declaration cannot produce a meaningful measurement).
+
+Only `data/` is validated. `tools/probe/` holds files of the same shape that are
+deliberately absurd and are never shipped; see `tools/probe/README.md`.
 
 Usage:
     python3 src/data-pipeline/validate_data.py [data_dir]
@@ -46,6 +51,11 @@ STATUSES = {
 }
 EFFECT_KINDS = {"damage", "heal", "drain", "status", "tempo_lock"}
 STAT_KEYS = {"hp", "sp", "atk", "def", "spd", "will"}
+
+# Twelve seeds give a resolution of 8.3 percentage points per battle. Eight is
+# the point below which a single seed flipping moves the reported win rate by
+# more than 12 points, which is wider than most declared bands are forgiving.
+MIN_USEFUL_SEEDS = 8
 
 
 class Report:
@@ -221,9 +231,12 @@ def validate_stands(rows: list[dict[str, Any]], skill_ids: set[str],
 
 
 def validate_combatants(rows: list[dict[str, Any]], stand_ids: set[str],
-                        skill_ids: set[str], report: Report) -> set[str]:
+                        skill_ids: set[str],
+                        report: Report) -> tuple[dict[str, str], set[str]]:
+    """Returns the combatant id -> team map and the set of skills granted."""
     check_ids(rows, "combatants.json", report)
     referenced: set[str] = set()
+    team_of: dict[str, str] = {}
     teams: dict[str, int] = {"party": 0, "foe": 0}
     for index, row in enumerate(rows):
         where = f"combatants.json[{index}] ({row.get('id', '?')})"
@@ -233,6 +246,8 @@ def validate_combatants(rows: list[dict[str, Any]], stand_ids: set[str],
         check_enum(row, "ai", AI_PROFILES, where, report, required=False)
         if row.get("team") in teams:
             teams[row["team"]] += 1
+        if isinstance(row.get("id"), str) and row.get("team") in TEAMS:
+            team_of[row["id"]] = row["team"]
         check_stats(row.get("stats"), where, report)
 
         stand = row.get("stand")
@@ -254,7 +269,116 @@ def validate_combatants(rows: list[dict[str, Any]], stand_ids: set[str],
     for team, count in teams.items():
         if count == 0:
             report.warn("combatants.json", f"no combatants on team '{team}'")
-    return referenced
+    return team_of, referenced
+
+
+def check_side(row: dict[str, Any], key: str, expected_team: str,
+               team_of: dict[str, str], where: str,
+               report: Report) -> list[str]:
+    """Validates one side of an encounter and returns the ids it holds."""
+    side = row.get(key)
+    if not isinstance(side, list) or not side:
+        report.error(where, f"'{key}' must be a non-empty array")
+        return []
+
+    members: list[str] = []
+    for member in side:
+        if not isinstance(member, str):
+            report.error(where, f"'{key}' contains a non-string entry {member!r}")
+            continue
+        if member not in team_of:
+            report.error(where, f"'{key}' references unknown combatant '{member}'")
+            continue
+        # Legal -- the harness places a combatant on whichever side names it --
+        # but a foe listed under 'party' is nearly always a copy-paste error,
+        # and it silently changes which AI profile fights for whom.
+        if team_of[member] != expected_team:
+            report.warn(
+                where,
+                f"'{member}' is declared team '{team_of[member]}' in"
+                f" combatants.json but fights under '{key}' here",
+            )
+        if member in members:
+            report.error(where, f"'{member}' is listed twice under '{key}'")
+        members.append(member)
+    return members
+
+
+def validate_matchups(rows: list[dict[str, Any]], team_of: dict[str, str],
+                      report: Report) -> set[str]:
+    """Returns the set of combatants that at least one encounter exercises.
+
+    The Rust harness (`tests/balance_bounds.rs`) asserts most of this too, but
+    only after compiling the crate and simulating twelve battles per encounter.
+    A malformed declaration should be reported in the second it takes to read
+    the file, and a duplicated seed in particular is otherwise counted as two
+    independent samples of the same battle.
+    """
+    check_ids(rows, "matchups.json", report)
+    exercised: set[str] = set()
+
+    for index, row in enumerate(rows):
+        where = f"matchups.json[{index}] ({row.get('id', '?')})"
+        if not isinstance(row.get("name"), str):
+            report.error(where, "missing or non-string 'name'")
+        if not isinstance(row.get("description", ""), str):
+            report.error(where, "'description' must be a string when present")
+
+        party = check_side(row, "party", "party", team_of, where, report)
+        foes = check_side(row, "foes", "foe", team_of, where, report)
+        both = set(party) & set(foes)
+        if both:
+            report.error(where, f"combatant(s) on both sides: {sorted(both)}")
+        exercised.update(party)
+        exercised.update(foes)
+
+        seeds = row.get("seeds")
+        if not isinstance(seeds, list) or not seeds:
+            report.error(where, "'seeds' must be a non-empty array")
+        else:
+            seen_seeds: set[int] = set()
+            for seed in seeds:
+                if isinstance(seed, bool) or not isinstance(seed, int):
+                    report.error(where, f"seed {seed!r} is not an integer")
+                    continue
+                if seed in seen_seeds:
+                    # Two identical seeds replay one battle and report it as
+                    # two, which quietly biases the win rate.
+                    report.error(where, f"seed {seed} appears more than once")
+                seen_seeds.add(seed)
+            if len(seeds) < MIN_USEFUL_SEEDS:
+                report.warn(
+                    where,
+                    f"{len(seeds)} seeds give a resolution of"
+                    f" {round(100 / len(seeds))} percentage points per battle",
+                )
+
+        band = row.get("band")
+        if not isinstance(band, dict):
+            report.error(where, "'band' must be an object")
+        else:
+            unknown = set(band) - {"min_percent", "max_percent"}
+            if unknown:
+                report.error(where, f"unknown band keys: {sorted(unknown)}")
+            b_where = f"{where}.band"
+            check_int(band, "min_percent", b_where, report, low=0, high=100)
+            check_int(band, "max_percent", b_where, report, low=0, high=100)
+            low = band.get("min_percent")
+            high = band.get("max_percent")
+            if isinstance(low, int) and isinstance(high, int):
+                if low > high:
+                    report.error(b_where, f"min_percent {low} exceeds"
+                                          f" max_percent {high}")
+                elif low == 0 and high == 100:
+                    report.warn(b_where, "a 0..100 band declares no intent and"
+                                         " can never fail")
+
+        check_int(row, "max_turns", where, report, required=False, low=1)
+
+    for combatant in sorted(set(team_of) - exercised):
+        report.warn("matchups.json", f"'{combatant}' appears in no encounter,"
+                                     " so nothing measures it")
+    return exercised
 
 
 def main(argv: list[str]) -> int:
@@ -267,10 +391,14 @@ def main(argv: list[str]) -> int:
     skills = load_list(data_dir / "skills.json", report)
     stands = load_list(data_dir / "stands.json", report)
     combatants = load_list(data_dir / "combatants.json", report)
+    matchups = load_list(data_dir / "matchups.json", report)
 
     skill_ids = validate_skills(skills, report)
     stand_ids, from_stands = validate_stands(stands, skill_ids, report)
-    from_combatants = validate_combatants(combatants, stand_ids, skill_ids, report)
+    team_of, from_combatants = validate_combatants(
+        combatants, stand_ids, skill_ids, report
+    )
+    validate_matchups(matchups, team_of, report)
 
     orphans = sorted(skill_ids - from_stands - from_combatants)
     for orphan in orphans:
@@ -284,7 +412,7 @@ def main(argv: list[str]) -> int:
 
     print(
         f"\nchecked {len(skills)} skills, {len(stands)} stands, "
-        f"{len(combatants)} combatants: "
+        f"{len(combatants)} combatants, {len(matchups)} matchups: "
         f"{len(report.errors)} error(s), {len(report.warnings)} warning(s)"
     )
     return 1 if report.errors else 0

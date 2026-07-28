@@ -17,6 +17,7 @@ with Godot 4 doing nothing but showing you what happened.**
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](docs/DEVELOPMENT.md)
 
 [![Deterministic](https://img.shields.io/badge/simulation-deterministic-success)](src/core/tests/determinism.rs)
+[![Balance](https://img.shields.io/badge/balance-measured%2C%20not%20asserted-success)](docs/BALANCE-LOG.md)
 [![Conventional Commits](https://img.shields.io/badge/commits-conventional-FE5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
 [![Keep a Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-E05735?logo=keepachangelog&logoColor=white)](CHANGELOG.md)
 [![SemVer](https://img.shields.io/badge/semver-2.0.0-3F4551?logo=semver&logoColor=white)](https://semver.org/spec/v2.0.0.html)
@@ -24,19 +25,25 @@ with Godot 4 doing nothing but showing you what happened.**
 [Architecture](docs/ARCHITECTURE.md) ·
 [Setup](docs/DEVELOPMENT.md) ·
 [Roadmap](docs/ROADMAP.md) ·
+[Balance log](docs/BALANCE-LOG.md) ·
+[Balance curve](docs/BALANCE-CURVE.md) ·
 [Releases](docs/RELEASING.md) ·
 [Changelog](CHANGELOG.md) ·
 [Data provenance](docs/DATA-SOURCES.md)
 
 </div>
 
-> **Status:** playable. M1 is met: a full battle -- command menu, target
-> picker, animated event log, resolution screen -- was played start to finish
-> in Godot 4.7.1 with a clean console. The combat numbers are another matter:
-> that first playthrough ended in defeat with the boss still above a quarter
-> health, which is exactly the kind of claim the M2 balance harness exists to
-> replace with evidence. See [ROADMAP.md](docs/ROADMAP.md) and
-> [CHANGELOG.md](CHANGELOG.md).
+> **Status: `0.3.0`, playable and measured.** M1 shipped as `0.2.0`: a full
+> battle -- command menu, target picker, animated event log, resolution screen
+> -- played start to finish in Godot 4.7.1 with a clean console. M2 ships as
+> `0.3.0`: every encounter now declares the win rate it is supposed to produce,
+> a headless harness measures whether it does, and CI fails the build when it
+> does not. The first playthrough's defeat turned out to be an anecdote pointing
+> the wrong way -- unattended, the party won that fight 92% of the time. Two of
+> three encounters were outside their intended range and are not any more.
+> Next is M3, the content pass, which is where the five skills no AI profile can
+> currently choose become reachable. See [BALANCE-LOG.md](docs/BALANCE-LOG.md),
+> [ROADMAP.md](docs/ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -56,6 +63,10 @@ That single constraint buys, for free:
 - **Balance at scale** — thousands of headless AI battles per second.
 - **Portability** — the same simulation can drive a different frontend later.
 
+The fourth item is not aspirational. It is [a CI
+job](.github/workflows/ci.yml) that has already rejected the content this
+repository shipped in `0.2.0`.
+
 ---
 
 ## Architecture
@@ -64,21 +75,22 @@ That single constraint buys, for free:
 ┌───────────────────────────────────────────────┐
 │ src/game        Godot 4  ·  GDScript          │  presentation only:
 │                 scenes, UI, animation         │  animates events,
-└───────────────────────┬───────────────────────┘  computes nothing
+└──────────────────────┬──────────────────────┘  computes nothing
                         │  JSON strings over GDExtension
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
 │                 5 methods, JSON in and out    │  no game rules
-└───────────────────────┬───────────────────────┘
+└──────────────────────┬──────────────────────┘
                         │
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ src/core        rpg-core  ·  Rust library     │  every rule lives here:
 │                 tempo scheduler, resolution,  │  deterministic,
 │                 statuses, AI, seeded RNG      │  engine-free, tested
-└───────────────────────┬───────────────────────┘
+└──────────────────────┬──────────────────────┘
                         │  reads
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ data/*.json     skills · stands · combatants  │  content, not code
+│                 matchups: declared win rates  │
 │ src/data-pipeline  stdlib-only validator      │  runs in CI
 └───────────────────────────────────────────────┘
 ```
@@ -90,6 +102,7 @@ That single constraint buys, for free:
 | **Command → Event** | Intent is validated *before* mutation; a rejected command costs no turn. Events are the only channel to the UI |
 | **Determinism** | SplitMix64 RNG stored inside `BattleState`; no floats anywhere |
 | **Data-driven** | A new skill is a JSON object. Zero code changes |
+| **Declared balance** | An encounter states its intended win rate in `data/matchups.json`; the harness measures the real one and CI compares them |
 
 Full reasoning in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the engine choice
 is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
@@ -140,17 +153,76 @@ SHA-256 checksums.
 
 ---
 
+## Balance
+
+Every encounter lives in [`data/matchups.json`](data/matchups.json) with a party,
+a set of foes, twelve fixed seeds and the win rate it is *supposed* to produce.
+The harness plays all of them with both sides on AI and reports the win rate it
+actually produces:
+
+```powershell
+cd src
+cargo run -q -p rpg-core --bin balance
+```
+
+Current measurement, over 12 seeds per encounter:
+
+| Encounter | Win rate | Declared band | Median length |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 67% | 45..90 | 19 turns |
+| `matchup.dio_boss` | 50% | 35..75 | 50 turns |
+
+The binary exits non-zero when any encounter leaves its band, so it is both a
+tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under
+`cargo test`, and a `balance` CI job blocks the merge.
+
+Useful flags: `--only <matchup.id>` for one encounter, `--json` for a machine
+readable report, `--no-fail` to print without a non-zero exit, and
+`--combatants` / `--stands` / `--skills` to run against content outside `data/`.
+That last group is how the response curve in
+[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md) was swept in a single run:
+
+```powershell
+cd src
+cargo run -q -p rpg-core --bin balance -- `
+  --combatants ..\tools\probe\combatants.probe.json `
+  --matchups ..\tools\probe\matchups.probe.json --no-fail
+```
+
+[`tools/probe/`](tools/probe/README.md) is measurement scaffolding, not content;
+it never reaches the game, the validator or the CI gate.
+
+Two documents carry the reasoning, and they are the interesting part of this
+repository rather than an appendix to it:
+
+- **[docs/BALANCE-LOG.md](docs/BALANCE-LOG.md)** — one entry per change, each
+  with the prediction written *before* the run. Seven of nine predictions were
+  wrong, which is the argument for measuring rather than against it.
+- **[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md)** — how much win rate a point
+  of enemy damage actually buys. Flat below a ratio of 0.65, a bend to 67%, a
+  plateau to 0.81, then 8% by parity. Six changes were spent moving a number
+  along the flat part of a curve nobody had plotted yet.
+
+A win rate here is a **floor for a competent player**, not a forecast: the AI
+takes the strongest affordable skill and never sets up, and twelve seeds resolve
+to 8.3 percentage points. Both limits, and five more, are listed at the end of
+the balance log.
+
+---
+
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `src/core/` | `rpg-core`: the simulation. No engine dependency |
+| `src/core/` | `rpg-core`: the simulation, the batch simulator and the `balance` binary. No engine dependency |
 | `src/bridge/` | `rpg-bridge`: GDExtension boundary, JSON in and out |
 | `src/game/` | Godot 4 project: scenes, GDScript, extension descriptor |
 | `src/data-pipeline/` | Stdlib-only Python content validator |
-| `data/` | Canonical content: skills, stands, combatants |
-| `docs/` | Architecture, ADR, roadmap, setup, release process, provenance |
+| `data/` | Canonical content: skills, stands, combatants, matchups |
+| `docs/` | Architecture, ADR, roadmap, setup, release process, provenance, balance |
 | `tools/` | Content sync scripts for the Godot project |
+| `tools/probe/` | Throwaway content for curve sweeps. Not game content |
 | `.github/workflows/` | CI and release automation |
 
 ---
@@ -166,6 +238,7 @@ Every push and pull request runs, on **Linux and Windows**:
 | Tests, including determinism | `cargo test --all-targets` |
 | Docs build | `cargo doc --no-deps` |
 | Content integrity | `validate_data.py` (types, enums, cross-references, balance smells) |
+| Balance | `cargo run -p rpg-core --bin balance` — every encounter inside its declared win-rate band |
 | Supply chain: advisories, licences, sources | [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) |
 | Spelling | [`typos`](https://github.com/crate-ci/typos) |
 | Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |

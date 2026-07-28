@@ -15,6 +15,10 @@ Every PowerShell block below is PowerShell, not `cmd.exe`. Cmdlets such as
 `New-Item`, `Copy-Item` and the call operator `&` do not exist in `cmd.exe`; if
 your prompt reads `C:\...>` instead of `PS C:\...>`, run `powershell` first.
 
+Windows PowerShell 5.1, the version that ships with Windows, is enough for
+everything here. PowerShell 7 (`pwsh`) is never required, and no command in this
+document assumes it.
+
 ---
 
 ## 1. Requirements
@@ -46,7 +50,7 @@ library and the synced content, both gitignored.
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
 | `typos-cli` | `cargo install typos-cli --locked` | Same spellcheck CI runs |
-| `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps |
+| `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
 | LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
 
@@ -123,26 +127,44 @@ Get-ChildItem -Recurse C:\Tools\Godot\*.exe
 The `..._console.exe` variant beside it is the one to use from a terminal: it
 keeps `print()` output and errors in the console instead of discarding them.
 
+Run `Add-Content` once. Appending the same alias on every session leaves
+duplicate lines in `$PROFILE`; they are harmless but make the file lie about
+what it configures.
+
 ---
 
 ## 3. Building the GDExtension
 
+Cargo commands run from `src\`. The copy and sync commands run from the
+**repository root**, because their paths start with `src\`. Mixing the two is
+the most common way to lose ten minutes here, so the directory change is its own
+step rather than a comment.
+
 ```powershell
-# Build the cdylib.
+# 1. Build the cdylib (from src\).
 cd src
 cargo build -p rpg-bridge
+
+# 2. Back to the repository root before anything that says src\.
 cd ..
 
-# Copy the library where rpg.gdextension expects it.
+# 3. Copy the library where rpg.gdextension expects it.
 New-Item -ItemType Directory -Force -Path src\game\bin | Out-Null
 Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force
 
-# Copy content into res:// (Godot cannot read outside the project directory).
-pwsh -File tools/sync_data.ps1
+# 4. Copy content into res:// (Godot cannot read outside the project directory).
+.\tools\sync_data.ps1
 ```
 
-If `pwsh` is not on your machine (you are on Windows PowerShell 5.1 rather than
-PowerShell 7), use `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1`.
+If step 3 reports
+`Cannot find path '...\src\src\target\debug\rpg_bridge.dll'`, you skipped step 2:
+the shell is still inside `src\`, so `src\target\...` resolved one level too
+deep. `cd ..` and retry; nothing is broken.
+
+The sync script targets Windows PowerShell 5.1, so `pwsh` is not needed. If your
+execution policy blocks it, run
+`powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1`, which affects
+that one process only and changes no machine-wide setting.
 
 The copy step is not optional bookkeeping. Godot loads the library from
 `res://bin/`, never from `target/`, so skipping it means testing the previous
@@ -205,6 +227,14 @@ python src/data-pipeline/validate_data.py
 typos                                              # optional tool
 ```
 
+One CI job cannot be reproduced locally without extra tooling: the Markdown link
+check. It resolves every URL in every `.md` file over the network, so it fails
+for reasons that have nothing to do with your change -- a slow academic host, a
+rate-limited CDN, or a link to a Git tag that does not exist yet. Exclusions live
+in [`.lycheeignore`](../.lycheeignore), one regex per line, each with the reason
+it is there. Add to that list only when the failure is genuinely outside the
+repository's control.
+
 ---
 
 ## 5. Troubleshooting
@@ -215,6 +245,8 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | --- | --- | --- |
 | `error: linker 'link.exe' not found` | MSVC Build Tools missing | Install VS Build Tools 2022 with *Desktop development with C++*, then reopen the terminal |
 | `& was unexpected at this time.` | You are in `cmd.exe`, where `&` is not the call operator | Run `powershell`, then retry. Every block in this document is PowerShell |
+| `The term 'pwsh' is not recognized` | You have Windows PowerShell 5.1, not PowerShell 7 | Run the script directly: `.\tools\sync_data.ps1`. Nothing in this project needs `pwsh` |
+| `Copy-Item : Cannot find path '...\src\src\target\...'` | The command was run from inside `src\`, so `src\target\` resolved to `src\src\target\` | `cd ..` to the repository root and repeat the command |
 | `where` returns a parameter-binding error | In PowerShell, `where` is an alias for `Where-Object` | Use `where.exe /r C:\ Godot*.exe`, or `Get-ChildItem -Recurse -Filter` |
 | Alias `godot` reports the full path as unrecognized | The archive extracted into a directory named after the archive, so the path points at a folder | `Get-ChildItem -Recurse C:\Tools\Godot\*.exe`, flatten the directory, then `. $PROFILE` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
@@ -223,10 +255,11 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
 | `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
-| A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force`, then restart Godot |
-| `missing content file: res://data/...` | Sync script not run | `pwsh -File tools/sync_data.ps1` |
+| A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force` from the repository root, then restart Godot |
+| `missing content file: res://data/...` | Sync script not run | `.\tools\sync_data.ps1` from the repository root |
 | Assets appear as small text files | Git LFS not installed before cloning | `git lfs install` then `git lfs pull` |
 | CI complains about line endings | Committed CRLF | `.gitattributes` normalises to LF; re-add the file, do not disable core.autocrlf globally |
+| CI `markdown links` fails on a URL that works in your browser | lychee has no JavaScript engine and no browser user agent, and unpushed tags genuinely 404 | Read the job log for the exact URL and status, then decide: fix the link, or add a justified regex to `.lycheeignore` |
 | `libclang.dll not found` | Building with the `api-custom` feature | Install LLVM and set `LIBCLANG_PATH`, or stay on the default prebuilt bindings |
 
 ---

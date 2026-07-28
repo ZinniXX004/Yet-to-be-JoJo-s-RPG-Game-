@@ -12,7 +12,131 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-Nothing yet. Next up is M2, the balance harness.
+Nothing yet. Next up is M3, the content pass.
+
+## [0.3.0] - 2026-07-29
+
+M2. Balance stops being an opinion. Every encounter in the game now declares the
+win rate it is supposed to produce, a headless harness measures whether it does,
+and CI fails the build when it does not.
+
+The measurement changed the content. Before the harness, two of three encounters
+were outside the range their designer would have claimed for them -- one was a
+100% guaranteed win presented as a real fight, and the boss was won 92% of the
+time. Both are now inside their declared bands, and the reasoning behind every
+number that moved is in [docs/BALANCE-LOG.md](docs/BALANCE-LOG.md).
+
+### Added
+
+- **Headless batch simulator** (`rpg_core::sim`). `run_matchup` plays one
+  encounter over a fixed seed list with both sides driven by the existing AI;
+  `run_batch` runs every encounter in the file. No Godot, no rendering, no
+  wall-clock access -- the same seed produces the same battle on every machine.
+- **`rpg_core::report`**: per-encounter win rate, median and min/max battle
+  length, and per-combatant damage dealt, damage taken, SP spent, miss rate and
+  survival rate. A report is the unit of evidence in this project; a
+  playthrough is not.
+- **`data/matchups.json`**: encounters as content, not as test fixtures. Each
+  declares its party, its foes, twelve fixed seeds, a `min_percent..max_percent`
+  win-rate band and a turn limit. The band is the design intent, written down
+  where it can be checked.
+- **`cargo run -p rpg-core --bin balance`**: the harness as a command. Prints a
+  per-encounter breakdown, exits non-zero when any encounter leaves its band.
+  Flags: `--only <id>`, `--json`, `--no-fail`, and `--combatants`/`--stands`/
+  `--skills` to run against content outside `data/`.
+- **`balance` CI job**, in the `ci` aggregate alongside format, clippy, tests
+  and the audits. It runs the binary with no arguments, so the gate can only
+  ever measure the content compiled into the crate.
+- **`core/tests/balance_bounds.rs`**: the same assertion as a test, so a local
+  `cargo test` catches a balance regression before a push does.
+- **[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md)**: the measured relationship
+  between enemy output and win rate, swept in one run over five clones of the
+  same enemy. The curve is flat up to a ratio of 0.65, bends between 0.65 and
+  0.74, holds a plateau to 0.81, then falls to 8% by 0.99. Six of the seven
+  changes in this milestone were sized against an interpolation that turned out
+  to be wrong by 0.15; the sweep that replaced it cost a single run.
+- **`tools/probe/`**: throwaway content used for that sweep, with a README
+  stating plainly that it is not game content and cannot reach the game, the
+  validator or the CI gate.
+- The content validator now checks `data/matchups.json`: id namespacing and
+  uniqueness, every combatant reference resolving, no combatant on both sides of
+  a fight, duplicate seeds rejected, bands within 0..100 and correctly ordered,
+  and warnings for a 0..100 band, a seed list too short to resolve a percentage,
+  and any combatant that no encounter exercises.
+
+### Changed
+
+Seven changes, each measured before and after, each in its own commit, all
+argued in [docs/BALANCE-LOG.md](docs/BALANCE-LOG.md):
+
+- **Enemy targeting is no longer deterministic** (`FOCUS_FIRE_CHANCE = 55` in
+  `ai.rs`). Unconditional lowest-HP focus fire meant Kakyoin was downed in 12 of
+  12 boss battles and absorbed 63% of all enemy damage -- a guaranteed casualty
+  from turn one, decided before the fight started. Hostile actors now commit to
+  the weakest target 55% of the time and pick at random otherwise. This is the
+  only change in the milestone that touches the rules, and it is the one that
+  every earlier finding turned out to be about.
+- `skill.restore` heal power 230 -> 140. Healing returned 11.5 HP per SP and
+  roughly 950 HP per battle from a character nobody was attacking.
+- `npc.dio` atk 100 -> 130. With targeting fixed, the boss could not win: the
+  party out-healed and out-lasted it 100% of the time.
+- `npc.flame_assassin` hp 480 -> 640, so it stops dying below Kakyoin's HP pool
+  and lives long enough to act.
+- **New enemy `npc.iron_brawler` and new `stand.iron_hymn`**, replacing the
+  300 HP thug in the ambush. That thug dealt 13 damage per battle; the encounter
+  was not a fight, and no stat on a body that small could make it one.
+- `npc.iron_brawler` atk 80 -> 105 -> 135, the last step taken from the curve
+  sweep rather than predicted. It reproduced the swept report digit for digit.
+
+Measured result of all of the above:
+
+| Encounter | Win rate | Declared band |
+| --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 |
+| `matchup.assassin_ambush` | 67% | 45..90 |
+| `matchup.dio_boss` | 50% | 35..75 |
+
+### Fixed
+
+- `sim::tests::damage_is_attributed_to_both_sides_of_every_hit` asserted a
+  hero could only be downed once across a whole seed list. The test had never
+  been executed before it was pushed; the expectation was wrong, not the engine.
+- The duplicate-seed guard in the matchup parser was a `seen` vector filtered by
+  a predicate that could never return true, so it accepted duplicates silently.
+  Replaced with a real membership test and a test that covers it.
+- `balance-report.json` is ignored, so a local `--json` run cannot be committed
+  by accident.
+
+### Known limitations
+
+Recorded so a win rate in this file is not read as more than it is:
+
+- **Twelve seeds resolve to 8.3 percentage points.** 67% and 75% are not
+  distinguishable results, and a win rate near a band edge is not decisively
+  inside or outside it.
+- **The harness plays worse than a person.** Auto-battle takes the
+  highest-power affordable skill and never sets up, so a reported win rate is a
+  floor for a competent player, not a forecast of their experience.
+- **Five of eleven skills are unreachable.** `ai::best_offensive` filters on
+  damage, so buffs, guards and area attacks are never chosen -- Jotaro has never
+  used `skill.guard_stance` in any recorded run. Every number here therefore
+  measures a subset of the content.
+- **Healing is not attributed.** `Event::Healed` carries a target and no source,
+  so healing done has to be inferred from SP spent.
+- **`miss%` is inflated for area skills**, which count a miss per target and an
+  action once.
+- **A rules change resets the series.** RNG draw order is part of the rules, so
+  after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the same seed no longer
+  reproduces the same battle, and numbers across that boundary are not
+  comparable.
+- **The ambush is still decided by one character.** Jotaro deals 76% of the
+  party's damage and his survival rate tracks the encounter's win rate exactly
+  across all five swept points. The band is closed; the roster imbalance behind
+  it is not.
+- **The Iron Brawler hits at an effective 157 against Dio's 160**, which is
+  mechanically correct and fictionally awkward for a random-encounter enemy. The
+  alternative was nerfing a skill shared with the boss fight.
+- Elemental resistances are still carried in events but not applied in damage.
 
 ## [0.2.0] - 2026-07-28
 
@@ -184,6 +308,7 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0

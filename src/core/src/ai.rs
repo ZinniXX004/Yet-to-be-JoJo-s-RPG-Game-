@@ -21,6 +21,24 @@ const AGGRESSIVE_SKILL_CHANCE: i32 = 65;
 /// Below this fraction of max HP, a support actor triages instead of attacking.
 const SUPPORT_HEAL_THRESHOLD_PERCENT: i32 = 55;
 
+/// Chance that an actor commits to finishing off the weakest enemy instead of
+/// spreading its damage across the enemy line.
+///
+/// Deliberately not 100%. Unconditional lowest-HP focus fire *compounds* any
+/// damage advantage: every kill permanently removes output from the losing
+/// side while the winning side keeps all of its own, so a small edge in damage
+/// per turn becomes a near-certain victory. The M2 balance harness measured
+/// this directly. `matchup.assassin_ambush` held a 100% win rate on a
+/// damage-per-turn edge of only about 2.3 to 1, and Kakyoin was downed in 12
+/// of 12 boss battles because every hostile actor converged on him the instant
+/// he became the softest target.
+///
+/// Mixing in random targets keeps finishing blows the common case — a
+/// wounded enemy still dies soon — without letting either side's advantage
+/// snowball, and it stops the squishiest party member from being a guaranteed
+/// casualty rather than a likely one.
+const FOCUS_FIRE_CHANCE: i32 = 55;
+
 /// Picks a command for `actor`. Takes `&mut BattleState` because the RNG lives
 /// inside it; the state is otherwise not modified.
 pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
@@ -37,8 +55,8 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
         return Command::Wait;
     }
 
-    // Focus fire. Ties break on the lower index so the choice is deterministic
-    // rather than dependent on iteration details.
+    // Ties break on the lower index so the fallback is deterministic rather
+    // than dependent on iteration details.
     let weakest_enemy = enemies
         .iter()
         .copied()
@@ -65,32 +83,24 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                     return Command::Skill { skill, target };
                 }
             }
+            let target = pick_hostile_target(st, &enemies, weakest_enemy);
             if let Some(skill) = best_offensive(db, &skills, sp) {
-                return Command::Skill {
-                    skill,
-                    target: weakest_enemy,
-                };
+                return Command::Skill { skill, target };
             }
-            Command::Attack {
-                target: weakest_enemy,
-            }
+            Command::Attack { target }
         }
         AiProfile::Aggressive => {
+            let target = pick_hostile_target(st, &enemies, weakest_enemy);
             if st.rng.chance(AGGRESSIVE_SKILL_CHANCE) {
                 if let Some(skill) = best_offensive(db, &skills, sp) {
-                    return Command::Skill {
-                        skill,
-                        target: weakest_enemy,
-                    };
+                    return Command::Skill { skill, target };
                 }
             }
-            Command::Attack {
-                target: weakest_enemy,
-            }
+            Command::Attack { target }
         }
         AiProfile::Trickster => {
-            // Random on purpose: this profile is for low-tier enemies that must
-            // not feel optimal.
+            // Fully random on purpose: this profile is for low-tier enemies
+            // that must not feel optimal.
             let target = st.rng.pick(&enemies).unwrap_or(weakest_enemy);
             let usable: Vec<Id> = skills
                 .iter()
@@ -107,6 +117,19 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                 target,
             }
         }
+    }
+}
+
+/// Chooses which enemy to strike: usually the weakest, sometimes any of them.
+///
+/// `weakest` is passed in rather than recomputed so the caller's tie-breaking
+/// is the single source of truth, and so this function costs exactly one or two
+/// RNG draws regardless of party size.
+fn pick_hostile_target(st: &mut BattleState, enemies: &[usize], weakest: usize) -> usize {
+    if st.rng.chance(FOCUS_FIRE_CHANCE) {
+        weakest
+    } else {
+        st.rng.pick(enemies).unwrap_or(weakest)
     }
 }
 
