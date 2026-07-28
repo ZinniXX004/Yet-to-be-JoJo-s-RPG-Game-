@@ -12,6 +12,10 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+Nothing yet. Next up is M3, the content pass.
+
+## [0.3.0] - 2026-07-29
+
 M2. Balance stops being an opinion. Every encounter in the game now declares the
 win rate it is supposed to produce, a headless harness measures whether it does,
 and CI fails the build when it does not.
@@ -304,6 +308,7 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0
