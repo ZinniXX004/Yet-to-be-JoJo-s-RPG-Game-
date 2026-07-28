@@ -39,7 +39,7 @@
     "id": "npc.flame_assassin",
     "name": "Flame Assassin",
     "team": "foe",
-    "stats": { "hp": 480, "sp": 70, "atk": 76, "def": 52, "spd": 80, "will": 64 },
+    "stats": { "hp": 640, "sp": 70, "atk": 76, "def": 52, "spd": 80, "will": 64 },
     "stand": "stand.magicians_red",
     "skills": ["skill.strike"],
     "ai": "aggressive"
