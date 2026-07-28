@@ -53,10 +53,11 @@ are actually cutting.
    exceptions, including the optional-looking jobs. The two are not the same
    check: a green tick on `development` describes the last commit CI saw, so a
    documentation commit pushed afterwards is unverified until it runs. Run the
-   full gate from [DEVELOPMENT.md](DEVELOPMENT.md#4-before-you-push) before
-   opening the release PR. `0.3.0` learned this the direct way -- its branch
-   failed the `format` job because files authored through the GitHub API had
-   never been near `cargo fmt`.
+   full gate from
+   [DEVELOPMENT.md](DEVELOPMENT.md#4-checks-to-run-before-pushing) before opening
+   the release PR. `0.3.0` learned this the direct way -- its branch failed the
+   `format` job because files authored through the GitHub API had never been near
+   `cargo fmt`.
 2. **Update `CHANGELOG.md`.** Move items out of `Unreleased` into a
    `## [X.Y.Z] - YYYY-MM-DD` section, and update the link references at the
    bottom of the file. The release workflow greps for this exact heading and
