@@ -12,20 +12,50 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-Nothing yet. The entries below describe work planned, not work done.
+M1 code is written and pushed to `development`. None of it has been run inside
+the Godot editor yet -- see "Known limitations" below. Do not tag `0.2.0`
+until it has.
+
+### Added
+
+- `BattleView` rebuilt around a real, procedurally-built UI: per-combatant
+  HP/SP bars, a tempo gauge (sorted by each combatant's current `tempo`
+  value, the same key `Battle::ready_actor` uses to pick who acts next), a
+  command menu (Attack / known skills / Guard / Wait), and a target picker
+  for single-target actions with a cancel path back to the command menu.
+- Event animator queue in `battle_view.gd`: events are queued and played one
+  at a time with a fixed delay, replacing the immediate `print` dump. The
+  queue is re-entrant-safe, so a call arriving mid-drain appends instead of
+  racing it.
+- Real target selection, replacing the stub that always attacked the first
+  living foe. Single-enemy and single-ally actions list every legal living
+  target; multi-target and self-only skills submit immediately, since
+  `rpg_core::resolve::resolve_targets` ignores the `target` field for those
+  kinds.
+- `status_damaged` now renders as its own log line, distinct from `damaged`;
+  the meaningless `potency` field on binary statuses (stun) is no longer
+  printed.
+- Victory / defeat / stalemate resolution: the command and target menus are
+  torn down and a result line is shown once `Phase::Finished` is reached.
 
 ### Planned
 
-- Battle UI: HP/SP bars, tempo order preview, command menu, target picker (M1).
-- Event animator queue replacing the placeholder `print` calls in `battle_view.gd`.
-- Real target selection in `battle_view.gd`. The current stub always attacks the
-  first living foe, which is why one enemy has taken exactly zero damage in
-  every recorded run (M1).
-- Distinct rendering for `status_damaged`, and suppression of the meaningless
-  `potency` field on binary statuses such as stun (M1).
 - Balance harness: thousands of headless AI-vs-AI battles reporting win rates,
   damage dealt and damage received per combatant (M2). Until it exists, no
   claim about balance in this repository is evidence-based.
+
+### Known limitations
+
+- The M1 UI above has not been run inside the Godot editor. It was written
+  against the exact JSON schema in `rpg_core::event::Event` and
+  `BattleState`/`Combatant`, but a schema-correct script can still fail at
+  runtime for reasons no static read catches -- a wrong signal name, a
+  container that lays out unusably on a real viewport, and so on. Treat M1 as
+  implemented, not verified, until it has been played once start to finish.
+- The tempo gauge shows each combatant's current `tempo` value sorted the way
+  the scheduler ranks them; it is not a forecast of the next several turns.
+  A real forecast would need effective, status-modified speed exposed from
+  the core, which does not happen yet.
 
 ## [0.1.0] - 2026-07-28
 
