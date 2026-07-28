@@ -25,3 +25,12 @@ linkedin\.com
 # (index.html, then what_is_gdextension.html), which rules out a one-off
 # link, a typo, or a caching fluke.
 docs\.godotengine\.org/en/stable/tutorials/scripting/gdextension/
+
+# Vigna's personal university page hosting the reference SplitMix64 source.
+# It is a single unfronted academic server, and it times out from GitHub
+# runners rather than answering with a status code -- lychee treats a
+# timeout as a failure and exits 2, so the job went red with zero dead
+# links. The URL is cited twice (README.md and docs/DATA-SOURCES.md) and
+# resolves fine from a normal connection; the citation stays, the blocking
+# check on someone else's uptime does not.
+prng\.di\.unimi\.it
