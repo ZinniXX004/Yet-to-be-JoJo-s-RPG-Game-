@@ -25,20 +25,3 @@ linkedin\.com
 # (index.html, then what_is_gdextension.html), which rules out a one-off
 # link, a typo, or a caching fluke.
 docs\.godotengine\.org/en/stable/tutorials/scripting/gdextension/
-
-# --- Temporary: delete this block once v0.1.0 is published (added 2026-07-28) ---
-#
-# These three cannot resolve before the first release exists, and the release
-# cannot be published before the `ci` check is green. That is a deadlock, not
-# link rot:
-#
-#  - the compare range and the tag page 404 until the v0.1.0 tag is pushed;
-#  - the release workflow's badge 404s until that workflow has run at least
-#    once, which only a tag can trigger.
-#
-# Each pattern names v0.1.0 explicitly rather than matching /compare/ or
-# /releases/tag/ generally, so a genuinely broken link to a later version is
-# still reported.
-Yet-to-be-JoJo-s-RPG-Game-/compare/v0\.1\.0\.\.\.HEAD
-Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0\.1\.0
-actions/workflows/release\.yml/badge\.svg
