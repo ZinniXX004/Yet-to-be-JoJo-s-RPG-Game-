@@ -96,6 +96,36 @@ jobs:
       - name: Doc build
         run: cargo doc -p rpg-core --no-deps
 
+  balance:
+    name: balance harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v5
+      - name: Resolved toolchain
+        run: rustup show active-toolchain && cargo --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: balance-ubuntu-latest
+      # The `core` job already runs tests/balance_bounds.rs, which asserts the
+      # same thing and is the actual gate. This job exists for its output: the
+      # binary prints win rate, median turns, damage dealt and taken, SP spent,
+      # miss rate and survival for every combatant in every encounter, so a
+      # reviewer can read the consequences of a content change straight from the
+      # pull request instead of checking the branch out and running it.
+      #
+      # No arguments, deliberately. The content is compiled in with include_str!,
+      # and --combatants / --matchups exist only for throwaway probe runs under
+      # tools/probe/. Passing either here would let the gate measure something
+      # other than the shipped game. Exit code 1 on a band violation is what
+      # makes this blocking.
+      - name: Every encounter inside its declared band
+        run: cargo run -q -p rpg-core --bin balance
+
   bridge:
     name: bridge (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -182,7 +212,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [format, content, core, bridge, audit, spelling, links]
+    needs: [format, content, core, balance, bridge, audit, spelling, links]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
