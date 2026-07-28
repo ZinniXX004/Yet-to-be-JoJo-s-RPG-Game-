@@ -79,9 +79,7 @@ impl Default for Options {
 impl Options {
     /// True when any content file came from disk rather than from the build.
     fn uses_external_content(&self) -> bool {
-        self.stands_path.is_some()
-            || self.skills_path.is_some()
-            || self.combatants_path.is_some()
+        self.stands_path.is_some() || self.skills_path.is_some() || self.combatants_path.is_some()
     }
 }
 
@@ -169,9 +167,7 @@ where
             "--json" => options.json = true,
             "--no-fail" => options.fail_on_violation = false,
             "--matchups" => options.matchups_path = Some(value_for(&mut args, "--matchups")?),
-            "--combatants" => {
-                options.combatants_path = Some(value_for(&mut args, "--combatants")?)
-            }
+            "--combatants" => options.combatants_path = Some(value_for(&mut args, "--combatants")?),
             "--stands" => options.stands_path = Some(value_for(&mut args, "--stands")?),
             "--skills" => options.skills_path = Some(value_for(&mut args, "--skills")?),
             "--only" => options.only.push(value_for(&mut args, "--only")?),
@@ -188,9 +184,7 @@ fn value_for<I>(args: &mut I, flag: &str) -> Result<String, String>
 where
     I: Iterator<Item = String>,
 {
-    let value = args
-        .next()
-        .ok_or_else(|| format!("{flag} needs a value"))?;
+    let value = args.next().ok_or_else(|| format!("{flag} needs a value"))?;
     if value.starts_with("--") {
         return Err(format!("{flag} needs a value, found the flag '{value}'"));
     }

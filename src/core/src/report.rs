@@ -39,10 +39,16 @@ impl WinRateBand {
     pub fn issues(&self) -> Vec<String> {
         let mut issues = Vec::new();
         if !(0..=100).contains(&self.min_percent) {
-            issues.push(format!("min_percent {} is outside 0..=100", self.min_percent));
+            issues.push(format!(
+                "min_percent {} is outside 0..=100",
+                self.min_percent
+            ));
         }
         if !(0..=100).contains(&self.max_percent) {
-            issues.push(format!("max_percent {} is outside 0..=100", self.max_percent));
+            issues.push(format!(
+                "max_percent {} is outside 0..=100",
+                self.max_percent
+            ));
         }
         if self.min_percent > self.max_percent {
             issues.push(format!(

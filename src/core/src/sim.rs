@@ -78,7 +78,9 @@ impl Matchup {
         }
         for id in self.party.iter().chain(self.foes.iter()) {
             if db.combatant(id).is_none() {
-                issues.push(format!("matchup '{label}' references unknown combatant '{id}'"));
+                issues.push(format!(
+                    "matchup '{label}' references unknown combatant '{id}'"
+                ));
             }
         }
         for issue in self.band.issues() {
@@ -258,7 +260,9 @@ fn median(sorted: &[u64]) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{AiProfile, CombatantDef, Effect, Element, SkillDef, Stats, TargetKind, Team};
+    use crate::data::{
+        AiProfile, CombatantDef, Effect, Element, SkillDef, Stats, TargetKind, Team,
+    };
     use crate::state::TEMPO_THRESHOLD;
 
     const STRIKE: &str = "skill.strike";
@@ -381,7 +385,10 @@ mod tests {
             .expect("matchup must run");
         let hero = &report.combatants[0];
         let titan = &report.combatants[1];
-        assert!(hero.damage_dealt > 0, "the hero attacked and must be credited");
+        assert!(
+            hero.damage_dealt > 0,
+            "the hero attacked and must be credited"
+        );
         assert_eq!(
             hero.damage_dealt, titan.damage_received,
             "every point dealt must land on someone"
@@ -416,7 +423,9 @@ mod tests {
         let error = run_matchup(&db(), &broken).expect_err("an unknown id must not run");
         match error {
             DataError::Invalid(issues) => {
-                assert!(issues.iter().any(|issue| issue.contains("npc.does_not_exist")));
+                assert!(issues
+                    .iter()
+                    .any(|issue| issue.contains("npc.does_not_exist")));
             }
             other => panic!("expected a validation error, got {other:?}"),
         }
