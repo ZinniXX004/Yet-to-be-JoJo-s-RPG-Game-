@@ -62,7 +62,7 @@ than quietly folded into M1:
   which is correct but reads as a bug. It is a presentation problem, not a
   scheduler one.
 
-## M2 - Balance harness
+## M2 - Balance harness (next, `0.3.0`)
 
 **Exit criterion:** `N` AI-vs-AI battles run headless in CI, reporting win rate,
 median turn count and damage taken per combatant.
@@ -80,12 +80,58 @@ numbers that are still moving means authoring it twice.
 - [ ] Re-examine the SP economy: if a skill can be spammed for an entire battle
       without running dry, SP is not a resource and the AI is not choosing
 
+### Planned changes, by file
+
+Written out before any code so the diff can be reviewed against an intention
+rather than justified after the fact.
+
+| Path | Change | Why |
+| --- | --- | --- |
+| `src/core/src/sim.rs` *(new)* | `run_batch(matchup, seeds) -> BatchReport`, pure, no I/O | Statistics are a rule of the simulation, not of a binary. Keeping them in the library means they are unit-testable and reusable from a future frontend |
+| `src/core/src/report.rs` *(new)* | `BatchReport`, `MatchupReport`, `CombatantStats`, all `Serialize` | A struct that serialises to JSON is both a CI artefact and a test fixture. Printing straight to stdout would make assertions impossible |
+| `src/core/src/lib.rs` | Export the two new modules | -- |
+| `src/core/src/bin/balance.rs` *(new)* | Thin CLI: parse args, call `run_batch`, print a table or `--json` | All I/O lives here, so `rpg-core`'s no-engine-no-clock-no-globals rule survives. A binary target needs no new crate and no workspace change |
+| `src/core/tests/balance_bounds.rs` *(new)* | Assert every shipped matchup lands inside its declared win-rate band | This is the exit criterion, expressed as a test rather than as a paragraph |
+| `data/matchups.json` *(new)* | Declared encounters: party, foes, seed list, acceptable win-rate band | Content, not code, in line with rule 4 of the layering rules. Adding an encounter must not require a recompile |
+| `src/data-pipeline/validate_data.py` | Validate `matchups.json`: ids resolve, bands are ordered and within 0..100 | A typo in a combatant id must fail in the validator, not as a confusing panic inside the harness |
+| `.github/workflows/ci.yml` | New `balance` job running the bounds test and uploading the JSON report | Cheap: it is CPU-only, no engine, no network |
+| `data/*.json` | Rebalanced numbers, driven by harness output | -- |
+| `CHANGELOG.md`, `README.md` | Record the harness and the measured win rates | A portfolio reader should see numbers, not adjectives |
+
+### Design constraints for the harness
+
+1. **Determinism is the whole point.** A run is `(matchup, seed)`; the same pair
+   must produce the same report on any machine. No wall-clock, no thread pool
+   ordering, no `HashMap` iteration leaking into the output.
+2. **A fixed seed list, not a random sample.** Comparability between commits
+   matters more than statistical purity. Widen the list deliberately, in a commit
+   that says so.
+3. **The harness never contains rules.** If it needs to know what a skill does,
+   the rule is in the wrong layer.
+4. **A band, not a target.** Asserting a 50 percent win rate makes the test
+   fragile and the game boring. Assert an interval, and let a matchup that is a
+   guaranteed win or a guaranteed loss fail the build.
+5. **Report damage received per combatant.** The M1 playthrough had one character
+   absorbing 78, 79, 87 and 105 damage in sequence while the boss spent 22 SP of
+   200. Aggregate win rate hides that; per-combatant totals do not.
+
+### Deliberately out of scope for `0.3.0`
+
+Floating damage numbers, status icons and the single-entry tempo readout are all
+presentation defects from the M1 playthrough. They belong to M3, and mixing them
+into a balance release would make it impossible to tell whether a changed win
+rate came from a number or from the UI.
+
 ## M3 - Content depth
 
 **Exit criterion:** three playable characters, six enemies, two boss fights, all
 authored purely in `data/`.
 
 - [ ] Status effect icons and durations surfaced in the UI
+- [ ] Floating damage numbers on the combatants, so the log stops being the only
+      feedback channel (raised by the first M1 playthrough)
+- [ ] Tempo readout that stays legible when only one combatant is standing
+      (raised by the first M1 playthrough)
 - [ ] Elemental resistance table (extension point already in the core)
 - [ ] Enemy AI profiles beyond aggressive/support (scripted boss phases)
 - [ ] Overworld or node-based map navigation
