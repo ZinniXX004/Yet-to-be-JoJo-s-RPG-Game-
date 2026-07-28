@@ -1,0 +1,79 @@
+name: Task
+description: Planned work from the roadmap
+title: "task: "
+labels: ["type: task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for work already on the plan, or work you are proposing to add
+        to it. If you are reporting something broken, use the defect form
+        instead. See `docs/ROADMAP.md` for the current milestone.
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Milestone
+      options:
+        - M3 (0.4.0) - the content pass
+        - M4 (1.0.0) - the shipping pass
+        - Unplanned, proposing it now
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - rpg-core (rules, scheduler, resolution, AI, RNG)
+        - rpg-bridge (the FFI boundary)
+        - Godot layer (scenes, GDScript, presentation)
+        - data/*.json content
+        - CI, workflows, tooling
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs to exist that does not exist now
+      description: Describe the end state, not the activity.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: How will we know it is done?
+      description: >-
+        A test name, a gate, a measured win rate, or a screenshot -- something
+        that can be checked by someone who did not do the work. "It feels
+        better" cannot be checked, and work without a checkable finish line
+        expands until the release slips.
+      placeholder: |
+        `cargo test -p rpg-core` gains a test proving the AI can select a
+        defensive skill, and the balance report shows npc.dio using
+        rage_focus at least once across the 12 seeds.
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: What could this break?
+      description: >-
+        Anything touching `ai.rs`, `resolve.rs` or `battle.rs` changes RNG draw
+        order and therefore invalidates every previously measured win rate. Say
+        so here if that applies.
+    validations:
+      required: false
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Files you expect to touch
+      description: A guess is fine. It exists so reviewers can spot a hidden layering violation early.
+    validations:
+      required: false
