@@ -9,7 +9,7 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and **six of the seven below are wrong**. That
+the fact is a rationalisation, and **seven of the eight below are wrong**. That
 score is the argument for the harness, not against it: the same wrong guesses
 shipped as content, unmeasured, would have been indistinguishable from design.
 
@@ -29,12 +29,12 @@ Seeds are fixed precisely so two rows of this table can be compared.
 
 ## Current status
 
-After Change E, commit `8edad80`:
+After Change F, commit `99a4c94`:
 
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | ok |
-| `matchup.assassin_ambush` | 100% | 45..90 | out of band -- Change F pushed, awaiting measurement |
+| `matchup.assassin_ambush` | 100% | 45..90 | out of band -- blocked on a design decision, see Change F |
 | `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre, closed |
 
 ## The throughput model
@@ -62,14 +62,21 @@ actions; party damage per action is 1349 / 10.0 = 134; foe HP is 640 + 700 =
 1340; T = 1340 / 71 = **18.8** against a measured median of **19**, and D = 18.8
 x 32.4 = **609** against a measured **617**.
 
+**Change F tested it out of sample and it held**: predicted 122 damage per action
+against a measured 116, predicted 468 per battle against a measured 428, predicted
+800 enemy damage against a measured 736. Errors of 5-9%, all in the same
+direction, because the model uses average party defence and the AI actually
+focus-fires the softer target.
+
 The two things it makes obvious, both of which the Change E prediction missed:
 
 - **A slow foe is a cheap foe.** The Brawler's 72 speed buys it 20% of the
   actions in the fight, so its 73 damage per action becomes 285 per battle.
   Speed multiplies damage as directly as attack does.
 - **A foe's output is capped by its SP, not by the clock.** The Assassin has 70
-  SP and `sun_flare` costs 16, so it has at most four expensive turns in it. The
-  fight got 46% longer and its damage went **down**, 353 -> 332.
+  SP and `sun_flare` costs 16, so it has at most four expensive turns in it. Its
+  per-battle damage has been 353, 332 and 308 across fights of 13, 19 and 18
+  turns -- effectively a constant, independent of how long it lives.
 
 ---
 
@@ -575,28 +582,98 @@ ratio  = 800 / 1140             = 0.70
 **Why 0.70 and not the 0.83 that Change E aimed at.** Change D aimed at the
 centre of its band and overshot the prediction by 28 points, because a ratio near
 parity is where the win-rate curve is steepest. This one deliberately aims at the
-**top half** of 45..90 and accepts a second iteration if it lands short. Under-
-shooting costs one measurement; overshooting past 45% costs a measurement *and*
-makes the mid-game encounter harder than the boss fight, which is a content bug
-rather than a number bug.
+**top half** of 45..90 and accepts a second iteration if it lands short.
 
-**Prediction: 70-90%, in band.** Confidence is higher than any previous entry
-because the model reproduced the current run to within 2% on both turn count and
-enemy damage -- but it was calibrated on that run, so this is its first honest
-test. Failure modes, in order of likelihood:
+**Prediction: 70-90%, in band.** Two named failure modes, in order of likelihood:
+still 100% because 0.70 sits below the bend, or below 45% because Kakyoin dies to
+four connected slams.
 
-1. **Still 100%.** 0.70 may sit below the threshold where the curve begins to
-   bend. Nothing in the data says where the bend starts, only that 0.54 is below
-   it and 0.92 is past it.
-2. **Below 45%.** Kakyoin already dies in half the battles at 477 damage taken.
-   At 144 per hit he dies to four connected slams, and every death removes 27% of
-   the party's throughput -- the compounding effect that Change C reduced but did
-   not remove.
+**Result: 100%. The first named failure mode. The model was right and the
+prediction was still wrong.**
 
-`matchup.thug_solo` and `matchup.dio_boss` must again be bit-identical. The Iron
-Brawler appears in neither.
+| Matchup | Before | After | Predicted | Band |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 100% | 85..100 ok |
+| `matchup.assassin_ambush` | 100% | **100%** | 70-90% | 45..90 out of band |
+| `matchup.dio_boss` | 50% | 50% | 50% | 35..75 ok |
 
-**Result:** pending measurement.
+`matchup.assassin_ambush`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Miss | Alive |
+| --- | --- | --- | --- | --- | --- |
+| Jotaro | 987 -> **1031** | 145 -> **238** | 70 -> 70 | 6% -> 4% | 100% -> 100% |
+| Kakyoin | 362 -> 319 | 477 -> **504** | 104 -> 86 | 19% -> 21% | 50% -> **17%** |
+| Flame Assassin | 332 -> 308 | 640 -> 640 | 41 -> 38 | 8% -> 9% | 0% -> 0% |
+| Iron Brawler | 285 -> **428** | 709 -> 709 | 58 -> 57 | 15% -> 12% | 0% -> 0% |
+
+Enemy lifetime damage 617 -> **736**, ratio **0.65**. Median length 19 -> 18.
+
+### What was learned, which is more than the win rate suggests
+
+**The model works.** Predicted 122 damage per action, measured 116. Predicted 468
+per battle, measured 428. Predicted 18.8 turns, measured 18. This is the first
+time this document has predicted a mechanical quantity correctly, and it means
+the remaining uncertainty is entirely in **where the bend in the win-rate curve
+sits**, not in how much damage a stat buys.
+
+**The bend is somewhere between 0.65 and 0.92.** Four measurements now bracket it:
+
+| Encounter | Ratio | Win rate |
+| --- | --- | --- |
+| Ambush, Change E | 0.54 | 100% |
+| Ambush, Change F | **0.65** | **100%** |
+| Boss, Change C | 0.69 | 100% |
+| Boss, Change D | **0.92** | **50%** |
+
+The earlier guess of "0.8" as the start of the responsive zone is not supported by
+anything; the honest statement is that the curve is flat at 0.69 and halfway down
+at 0.92, and nothing has been measured in between.
+
+### The encounter has a structural ceiling, and it is Jotaro
+
+To reach a ratio of about 0.9 the enemy side needs roughly **1030** lifetime
+damage, 40% more than it now delivers. Feeding that entire increase to one
+mid-tier foe requires, by the model:
+
+| Lever | Value required | What that makes the Iron Brawler |
+| --- | --- | --- |
+| atk 105 -> **164** | 186 effective | Harder-hitting than Dio (160) |
+| hp 620 -> **~1450** | 1530 effective | Tougher than Dio (1400), ~30-turn random encounter |
+| spd 62 -> **~110** | 120 effective | The fastest unit in the game, faster than Jotaro (102) |
+
+**Every remaining single-stat route makes a random-encounter enemy boss-tier in
+one dimension.** That is not a tuning problem; it is what the numbers say about
+the encounter's composition:
+
+- **Jotaro deals 1031 of the party's 1350 damage -- 76% -- and takes 238.** He has
+  survived **100% of every battle in every run in this document**, in both
+  encounters, under every change. `skill.rush_barrage` at 195 power for 18 SP is
+  the largest number in `data/skills.json`, and with 80 SP he casts it four times
+  before falling back to `strike`.
+- **Kakyoin absorbs 504 of the 736 damage taken (68%) and now dies in 83% of
+  battles**, and the party still wins every time, because the fight is decided by
+  Jotaro alone.
+
+So the ambush is not a two-versus-two fight. It is Jotaro versus two enemies, with
+Kakyoin present as a target. Any enemy sized to threaten Jotaro will delete
+Kakyoin instantly; any enemy Kakyoin can survive cannot threaten Jotaro.
+
+**No content change is pushed with this entry.** The next step is a design
+decision with four legitimate answers, and picking one silently would be exactly
+the goalpost-moving this log exists to prevent:
+
+1. **Remove Jotaro from the encounter.** Fictionally an ambush that catches the
+   group split; mechanically it removes the 76% outlier and makes the fight about
+   the two characters who actually interact with the enemy.
+2. **Nerf `skill.rush_barrage`.** Honest, but it is a shared lever: Jotaro is in
+   `matchup.dio_boss`, which is currently at 50% with only 15 points of slack to
+   the bottom of its band, so this would very likely re-open a closed encounter.
+3. **Accept a boss-tier ambush enemy** -- most likely `spd 62 -> 110`, the cheapest
+   of the three by the model -- and rewrite the Iron Brawler's fiction from "slow
+   and heavy" to something fast.
+4. **Re-declare the band as 85..100** and state in the description that this
+   encounter is designed to be won. This was offered and rejected once already,
+   and it is recorded again only because it remains defensible.
 
 ---
 
@@ -610,7 +687,7 @@ Recorded here so a number is not over-read:
   which is a code change, not a tuning change.
 - **`miss%` is inflated for area skills.** A miss is counted per target while an
   action is counted once, so a combatant using an `all_enemies` skill can show a
-  miss rate above its true accuracy. Kakyoin's 13-20% is mostly this.
+  miss rate above its true accuracy. Kakyoin's 13-21% is mostly this.
 - **Twelve seeds is a small sample.** A win rate near a band edge should not be
   treated as decisively inside or outside it. Widen the seed list in a commit of
   its own, never in the same commit as a content change.
@@ -629,3 +706,6 @@ Recorded here so a number is not over-read:
 - **A "turn" in the report is one action, not one round.** Reading it as a round
   inflates every per-turn estimate by the number of combatants, and that error
   contributed directly to the failed Change E sizing.
+- **The win-rate curve has never been mapped.** Every ratio measured so far is
+  either at 0.54-0.69 (flat, 100%) or at 0.92 (50%). Until something is measured
+  between those, any prediction inside that gap is extrapolation.
