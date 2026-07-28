@@ -1,0 +1,108 @@
+name: Defect report
+description: The code does something other than what it says it does
+title: "bug: "
+labels: ["type: bug", "needs: repro"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This simulation is deterministic: a seed plus a command sequence
+        reproduces a battle exactly. A report without a seed cannot be acted on,
+        so the fields below are required rather than polite.
+
+        Wrong numbers are usually **not** a defect. If the code behaves as
+        documented and you disagree with the result, file a balance finding
+        instead. See `docs/TRIAGE.md`.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: A release tag or a commit SHA. "latest" is not a version.
+      placeholder: v0.3.0
+    validations:
+      required: true
+
+  - type: input
+    id: seed
+    attributes:
+      label: Seed
+      description: The battle seed. If it came from the harness, say which matchup id.
+      placeholder: "1785234824, matchup.dio_boss"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it reproduce?
+      description: >-
+        Label the layer it reproduces in, not the layer you noticed it in. If
+        `cargo run -p rpg-core --bin balance` shows it too, it is not a Godot
+        problem.
+      options:
+        - rpg-core (rules, scheduler, resolution, AI, RNG)
+        - rpg-bridge (the FFI boundary)
+        - Godot layer (scenes, GDScript, presentation)
+        - data/*.json content
+        - CI, workflows, tooling
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: >-
+        The exact commands, and the command sequence inside the battle. Say so
+        explicitly if the battle ran unattended.
+      placeholder: |
+        cd src
+        cargo run -q -p rpg-core --bin balance -- --only matchup.dio_boss --no-fail
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: >-
+        Quote the document, doc-comment or test that states it. "It should be
+        obvious" is how two of this project's earlier defects survived review.
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behaviour
+      description: >-
+        Paste it verbatim: console output, panic message, or the relevant lines
+        of the event log. Do not summarise it.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, `rustc -V`, and the Godot version if the Godot layer is involved.
+      placeholder: |
+        Windows 10.0.26200
+        rustc 1.94.1
+        Godot 4.7.1.stable.official
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I ran the local gate in `docs/DEVELOPMENT.md` and this is not a missing tool
+          required: true
+        - label: This is reproducible, not a one-off I cannot repeat
+          required: true
