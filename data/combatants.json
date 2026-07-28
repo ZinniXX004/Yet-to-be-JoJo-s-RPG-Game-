@@ -45,6 +45,15 @@
     "ai": "aggressive"
   },
   {
+    "id": "npc.iron_brawler",
+    "name": "Iron Brawler",
+    "team": "foe",
+    "stats": { "hp": 620, "sp": 80, "atk": 80, "def": 48, "spd": 62, "will": 58 },
+    "stand": "stand.iron_hymn",
+    "skills": ["skill.strike", "skill.blood_drain"],
+    "ai": "aggressive"
+  },
+  {
     "id": "npc.thug",
     "name": "Street Thug",
     "team": "foe",

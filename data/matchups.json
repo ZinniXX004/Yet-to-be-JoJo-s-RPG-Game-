@@ -11,10 +11,10 @@
   },
   {
     "id": "matchup.assassin_ambush",
-    "name": "Jotaro and Kakyoin vs the Flame Assassin and a thug",
-    "description": "Mid-tier encounter. Two party members short of a full team, so it is the first fight where a wasted turn should be able to cost the run.",
+    "name": "Jotaro and Kakyoin vs the Flame Assassin and the Iron Brawler",
+    "description": "Mid-tier encounter. Two party members short of a full team, so it is the first fight where a wasted turn should be able to cost the run. Previously fought a 300 HP thug that dealt 13 damage per battle and existed only as a body; the harness measured the encounter at a 100% win rate three changes in a row, so the roster was the defect, not the numbers on it.",
     "party": ["pc.jotaro", "pc.kakyoin"],
-    "foes": ["npc.flame_assassin", "npc.thug"],
+    "foes": ["npc.flame_assassin", "npc.iron_brawler"],
     "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
     "band": { "min_percent": 45, "max_percent": 90 },
     "max_turns": 300

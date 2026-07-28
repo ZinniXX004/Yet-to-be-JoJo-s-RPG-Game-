@@ -9,9 +9,9 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and four of them are already wrong below. That
-score is the argument for the harness: the same wrong guesses shipped as
-content, without measurement, would have been indistinguishable from design.
+the fact is a rationalisation, and **five of the six below are wrong**. That
+score is the argument for the harness, not against it: the same wrong guesses
+shipped as content, unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -26,6 +26,16 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > **Comparability boundary.** Change C alters `ai::choose`, which changes both
 > the decisions taken and the order in which the RNG is drawn. Every number
 > recorded above that entry is historical. Do not compare it to anything below.
+
+## Current status
+
+After Change D, commit `b279cda`:
+
+| Matchup | Win rate | Band | Status |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | ok |
+| `matchup.assassin_ambush` | 100% | 45..90 | Change E pushed, awaiting measurement |
+| `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre |
 
 ---
 
@@ -344,13 +354,120 @@ him more turns yields less than making each turn hurt more.
 encounter. A change to the 13% cannot move the result, as Change A demonstrated
 at some cost.
 
-**Prediction:** `dio_boss` lands at **78-92%**. That is *deliberately still out of
-band* -- +30% atk buys roughly +25-35% damage after Dio's damage is reduced by
-party defence and by his slightly shorter fight, which is not the 45% the
-arithmetic asks for. This entry is a calibration step: its purpose is to measure
-how much win rate one point of enemy attack actually buys, so the next change can
-be sized instead of guessed. `thug_solo` and `assassin_ambush` are unaffected;
-neither contains Dio.
+**Prediction:** 78-92%, deliberately still out of band, as a calibration step to
+measure how much win rate one point of enemy attack buys.
+
+**Result: 50%. In band, dead centre, and 28 points below the bottom of the
+predicted range.**
+
+| Matchup | Before | After | Predicted | Band |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 100% | 85..100 ok |
+| `matchup.assassin_ambush` | 100% | 100% | 100% | 45..90 out of band |
+| `matchup.dio_boss` | 100% | **50%** | 78-92% | 35..75 **ok** |
+
+`matchup.dio_boss`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Alive |
+| --- | --- | --- | --- | --- |
+| Jotaro | 1304 -> 1258 | 422 -> **541** | 72 -> 72 | 83% -> **33%** |
+| Josuke | 446 -> 425 | 336 -> **763** | 83 -> 83 | 92% -> **25%** |
+| Kakyoin | 410 -> 389 | 956 -> 971 | 144 -> 142 | 33% -> 8% |
+| Dio | 1474 -> **2023** | 1520 -> **1431** | 176 -> 179 | 0% -> **50%** |
+| Flame Assassin | 215 -> 227 | 640 -> 640 | 26 -> 28 | 0% -> 0% |
+
+### The sensitivity finding
+
++30% attack produced +37% damage (1474 -> 2023) and **-50 points of win rate**.
+The two-parameter arithmetic behind the prediction was right; the conversion from
+damage to win rate was wrong by a factor of roughly three.
+
+- Enemy lifetime damage: 1689 -> **2250**
+- Party effective HP: **2440**
+
+The fight is a race, and a race resolves as a **step function around parity**, not
+as a slope. At 69% of the party's pool the enemy loses every time; at 92% it wins
+half. That single fact explains every earlier surprise in this document:
+
+- Changes A and B looked inert because they moved a ratio that was far from
+  parity. Nothing was going to show there.
+- Change D overshot because it moved a ratio that had arrived at parity, where
+  the derivative is at its steepest.
+
+**Practical rule for the rest of this project: compute the damage-versus-effective-HP
+ratio first, and size the change by distance from 1.0.** Below about 0.8 or above
+about 1.2, expect nothing to move and pick a bigger lever. Between them, expect a
+single-digit percentage change in damage to move the win rate by tens of points,
+and step in fives.
+
+Also worth recording: Dio at 50% survival means the fight now ends near
+simultaneous mutual destruction, and Josuke's damage taken tripled (336 -> 763).
+The healer is now a target rather than a spectator, which is what a boss fight is
+supposed to look like. That was not designed -- it fell out of one number.
+
+**Not tuned further.** 50% is the centre of 35..75 and the harness plays worse
+than a human, so this is a floor, not a ceiling. Chasing 60% would be tuning to
+noise on a twelve-seed sample.
+
+---
+
+## Change E -- the ambush's second foe becomes the Iron Brawler
+
+Commits `2a9564d` (Stand), `3362d16` (combatant), `a6a906e` (roster).
+
+**Decision, not a measurement:** the encounter definition was the defect. A
+300 HP thug that deals 13 damage per battle is a body, not a threat, and no stat
+on it can make a two-Stand-user party lose 10-55% of the time. The roster was
+changed rather than the band, because editing the band to match the measurement
+would have moved the goalposts and left the encounter exactly as unthreatening as
+it measured.
+
+**Sizing, taken from measured numbers rather than invented:**
+
+- Party throughput, measured: 940 damage over a 13-turn median = **~72 per turn**
+- Party HP pool, no healer in this encounter: **1140**
+- Target enemy lifetime damage: **~950**, a ratio of 0.83 -- inside the steep zone
+  identified in Change D, below parity so the party is favoured but can lose
+- Flame Assassin already contributes 27 per turn, so the new foe needs ~24 per
+  turn and enough HP to keep the fight near 18 turns: **~700 effective HP**
+
+That produced `npc.iron_brawler`: hp 620, sp 80, atk 80, def 48, spd 62, will 58,
+carrying the new `stand.iron_hymn` (hp +80, atk +22, def +18, spd +10, will +12).
+Effective 700 HP and 102 attack, deliberately slower than the Assassin's 94 speed
+so it lands fewer, heavier turns.
+
+**Its skill list is a complete SP ladder, and that is a deliberate constraint:**
+`concussive_slam` 140 power at 22 SP, then `blood_drain` 120 at 12 SP, then
+`strike` 100 free. `ai::best_offensive` picks the highest-power *affordable*
+skill, so a skill is unreachable content unless it is the strongest option in some
+SP band. This is worth stating as a general finding:
+
+- `skill.guard_stance`, `skill.rage_focus` and every other zero-damage skill can
+  never be chosen by any AI profile -- `best_offensive` filters on
+  `total_power > 0` and `Trickster` filters on hostile targets. Jotaro and Josuke
+  own `guard_stance` and have never once used it in any measurement in this
+  document.
+- `skill.blade_volley` (110 power, 24 SP) is likewise unreachable for anyone who
+  also owns `concussive_slam` (140 power, 22 SP): it costs more and hits less, so
+  no SP band exists where it wins.
+
+The AI is the reason, not the data. Fixing it means giving the profiles a reason
+to buff, guard and use area damage -- an M3 item, recorded here so it is not
+rediscovered a third time.
+
+**Prediction:** `matchup.assassin_ambush` lands at **55-85%**, inside its 45..90
+band. The range is wide on purpose: the target ratio of 0.83 sits inside the steep
+zone where, per Change D, a few percent of damage moves the win rate by tens of
+points. A result outside this range is expected to be *below* it rather than
+above, because `blood_drain` heals the Brawler and lengthens its own lifetime, an
+effect the sizing arithmetic ignores.
+
+`matchup.thug_solo` and `matchup.dio_boss` must be **bit-identical** to the
+previous run. Neither contains the Iron Brawler, no existing combatant was
+touched, and appending to `data/stands.json` and `data/combatants.json` does not
+perturb another matchup's RNG. If either moves, something is wrong with data
+loading rather than with balance, and that is worth more attention than the
+ambush number.
 
 **Result:** pending measurement.
 
@@ -378,3 +495,7 @@ Recorded here so a number is not over-read:
   highest-nominal-power affordable skill and never sets up. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience, and a band should be read with that in mind.
+- **Only three of eleven skills are ever used.** Auto-battle reaches
+  `skill.strike`, `skill.restore`, `skill.blood_drain`, `skill.sun_flare` and
+  `skill.concussive_slam` at most; buffs and area damage are unreachable. Every
+  number in this document is therefore a measurement of a subset of the content.
