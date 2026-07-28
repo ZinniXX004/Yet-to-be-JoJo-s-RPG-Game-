@@ -26,19 +26,23 @@ linkedin\.com
 # link, a typo, or a caching fluke.
 docs\.godotengine\.org/en/stable/tutorials/scripting/gdextension/
 
-# --- Temporary: delete this block once v0.1.0 is published (added 2026-07-28) ---
-#
-# These three cannot resolve before the first release exists, and the release
-# cannot be published before the `ci` check is green. That is a deadlock, not
-# link rot:
-#
-#  - the compare range and the tag page 404 until the v0.1.0 tag is pushed;
-#  - the release workflow's badge 404s until that workflow has run at least
-#    once, which only a tag can trigger.
-#
-# Each pattern names v0.1.0 explicitly rather than matching /compare/ or
-# /releases/tag/ generally, so a genuinely broken link to a later version is
-# still reported.
-Yet-to-be-JoJo-s-RPG-Game-/compare/v0\.1\.0\.\.\.HEAD
-Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0\.1\.0
-actions/workflows/release\.yml/badge\.svg
+# Vigna's personal university page hosting the reference SplitMix64 source.
+# It is a single unfronted academic server, and it times out from GitHub
+# runners rather than answering with a status code -- lychee treats a
+# timeout as a failure and exits 2, so the job went red with zero dead
+# links. The URL is cited twice (README.md and docs/DATA-SOURCES.md) and
+# resolves fine from a normal connection; the citation stays, the blocking
+# check on someone else's uptime does not.
+prng\.di\.unimi\.it
+
+# This repository's own compare ranges in CHANGELOG.md. Keep a Changelog
+# requires the heading of the version being prepared to link to a diff that
+# only exists once that version is tagged, and the [Unreleased] entry always
+# points at compare/<newest tag>...HEAD. Between promoting the heading and
+# pushing the tag -- which is exactly the window a release PR lives in --
+# both URLs are guaranteed 404s, so leaving them checked would make the
+# links job fail on every release by design. Only /compare/ is excluded:
+# /releases/tag/ links stay checked, so a wrong or missing tag is still
+# caught, and the release workflow independently refuses to publish when the
+# tag, src/Cargo.toml and the CHANGELOG heading disagree.
+github\.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/

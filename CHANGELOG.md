@@ -12,20 +12,72 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-Nothing yet. The entries below describe work planned, not work done.
+Nothing yet. Next up is M2, the balance harness.
 
-### Planned
+## [0.2.0] - 2026-07-28
 
-- Battle UI: HP/SP bars, tempo order preview, command menu, target picker (M1).
-- Event animator queue replacing the placeholder `print` calls in `battle_view.gd`.
-- Real target selection in `battle_view.gd`. The current stub always attacks the
-  first living foe, which is why one enemy has taken exactly zero damage in
-  every recorded run (M1).
-- Distinct rendering for `status_damaged`, and suppression of the meaningless
-  `potency` field on binary statuses such as stun (M1).
-- Balance harness: thousands of headless AI-vs-AI battles reporting win rates,
-  damage dealt and damage received per combatant (M2). Until it exists, no
-  claim about balance in this repository is evidence-based.
+M1. The game is playable: one battle, start to finish, driven entirely by the
+player. Verified by playing it in Godot 4.7.1 on Windows -- commands and targets
+chosen by hand, events animated in order, ending on a resolution screen with a
+clean console. No CI job in this repository can make that claim, because none of
+them run Godot.
+
+### Added
+
+- `BattleView` rebuilt around a real, procedurally-built UI: per-combatant
+  HP/SP bars, a tempo gauge (sorted by each combatant's current `tempo`
+  value, the same key `Battle::ready_actor` uses to pick who acts next), a
+  command menu (Attack / known skills / Guard / Wait), and a target picker
+  for single-target actions with a cancel path back to the command menu.
+- Event animator queue in `battle_view.gd`: events are queued and played one
+  at a time with a fixed delay, replacing the immediate `print` dump. The
+  queue is re-entrant-safe, so a call arriving mid-drain appends instead of
+  racing it.
+- Real target selection, replacing the stub that always attacked the first
+  living foe. Single-enemy and single-ally actions list every legal living
+  target; multi-target and self-only skills submit immediately, since
+  `rpg_core::resolve::resolve_targets` ignores the `target` field for those
+  kinds.
+- `status_damaged` now renders as its own log line, distinct from `damaged`;
+  the meaningless `potency` field on binary statuses (stun) is no longer
+  printed.
+- Victory / defeat / stalemate resolution: the command and target menus are
+  torn down and a result line is shown once `Phase::Finished` is reached.
+
+### Fixed
+
+- The Markdown link check no longer fails on a link that is not dead. It
+  reported zero errors and two timeouts, both on the same cited URL
+  (`prng.di.unimi.it`, the reference SplitMix64 source), and lychee exits
+  non-zero on a timeout. That host is a single unfronted academic server;
+  blocking a merge on its uptime measures nothing about this repository, so
+  it joined `.lycheeignore` with the reason recorded inline. The citation
+  itself stays in the prose.
+- The temporary `.lycheeignore` entries for `v0.1.0` URLs were removed. They
+  existed only because the release did not exist yet when they were written;
+  those links now resolve and are checked for real.
+- The Windows quickstart invoked the content sync script through `pwsh`,
+  which is PowerShell 7 and is not present on a stock Windows install. The
+  script has always been 5.1 compatible, so the documented command was the
+  only obstacle. The step numbering was also corrected: the `Copy-Item` line
+  is relative to the repository root, and running it from `src/` looks for
+  `src/src/`.
+
+### Known limitations
+
+- Combat is one-sided against the player. The first real playthrough ended in
+  defeat with the boss on 389 of 1520 HP and three of five combatants downed.
+  One battle is an anecdote, not a measurement, which is precisely why M2
+  exists: no balance claim in this repository is evidence-based until the
+  harness reports win rates over thousands of seeded runs.
+- The event log is the only feedback channel. Damage does not appear on the
+  combatants themselves, so the fight is read by scrolling text.
+- The tempo gauge shows each combatant's current `tempo` value sorted the way
+  the scheduler ranks them; it is not a forecast of the next several turns.
+  A real forecast would need effective, status-modified speed exposed from
+  the core, which does not happen yet.
+- Elemental resistances are still carried in events but not applied in damage.
+- SP is still not a binding constraint for most combatants.
 
 ## [0.1.0] - 2026-07-28
 
@@ -132,5 +184,6 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0
