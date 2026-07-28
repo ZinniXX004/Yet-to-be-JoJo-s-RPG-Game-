@@ -1,54 +1,38 @@
 extends Control
 ## Presentation-only battle driver.
 ##
-## Hard rules for this layer:
-##  1. Never compute an outcome. Read events, animate them, and nothing else.
-##  2. Never duplicate a formula from the Rust core. If a number is needed on
-##     screen, it must arrive in an event or in the state snapshot.
-##  3. Never assume an action succeeded. Check `ok` and surface `error`.
+## Hard rules:
+##  1. Never compute an outcome; only read events and animate them.
+##  2. Never duplicate a core formula. Numbers must come from an event or
+##     the state snapshot (e.g. the tempo gauge sorts by the already-computed
+##     `tempo` field the same way Battle::ready_actor does; it does not
+##     recompute effective speed, which lives behind Combatant::spd).
+##  3. Never assume an action succeeded; check `ok` and surface `error`.
 ##
-## M1 note: every widget below is built procedurally in `_build_ui`/
-## `_build_status_rows` instead of being laid out in `battle_view.tscn`. The
-## scene only owns the root `Control` and the script attachment; this keeps
-## the UI in one reviewable place and avoids hand-authoring a `.tscn` resource
-## tree, which is normally an editor job, not a text-diff job.
+## The UI below is built procedurally (see _build_ui/_build_status_rows)
+## instead of being authored in battle_view.tscn, which only owns the root
+## Control and this script.
 ##
-## The tempo gauge is current standing, not a forecast: it sorts by each
-## combatant's live `tempo` value using the same comparison
-## `Battle::ready_actor` uses (higher tempo first, ties to the lower index).
-## That is display of an already-computed number, not a re-derivation of who
-## is fastest -- rule 2 above would forbid recomputing effective speed here,
-## since status modifiers are applied inside `Combatant::spd`, which this file
-## has no access to and must not reimplement.
+## Data note: content lives in the repo-level /data directory and is copied
+## into res://data by tools/sync_data.*; do not fork the JSON by hand.
 ##
-## Data note: Godot cannot read outside res://, while the canonical content lives
-## in the repository-level /data directory. `tools/sync_data.ps1` on Windows and
-## `tools/sync_data.sh` elsewhere copy it into res://data as a build step. Do not
-## fork the JSON by hand; two divergent copies of content is a bug factory.
-##
-## Number note: GDScript's JSON has no integer type, so `JSON.parse_string`
-## turns every number into a float and `JSON.stringify` writes it back as `95.0`.
-## The simulation's schema is integer-only on purpose (floats are not
-## bit-reproducible, and determinism is the point of this architecture), so the
-## Rust bridge normalizes integral floats before deserializing. Do not "fix"
-## this by rounding numbers here: the boundary is the correct place for it, and
-## duplicating the repair in two languages guarantees they drift apart.
+## Number note: GDScript's JSON has no integer type, so parsed numbers arrive
+## as floats; the Rust bridge normalizes them back to integers at the
+## boundary. Do not re-round them here.
 
 const DATA_DIR := "res://data"
 const PARTY := ["pc.jotaro", "pc.josuke", "pc.kakyoin"]
 const FOES := ["npc.dio", "npc.flame_assassin"]
 
-# Mirrors the two content ids that have dedicated Command variants in
-# rpg-core (see command.rs / resolve.rs: Command::Attack and Command::Guard
-# always resolve to these ids regardless of what is in a combatant's skill
-# list). Every combatant's skills also happen to include both, so this is
-# only about which button a player sees them under, not a rule.
+# Command::Attack and Command::Guard always resolve to these ids in
+# rpg-core regardless of a combatant's skill list (see resolve.rs). Every
+# combatant's skills also include both; this only decides which button
+# they appear under.
 const BASIC_ATTACK_ID := "skill.strike"
 const GUARD_ID := "skill.guard_stance"
 
-# Statuses whose potency is not meaningful to a player. Stun is on or off; a
-# "40% stun" would read as a made-up number, because the effect has none
-# (data/skills.json sets potency 0 on every stun entry).
+# Statuses whose potency is meaningless (stun is on/off; data/skills.json
+# always sets its potency to 0).
 const BINARY_STATUSES := ["stun"]
 
 const EVENT_DELAY_SECONDS := 0.45
@@ -60,11 +44,10 @@ var _skills_by_id: Dictionary = {}
 var _event_queue: Array = []
 var _animating: bool = false
 
-# UI, built in _build_ui() / _build_status_rows().
 var _log: RichTextLabel
 var _tempo_label: Label
 var _status_row_container: HBoxContainer
-var _status_rows: Dictionary = {} # actor index -> {name_label, hp_bar, hp_label, sp_bar, sp_label}
+var _status_rows: Dictionary = {}
 var _command_box: HBoxContainer
 var _target_box: HBoxContainer
 var _result_label: Label
@@ -85,8 +68,6 @@ func _ready() -> void:
 			_skills_by_id[skill["id"]] = skill
 
 	var config := {
-		# Seeded from the clock only at battle creation. The seed is then stored
-		# inside the simulation, so the fight stays fully reproducible from it.
 		"seed": int(Time.get_unix_time_from_system()),
 		"stands": _load_json("%s/stands.json" % DATA_DIR),
 		"skills": skills,
@@ -105,8 +86,6 @@ func _ready() -> void:
 	await _advance()
 
 
-## Pumps the scheduler until a party member must decide, or the battle ends.
-## Enemy turns are resolved by the core's AI, not here.
 func _advance() -> void:
 	while not _finished:
 		var result: Dictionary = _call_bridge("advance", [])
@@ -129,8 +108,6 @@ func _advance() -> void:
 			_show_command_menu(actor)
 			return
 
-		# Foe turn: hand it to the core AI so the decision stays inside the
-		# deterministic simulation and remains replayable.
 		var ai_result: Dictionary = _call_bridge("step_with_ai", [])
 		await _animate(ai_result.get("events", []))
 		_refresh_status_panel()
@@ -157,7 +134,6 @@ func _submit(command: Dictionary) -> void:
 
 	var result: Dictionary = _call_bridge("submit", [JSON.stringify(command)])
 	if not result.get("ok", false):
-		# The core kept the turn, so re-prompt instead of skipping it.
 		_log_line("[color=orange]Rejected: %s[/color]" % result.get("error", "unknown"))
 		_show_command_menu(actor)
 		return
@@ -167,10 +143,6 @@ func _submit(command: Dictionary) -> void:
 	_awaiting_actor = -1
 	await _advance()
 
-
-## ---------------------------------------------------------------------------
-## Command menu / target picker
-## ---------------------------------------------------------------------------
 
 func _show_command_menu(actor: int) -> void:
 	_clear_container(_target_box)
@@ -198,7 +170,7 @@ func _show_command_menu(actor: int) -> void:
 		var button := _add_command_button(label, func(): _use_skill(actor, skill_id))
 		button.disabled = sp < cost
 		if button.disabled:
-			button.tooltip_text = "Needs %d SP, %s has %d" % [cost, combatant.get("name", "?"), sp]
+			button.tooltip_text = "Needs %d SP, has %d" % [cost, sp]
 
 	_add_command_button("Guard", func(): submit_guard())
 	_add_command_button("Wait", func(): _submit({"kind": "wait"}))
@@ -209,9 +181,6 @@ func _use_skill(actor: int, skill_id: String) -> void:
 	var target_kind: String = String(def.get("target", "one_enemy"))
 	match target_kind:
 		"self_only", "all_enemies", "all_allies":
-			# rpg_core::resolve::resolve_targets ignores the requested target for
-			# these kinds and computes the real target set itself; the actor's
-			# own index is only a placeholder to satisfy the JSON schema.
 			submit_skill(skill_id, actor)
 		"one_ally":
 			_begin_target_selection(actor, "one_ally", func(target: int): submit_skill(skill_id, target))
@@ -256,13 +225,6 @@ func _clear_container(container: Container) -> void:
 		child.queue_free()
 
 
-## ---------------------------------------------------------------------------
-## Event animation
-## ---------------------------------------------------------------------------
-
-## Queues events and plays them one at a time. Safe to call while a previous
-## batch is still draining: the new events are appended, not raced, because
-## the loop below only starts once and keeps consuming until the queue empties.
 func _animate(events: Array) -> void:
 	for event in events:
 		_event_queue.append(event)
@@ -280,7 +242,7 @@ func _render_event(event: Dictionary) -> void:
 	var kind: String = String(event.get("kind", ""))
 	match kind:
 		"battle_started":
-			pass # already announced from _ready with the party/foe lineup
+			pass
 		"turn_started":
 			_log_line("[b]%s's turn.[/b]" % _name(event.get("actor")))
 		"turn_skipped":
@@ -302,8 +264,6 @@ func _render_event(event: Dictionary) -> void:
 				int(event.get("amount", 0)), suffix, crit,
 			])
 		"status_damaged":
-			# Deliberately distinct from "damaged": rpg_core::event::Event::StatusDamaged
-			# has no attacker, because the cause is the status, not a blow anyone struck.
 			_log_line("%s takes %d damage from %s." % [
 				_name(event.get("target")), int(event.get("amount", 0)),
 				_status_name(String(event.get("status", ""))),
@@ -328,14 +288,10 @@ func _render_event(event: Dictionary) -> void:
 		"downed":
 			_log_line("[color=red]%s is downed![/color]" % _name(event.get("target")))
 		"battle_ended":
-			pass # the outcome is surfaced from the phase in _advance, not the log
+			pass
 		_:
 			_log_line(JSON.stringify(event))
 
-
-## ---------------------------------------------------------------------------
-## Status panel / tempo gauge
-## ---------------------------------------------------------------------------
 
 func _build_status_rows() -> void:
 	for child in _status_row_container.get_children():
@@ -406,9 +362,6 @@ func _refresh_status_panel() -> void:
 	_refresh_tempo_label(combatants)
 
 
-## Sorts living combatants by their current tempo value, highest first, tied
-## on the lower index -- the exact comparison `Battle::ready_actor` makes.
-## This is a display of state that already exists; it is not a prediction.
 func _refresh_tempo_label(combatants: Array) -> void:
 	var living: Array = []
 	for index in combatants.size():
@@ -433,10 +386,6 @@ func _refresh_tempo_label(combatants: Array) -> void:
 	_tempo_label.text = "Tempo order: %s" % ", ".join(parts) if not parts.is_empty() else "Tempo order: --"
 
 
-## ---------------------------------------------------------------------------
-## Victory / defeat
-## ---------------------------------------------------------------------------
-
 func _show_result(outcome: String) -> void:
 	_clear_container(_command_box)
 	_clear_container(_target_box)
@@ -457,13 +406,8 @@ func _show_result(outcome: String) -> void:
 	_log_line("[b]%s[/b]" % text)
 
 
-## ---------------------------------------------------------------------------
-## UI construction
-## ---------------------------------------------------------------------------
-
 func _build_ui() -> void:
 	var margin := MarginContainer.new()
-	margin.name = "Margin"
 	margin.anchor_right = 1.0
 	margin.anchor_bottom = 1.0
 	margin.add_theme_constant_override("margin_left", 16)
@@ -472,4 +416,87 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", 16)
 	add_child(margin)
 
-	var root_box := VBoxCont
+	var root_box := VBoxContainer.new()
+	root_box.add_theme_constant_override("separation", 10)
+	margin.add_child(root_box)
+
+	_tempo_label = Label.new()
+	_tempo_label.text = "Tempo order: --"
+	root_box.add_child(_tempo_label)
+
+	_status_row_container = HBoxContainer.new()
+	_status_row_container.add_theme_constant_override("separation", 16)
+	root_box.add_child(_status_row_container)
+
+	_log = RichTextLabel.new()
+	_log.bbcode_enabled = true
+	_log.scroll_following = true
+	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log.custom_minimum_size = Vector2(0, 220)
+	root_box.add_child(_log)
+
+	_command_box = HBoxContainer.new()
+	_command_box.add_theme_constant_override("separation", 8)
+	root_box.add_child(_command_box)
+
+	_target_box = HBoxContainer.new()
+	_target_box.add_theme_constant_override("separation", 8)
+	root_box.add_child(_target_box)
+
+	_result_label = Label.new()
+	_result_label.add_theme_font_size_override("font_size", 28)
+	_result_label.visible = false
+	root_box.add_child(_result_label)
+
+
+func _log_line(text: String) -> void:
+	_log.append_text(text + "\n")
+
+
+func _status_name(kind: String) -> String:
+	return kind.capitalize()
+
+
+func _name(actor_value) -> String:
+	var index: int = int(actor_value)
+	var combatants: Array = _state().get("combatants", [])
+	if index < 0 or index >= combatants.size():
+		return "?"
+	return String(combatants[index].get("name", "?"))
+
+
+func _pretty_names(ids: Array) -> String:
+	var names: Array = []
+	for id in ids:
+		var text: String = String(id)
+		var dot: int = text.find(".")
+		names.append(text.substr(dot + 1) if dot >= 0 else text)
+	return ", ".join(names)
+
+
+func _load_json(path: String) -> Variant:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_error("failed to open %s" % path)
+		return null
+	return JSON.parse_string(file.get_as_text())
+
+
+func _call_bridge(method: String, args: Array) -> Dictionary:
+	var raw: String = _session.callv(method, args)
+	var parsed: Variant = JSON.parse_string(raw)
+	if parsed is Dictionary:
+		return parsed
+	return {"ok": false, "error": "bridge returned an unparsable payload: %s" % raw}
+
+
+func _state() -> Dictionary:
+	var parsed: Variant = JSON.parse_string(_session.state_json())
+	return parsed if parsed is Dictionary else {}
+
+
+func _is_party_member(actor: int) -> bool:
+	var combatants: Array = _state().get("combatants", [])
+	if actor < 0 or actor >= combatants.size():
+		return false
+	return String(combatants[actor].get("team", "")) == "party"
