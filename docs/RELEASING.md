@@ -24,29 +24,39 @@ Milestone mapping, from [ROADMAP.md](ROADMAP.md):
 | Milestone | Version | Fixation criterion | State |
 | --- | --- | --- | --- |
 | M0 scaffold + core | `0.1.0` | Simulation tested and deterministic | Released |
-| M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Met, releasing |
-| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Next |
-| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Planned |
+| M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Released |
+| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Met, releasing |
+| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Next |
 | M4 polish | `1.0.0` | Exportable build with audio, art and UX | Planned |
 
 **One tag per fixation.** If work is not worth a changelog entry, it is not worth
 a tag.
 
 A milestone is fixed by its own exit criterion and nothing else. `0.2.0` shipped
-a battle that is playable and badly balanced, because M1 was about playability;
-balance is what `0.3.0` is for. Deferring a tag until everything is good is how
-projects end up with one release and no history.
+a battle that was playable and badly balanced, because M1 was about playability.
+`0.3.0` fixes the measuring instrument rather than the game: every encounter now
+declares the win rate it should produce and CI checks the claim, which is what
+made five of the six content changes in that release arguable at all. It does
+**not** ship new content, and it leaves five of eleven skills unreachable by the
+AI -- that is M3's problem, not a reason to hold the tag. Deferring a release
+until everything is good is how projects end up with one release and no history.
 
 ---
 
 ## 2. Release checklist
 
 Automation refuses to publish if steps 2 and 3 are skipped, by design. The
-commands are written for the next release, `0.3.0`; substitute the version you
+commands are written for the next release, `0.4.0`; substitute the version you
 are actually cutting.
 
-1. **CI green on `development`.** No exceptions, including the optional-looking
-   jobs.
+1. **CI green on `development`, and the local gate green on your machine.** No
+   exceptions, including the optional-looking jobs. The two are not the same
+   check: a green tick on `development` describes the last commit CI saw, so a
+   documentation commit pushed afterwards is unverified until it runs. Run the
+   full gate from [DEVELOPMENT.md](DEVELOPMENT.md#4-before-you-push) before
+   opening the release PR. `0.3.0` learned this the direct way -- its branch
+   failed the `format` job because files authored through the GitHub API had
+   never been near `cargo fmt`.
 2. **Update `CHANGELOG.md`.** Move items out of `Unreleased` into a
    `## [X.Y.Z] - YYYY-MM-DD` section, and update the link references at the
    bottom of the file. The release workflow greps for this exact heading and
@@ -55,7 +65,7 @@ are actually cutting.
 
    ```powershell
    cd src
-   cargo set-version 0.3.0    # requires cargo-edit
+   cargo set-version 0.4.0    # requires cargo-edit
    cargo test -p rpg-core --all-targets   # also refreshes Cargo.lock, which is committed
    cd ..
    ```
@@ -73,7 +83,7 @@ are actually cutting.
 
    ```powershell
    git add src/Cargo.toml src/Cargo.lock
-   git commit -m "chore(release): 0.3.0"
+   git commit -m "chore(release): 0.4.0"
    git push origin development
    # open a PR into main, let CI pass, merge
    ```
@@ -83,10 +93,14 @@ are actually cutting.
    ```powershell
    git checkout main
    git pull origin main
-   git tag -a v0.3.0 -m "v0.3.0 - balance harness"
-   git push origin v0.3.0
+   git tag -a v0.4.0 -m "v0.4.0 - content pass"
+   git push origin v0.4.0
    git checkout development
    ```
+
+   Tag `main`, never `development`. The tag is what the release archives are
+   built from, so it has to point at the commit that passed the protected
+   branch's checks.
 
 6. **Verify the published release.** Confirm three archives (Windows, Linux,
    macOS), a `.sha256` beside each, and release notes matching the changelog
@@ -117,7 +131,7 @@ Built by [`.github/workflows/release.yml`](../.github/workflows/release.yml) on
 every `v*.*.*` tag:
 
 ```text
-jojo-rpg-v0.3.0-x86_64-pc-windows-msvc.zip
+jojo-rpg-v0.4.0-x86_64-pc-windows-msvc.zip
 ├── bin/rpg_bridge.dll        # release build, LTO enabled
 ├── data/*.json               # the exact content the build was tested against
 ├── rpg.gdextension           # descriptor, so the library is usable immediately
@@ -129,6 +143,10 @@ jojo-rpg-v0.3.0-x86_64-pc-windows-msvc.zip
 Plus `librpg_bridge.so` (Linux, `x86_64-unknown-linux-gnu`) and
 `librpg_bridge.dylib` (macOS, `aarch64-apple-darwin`) archives, each with a
 SHA-256 checksum file.
+
+An archive is a library and its content, not a game. Shipping something a
+non-developer can double-click needs a headless Godot export, and that is M4
+work scheduled for `1.0.0`.
 
 The release job re-runs `cargo test -p rpg-core --release` before packaging.
 Release-profile builds enable LTO, which changes optimisation; testing only debug
