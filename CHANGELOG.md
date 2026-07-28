@@ -12,9 +12,15 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-M1 code is written and pushed to `development`. None of it has been run inside
-the Godot editor yet -- see "Known limitations" below. Do not tag `0.2.0`
-until it has.
+Nothing yet. Next up is M2, the balance harness.
+
+## [0.2.0] - 2026-07-28
+
+M1. The game is playable: one battle, start to finish, driven entirely by the
+player. Verified by playing it in Godot 4.7.1 on Windows -- commands and targets
+chosen by hand, events animated in order, ending on a resolution screen with a
+clean console. No CI job in this repository can make that claim, because none of
+them run Godot.
 
 ### Added
 
@@ -38,24 +44,40 @@ until it has.
 - Victory / defeat / stalemate resolution: the command and target menus are
   torn down and a result line is shown once `Phase::Finished` is reached.
 
-### Planned
+### Fixed
 
-- Balance harness: thousands of headless AI-vs-AI battles reporting win rates,
-  damage dealt and damage received per combatant (M2). Until it exists, no
-  claim about balance in this repository is evidence-based.
+- The Markdown link check no longer fails on a link that is not dead. It
+  reported zero errors and two timeouts, both on the same cited URL
+  (`prng.di.unimi.it`, the reference SplitMix64 source), and lychee exits
+  non-zero on a timeout. That host is a single unfronted academic server;
+  blocking a merge on its uptime measures nothing about this repository, so
+  it joined `.lycheeignore` with the reason recorded inline. The citation
+  itself stays in the prose.
+- The temporary `.lycheeignore` entries for `v0.1.0` URLs were removed. They
+  existed only because the release did not exist yet when they were written;
+  those links now resolve and are checked for real.
+- The Windows quickstart invoked the content sync script through `pwsh`,
+  which is PowerShell 7 and is not present on a stock Windows install. The
+  script has always been 5.1 compatible, so the documented command was the
+  only obstacle. The step numbering was also corrected: the `Copy-Item` line
+  is relative to the repository root, and running it from `src/` looks for
+  `src/src/`.
 
 ### Known limitations
 
-- The M1 UI above has not been run inside the Godot editor. It was written
-  against the exact JSON schema in `rpg_core::event::Event` and
-  `BattleState`/`Combatant`, but a schema-correct script can still fail at
-  runtime for reasons no static read catches -- a wrong signal name, a
-  container that lays out unusably on a real viewport, and so on. Treat M1 as
-  implemented, not verified, until it has been played once start to finish.
+- Combat is one-sided against the player. The first real playthrough ended in
+  defeat with the boss on 389 of 1520 HP and three of five combatants downed.
+  One battle is an anecdote, not a measurement, which is precisely why M2
+  exists: no balance claim in this repository is evidence-based until the
+  harness reports win rates over thousands of seeded runs.
+- The event log is the only feedback channel. Damage does not appear on the
+  combatants themselves, so the fight is read by scrolling text.
 - The tempo gauge shows each combatant's current `tempo` value sorted the way
   the scheduler ranks them; it is not a forecast of the next several turns.
   A real forecast would need effective, status-modified speed exposed from
   the core, which does not happen yet.
+- Elemental resistances are still carried in events but not applied in damage.
+- SP is still not a binding constraint for most combatants.
 
 ## [0.1.0] - 2026-07-28
 
@@ -162,5 +184,6 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0
