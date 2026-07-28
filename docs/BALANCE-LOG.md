@@ -9,7 +9,7 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and **five of the six below are wrong**. That
+the fact is a rationalisation, and **six of the seven below are wrong**. That
 score is the argument for the harness, not against it: the same wrong guesses
 shipped as content, unmeasured, would have been indistinguishable from design.
 
@@ -29,13 +29,47 @@ Seeds are fixed precisely so two rows of this table can be compared.
 
 ## Current status
 
-After Change D, commit `b279cda`:
+After Change E, commit `8edad80`:
 
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | ok |
-| `matchup.assassin_ambush` | 100% | 45..90 | Change E pushed, awaiting measurement |
-| `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre |
+| `matchup.assassin_ambush` | 100% | 45..90 | out of band -- Change F pushed, awaiting measurement |
+| `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre, closed |
+
+## The throughput model
+
+Added after Change E, because five of six failed predictions failed for the same
+reason: they estimated "damage per turn" by intuition. The engine is not
+mysterious, so the estimate does not have to be. From `resolve.rs`:
+
+```
+hit = max(power * atk / 100 - def / 2, 1)   then variance, then crit x 3/2
+```
+
+and a "turn" in the report is **one action by one combatant**, not a round. The
+tempo scheduler hands out actions in proportion to speed, so for a batch:
+
+```
+actions_i = T * spd_i / sum(spd)                       (share of a T-turn fight)
+T         = sum(foe HP) / (party damage per action * party speed share)
+D_enemy   = T * sum over foes of (spd_i / sum(spd)) * damage per action_i
+```
+
+Calibrated against the Change E run of `matchup.assassin_ambush`: speeds are
+Jotaro 102, Kakyoin 86, Assassin 94, Brawler 72, so the party takes 53% of the
+actions; party damage per action is 1349 / 10.0 = 134; foe HP is 640 + 700 =
+1340; T = 1340 / 71 = **18.8** against a measured median of **19**, and D = 18.8
+x 32.4 = **609** against a measured **617**.
+
+The two things it makes obvious, both of which the Change E prediction missed:
+
+- **A slow foe is a cheap foe.** The Brawler's 72 speed buys it 20% of the
+  actions in the fight, so its 73 damage per action becomes 285 per battle.
+  Speed multiplies damage as directly as attack does.
+- **A foe's output is capped by its SP, not by the clock.** The Assassin has 70
+  SP and `sun_flare` costs 16, so it has at most four expensive turns in it. The
+  fight got 46% longer and its damage went **down**, 353 -> 332.
 
 ---
 
@@ -456,18 +490,111 @@ to buff, guard and use area damage -- an M3 item, recorded here so it is not
 rediscovered a third time.
 
 **Prediction:** `matchup.assassin_ambush` lands at **55-85%**, inside its 45..90
-band. The range is wide on purpose: the target ratio of 0.83 sits inside the steep
-zone where, per Change D, a few percent of damage moves the win rate by tens of
-points. A result outside this range is expected to be *below* it rather than
-above, because `blood_drain` heals the Brawler and lengthens its own lifetime, an
-effect the sizing arithmetic ignores.
+band, with an explicit warning that a miss would more likely land below the band
+than above it.
 
-`matchup.thug_solo` and `matchup.dio_boss` must be **bit-identical** to the
-previous run. Neither contains the Iron Brawler, no existing combatant was
-touched, and appending to `data/stands.json` and `data/combatants.json` does not
-perturb another matchup's RNG. If either moves, something is wrong with data
-loading rather than with balance, and that is worth more attention than the
-ambush number.
+**Result: 100%. Wrong, and wrong in the direction that was called unlikely --
+the encounter did not move a single point.**
+
+| Matchup | Before | After | Predicted | Band |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 100% | 85..100 ok |
+| `matchup.assassin_ambush` | 100% | **100%** | 55-85% | 45..90 out of band |
+| `matchup.dio_boss` | 50% | 50% | 50% | 35..75 ok |
+
+The two control matchups are **bit-identical** to the previous run, including
+turn counts and per-combatant damage. Appending content to `data/stands.json`
+and `data/combatants.json` provably does not perturb another matchup's RNG, which
+is the one prediction in this document that has never failed.
+
+`matchup.assassin_ambush`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Miss | Alive |
+| --- | --- | --- | --- | --- | --- |
+| Jotaro | 676 -> **987** | 106 -> 145 | 57 -> 70 | 5% -> 6% | 100% -> 100% |
+| Kakyoin | 264 -> **362** | 272 -> **477** | 94 -> 104 | 11% -> 19% | 100% -> **50%** |
+| Flame Assassin | 353 -> **332** | 640 -> 640 | 41 -> 41 | 6% -> 8% | 0% -> 0% |
+| Street Thug -> Iron Brawler | 13 -> **285** | 300 -> **709** | 0 -> 58 | 0% -> 15% | 0% -> 0% |
+
+Median length 13 -> **19** turns. Enemy lifetime damage 366 -> **617**, a **69%**
+increase, for **zero** points of win rate.
+
+### The parity rule survived its first out-of-sample test
+
+This is the useful part of a failed prediction. Change D's rule says a ratio far
+from 1.0 does not respond, and 617 against a party pool of 1140 is **0.54** -- so
+by the project's own recorded rule, nothing should have moved, and nothing did.
+The rule was inferred from three boss-fight measurements and has now correctly
+retrodicted a fourth, in a different encounter, with a different roster.
+
+The prediction failed because it was made **before** that rule was applied to the
+sizing. The 950-damage target was right; the enemy delivered 617. The three
+errors, all now folded into the throughput model at the top of this file:
+
+1. **Speed was ignored.** The Brawler was given 72 effective speed for flavour --
+   "slow, heavy" -- and speed is not flavour, it is a direct multiplier on
+   lifetime damage. It took 20% of the actions and delivered 73 damage in each,
+   which is 285, not the 450 the sizing assumed.
+2. **The Assassin was assumed to be a constant.** Its damage was projected to
+   stay at 27 per turn across a longer fight. Instead its total **fell**,
+   353 -> 332, because 70 SP buys at most four `sun_flare` casts and everything
+   after that is a 67-damage `strike`. Enemy output is SP-bounded.
+3. **`blood_drain` was treated as a downside risk and is not one.** The Brawler
+   absorbed 709 damage against 700 effective HP, so the drain returned about 9
+   net HP over a whole battle. It is a 120-power attack that happens to have a
+   rounding error attached.
+
+---
+
+## Change F -- Iron Brawler atk 80 -> 105
+
+Commit `99a4c94`. **The first change in this document sized by arithmetic from
+`resolve.rs` rather than by intuition.**
+
+**Why attack and not speed or HP.** All three would work on paper; only attack is
+both sufficient and coherent with the enemy's design:
+
+| Lever | Value needed for ~800 enemy damage | Objection |
+| --- | --- | --- |
+| hp 620 -> ~1280 | 1360 effective HP | Dio-scale HP on a mid-tier ambush foe, and a 29-turn random encounter |
+| spd 62 -> ~130 | 140 effective speed | Fastest unit on the field, which contradicts the enemy this was designed as |
+| **atk 80 -> 105** | **126 effective attack** | Hits harder than the Flame Assassin -- intended; still below Dio's 160 |
+
+**The arithmetic**, using the model at the top of this file. Its skill is
+`concussive_slam`, power 140, accuracy 85, and the party's average defence is
+about 64:
+
+```
+hit    = 140 * 126 / 100 - 32   =  144   (was 140 * 102 / 100 - 32 = 111)
+action = 144 * 0.85             =  122   (was ~73 after misses)
+battle = 122 * 3.8 actions      =  468   (was 285)
+enemy  = 468 + 332              =  800
+ratio  = 800 / 1140             = 0.70
+```
+
+**Why 0.70 and not the 0.83 that Change E aimed at.** Change D aimed at the
+centre of its band and overshot the prediction by 28 points, because a ratio near
+parity is where the win-rate curve is steepest. This one deliberately aims at the
+**top half** of 45..90 and accepts a second iteration if it lands short. Under-
+shooting costs one measurement; overshooting past 45% costs a measurement *and*
+makes the mid-game encounter harder than the boss fight, which is a content bug
+rather than a number bug.
+
+**Prediction: 70-90%, in band.** Confidence is higher than any previous entry
+because the model reproduced the current run to within 2% on both turn count and
+enemy damage -- but it was calibrated on that run, so this is its first honest
+test. Failure modes, in order of likelihood:
+
+1. **Still 100%.** 0.70 may sit below the threshold where the curve begins to
+   bend. Nothing in the data says where the bend starts, only that 0.54 is below
+   it and 0.92 is past it.
+2. **Below 45%.** Kakyoin already dies in half the battles at 477 damage taken.
+   At 144 per hit he dies to four connected slams, and every death removes 27% of
+   the party's throughput -- the compounding effect that Change C reduced but did
+   not remove.
+
+`matchup.thug_solo` and `matchup.dio_boss` must again be bit-identical. The Iron
+Brawler appears in neither.
 
 **Result:** pending measurement.
 
@@ -495,7 +622,10 @@ Recorded here so a number is not over-read:
   highest-nominal-power affordable skill and never sets up. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience, and a band should be read with that in mind.
-- **Only three of eleven skills are ever used.** Auto-battle reaches
+- **Only five of eleven skills are ever used.** Auto-battle reaches
   `skill.strike`, `skill.restore`, `skill.blood_drain`, `skill.sun_flare` and
   `skill.concussive_slam` at most; buffs and area damage are unreachable. Every
   number in this document is therefore a measurement of a subset of the content.
+- **A "turn" in the report is one action, not one round.** Reading it as a round
+  inflates every per-turn estimate by the number of combatants, and that error
+  contributed directly to the failed Change E sizing.
