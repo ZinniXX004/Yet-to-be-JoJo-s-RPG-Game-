@@ -30,9 +30,11 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status:** `v0.1.0`. The simulation is complete, tested and deterministic. The
-> Godot layer is a runnable stub, not yet a playable game. See
-> [ROADMAP.md](docs/ROADMAP.md).
+> **Status:** `v0.1.0` released. M1 (`0.2.0`, playable battle loop) has been
+> implemented on `development` -- a command menu, target picker, HP/SP bars
+> and an event animator -- but not yet run inside the Godot editor. See
+> [ROADMAP.md](docs/ROADMAP.md) and the `[Unreleased]` section of
+> [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -64,7 +66,7 @@ That single constraint buys, for free:
                         │  JSON strings over GDExtension
 ┌───────────────────────▼───────────────────────┐
 │ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
-│                 5 methods, JSON in / JSON out │  no game rules
+│                 5 methods, JSON in and out    │  no game rules
 └───────────────────────┬───────────────────────┘
                         │
 ┌───────────────────────▼───────────────────────┐
