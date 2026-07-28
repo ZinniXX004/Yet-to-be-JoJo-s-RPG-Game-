@@ -33,16 +33,17 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status:** playable and measured. M1 is met: a full battle -- command menu,
-> target picker, animated event log, resolution screen -- was played start to
-> finish in Godot 4.7.1 with a clean console. M2 is met: every encounter now
-> declares the win rate it is supposed to produce, a headless harness measures
-> whether it does, and CI fails the build when it does not. The first
-> playthrough's defeat turned out to be an anecdote pointing the wrong way --
-> unattended, the party won that fight 92% of the time. Two of three encounters
-> were outside their intended range and are not any more. See
-> [BALANCE-LOG.md](docs/BALANCE-LOG.md), [ROADMAP.md](docs/ROADMAP.md) and
-> [CHANGELOG.md](CHANGELOG.md).
+> **Status: `0.3.0`, playable and measured.** M1 shipped as `0.2.0`: a full
+> battle -- command menu, target picker, animated event log, resolution screen
+> -- played start to finish in Godot 4.7.1 with a clean console. M2 ships as
+> `0.3.0`: every encounter now declares the win rate it is supposed to produce,
+> a headless harness measures whether it does, and CI fails the build when it
+> does not. The first playthrough's defeat turned out to be an anecdote pointing
+> the wrong way -- unattended, the party won that fight 92% of the time. Two of
+> three encounters were outside their intended range and are not any more.
+> Next is M3, the content pass, which is where the five skills no AI profile can
+> currently choose become reachable. See [BALANCE-LOG.md](docs/BALANCE-LOG.md),
+> [ROADMAP.md](docs/ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -74,20 +75,20 @@ repository shipped in `0.2.0`.
 ┌───────────────────────────────────────────────┐
 │ src/game        Godot 4  ·  GDScript          │  presentation only:
 │                 scenes, UI, animation         │  animates events,
-└───────────────────────┬───────────────────────┘  computes nothing
+└──────────────────────┬──────────────────────┘  computes nothing
                         │  JSON strings over GDExtension
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
 │                 5 methods, JSON in and out    │  no game rules
-└───────────────────────┬───────────────────────┘
+└──────────────────────┬──────────────────────┘
                         │
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ src/core        rpg-core  ·  Rust library     │  every rule lives here:
 │                 tempo scheduler, resolution,  │  deterministic,
 │                 statuses, AI, seeded RNG      │  engine-free, tested
-└───────────────────────┬───────────────────────┘
+└──────────────────────┬──────────────────────┘
                         │  reads
-┌───────────────────────▼───────────────────────┐
+┌──────────────────────▼──────────────────────┐
 │ data/*.json     skills · stands · combatants  │  content, not code
 │                 matchups: declared win rates  │
 │ src/data-pipeline  stdlib-only validator      │  runs in CI
