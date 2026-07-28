@@ -132,9 +132,7 @@ Change G, commit `e3d4a85c`: `npc.iron_brawler.stats.atk` 105 -> 135.
 
 This is the first content change in the project that is a measurement rather
 than a prediction. `probe.curve_a135` *is* `matchup.assassin_ambush` with that
-stat, so the shipped encounter should report 8 won / 4 lost = 67% against its
-declared band of 45..90, and the per-combatant rows should match the probe row
-for row.
+stat, so the shipped encounter was expected to report the probe row exactly.
 
 `atk 165` measures the same 67%. 135 was chosen because it sits on the near edge
 of the plateau rather than the far one, so a future buff to the party pushes the
@@ -143,6 +141,29 @@ effective `atk` 157 stays under Dio's 160, and a mid-tier random encounter
 should not out-hit the boss; and because it leaves Kakyoin alive in 17% of
 battles instead of none, which keeps the encounter survivable rather than merely
 winnable.
+
+### Confirmed
+
+Run on the shipped content at commit `773e548f`, no arguments:
+
+```text
+Jotaro and Kakyoin vs the Flame Assassin and the Iron Brawler
+12 battles: 8 won, 4 lost, 0 stalled -> 67% win rate (band 45..90)
+turns: 19 median, 14 shortest, 24 longest
+Jotaro          party   985 dealt   339 taken   70 sp    8% miss    67% alive
+Kakyoin         party   304 dealt   514 taken   82 sp   20% miss    17% alive
+Flame Assassin  foe     324 dealt   640 taken   41 sp    9% miss     0% alive
+Iron Brawler    foe     523 dealt   648 taken   57 sp   12% miss    33% alive
+```
+
+Every figure is identical to `probe.curve_a135`. A probe row therefore predicts
+a shipped row exactly, not approximately, and a future encounter can be tuned in
+one sweep instead of one change per round trip.
+
+`matchup.thug_solo` (100%) and `matchup.dio_boss` (50%) were bit-identical to
+their previous runs, which is the other half of the result: the change reached
+only the encounter it was aimed at. All three encounters are inside their bands,
+so the harness became a blocking CI job in commit `45c671e6`.
 
 ## Re-running this
 

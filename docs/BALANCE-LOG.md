@@ -9,9 +9,12 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and **seven of the eight below are wrong**. That
-score is the argument for the harness, not against it: the same wrong guesses
-shipped as content, unmeasured, would have been indistinguishable from design.
+the fact is a rationalisation, and **seven of the nine below are wrong**. The two
+that are right are the last two, and neither was a better guess: one came from
+sweeping the curve instead of extrapolating into it, and the other was not a
+prediction at all but a measurement repeated on shipped content. That is the
+argument for the harness, not against it -- the same wrong guesses shipped as
+content, unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -29,13 +32,16 @@ Seeds are fixed precisely so two rows of this table can be compared.
 
 ## Current status
 
-After Change F, commit `99a4c94`:
+After Change G, commit `e3d4a85`:
 
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | ok |
-| `matchup.assassin_ambush` | 100% | 45..90 | out of band -- blocked on a design decision, see Change F |
+| `matchup.assassin_ambush` | 67% | 45..90 | ok -- closed by Change G |
 | `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre, closed |
+
+All three encounters are inside their declared bands, so the harness became a
+blocking CI job in commit `45c671e`.
 
 ## The throughput model
 
@@ -67,6 +73,14 @@ against a measured 116, predicted 468 per battle against a measured 428, predict
 800 enemy damage against a measured 736. Errors of 5-9%, all in the same
 direction, because the model uses average party defence and the AI actually
 focus-fires the softer target.
+
+**The sweep in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) then found its ceiling.**
+Predicted against measured enemy damage per battle at `atk` 135, 165, 195 and
+225: -5%, -11%, -14%, -13%. The error grows with attack because **SP is a hard
+ceiling** -- `sp/b` reads 57 on every row of the sweep, so beyond that budget the
+extra attack only scales `skill.strike` and damage grows more slowly than the
+stat does. Use the model to size a change in ratio; do not trust it to convert a
+stat into damage past the point where a combatant runs out of SP.
 
 The two things it makes obvious, both of which the Change E prediction missed:
 
@@ -435,11 +449,14 @@ half. That single fact explains every earlier surprise in this document:
 - Change D overshot because it moved a ratio that had arrived at parity, where
   the derivative is at its steepest.
 
-**Practical rule for the rest of this project: compute the damage-versus-effective-HP
-ratio first, and size the change by distance from 1.0.** Below about 0.8 or above
-about 1.2, expect nothing to move and pick a bigger lever. Between them, expect a
-single-digit percentage change in damage to move the win rate by tens of points,
-and step in fives.
+> **Retracted.** This entry originally continued with a practical rule naming
+> **0.8** as the start of the responsive zone and 1.2 as its end. Those numbers
+> were never measured; they were interpolated between two points and then quoted
+> as findings in three later entries. The sweep recorded in
+> [`BALANCE-CURVE.md`](BALANCE-CURVE.md) puts the bend between **0.65 and 0.74**,
+> with a plateau at 67% from 0.74 to 0.81 and the steep region running 0.81 to
+> 0.99. Sizing Changes E and F against the invented 0.8 is the direct cause of
+> both of those predictions failing.
 
 Also worth recording: Dio at 50% survival means the fight now ends near
 simultaneous mutual destruction, and Josuke's damage taken tripled (336 -> 763).
@@ -677,6 +694,92 @@ the goalpost-moving this log exists to prevent:
 
 ---
 
+## Change G -- Iron Brawler atk 105 -> 135
+
+Commit `e3d4a85`. **The first content change in this document that is a
+measurement rather than a prediction.**
+
+**The decision that preceded it.** None of the four options at the end of Change
+F was taken. A fifth was: measure the curve first, then choose. The four options
+all required knowing how much damage buys how much win rate, and after six
+changes that quantity had still never been measured -- every entry above sized
+itself against an interpolation between two distant points.
+
+**The instrument.** `balance` gained `--combatants`, `--stands` and `--skills`
+(commit `303a617`), so content can be read from a path instead of the compiled-in
+`data/`. `tools/probe/` holds five clones of the Iron Brawler differing only in
+`atk`, and five copies of the encounter differing only in which clone appears.
+One run, five points, nothing written to shipped content. The probe files cannot
+reach the game, the validator or the CI gate; the gate runs `balance` with no
+arguments, which can only read what `include_str!` compiled in.
+
+**The curve**, full write-up in [`BALANCE-CURVE.md`](BALANCE-CURVE.md):
+
+| Enemy `atk` | Foe output/battle | Ratio | Win rate |
+| --- | --- | --- | --- |
+| 105 (control) | 736 | 0.65 | 100% |
+| **135** | **847** | **0.74** | **67%** |
+| 165 | 925 | 0.81 | 67% |
+| 195 | 993 | 0.87 | 42% |
+| 225 | 1128 | 0.99 | 8% |
+
+The control row reproduced the shipped Change F report in every digit, which is
+what makes the other four readable.
+
+**Why 135 and not 165**, which measures the same 67%: it sits on the near edge of
+the plateau rather than the far one, so a later buff to the party pushes this
+encounter towards the flat 100% region instead of over the cliff; effective
+attack 157 stays under Dio's 160, and a random encounter should not out-hit the
+boss; and Kakyoin survives 17% of battles instead of none, which keeps the
+encounter survivable rather than merely winnable.
+
+**No prediction is recorded for this change, because none was possible to get
+wrong.** `probe.curve_a135` *is* `matchup.assassin_ambush` with this stat and the
+same twelve seeds. The expectation was equality, not a range.
+
+**Result: equality, to the digit.**
+
+| Matchup | Before | After | Band |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 ok |
+| `matchup.assassin_ambush` | 100% | **67%** | 45..90 **ok** |
+| `matchup.dio_boss` | 50% | 50% | 35..75 ok |
+
+`matchup.assassin_ambush`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Miss | Alive |
+| --- | --- | --- | --- | --- | --- |
+| Jotaro | 1031 -> 985 | 238 -> **339** | 70 -> 70 | 4% -> 8% | 100% -> **67%** |
+| Kakyoin | 319 -> 304 | 504 -> 514 | 86 -> 82 | 21% -> 20% | 17% -> 17% |
+| Flame Assassin | 308 -> 324 | 640 -> 640 | 38 -> 41 | 9% -> 9% | 0% -> 0% |
+| Iron Brawler | 428 -> **523** | 709 -> **648** | 57 -> 57 | 12% -> 12% | 0% -> **33%** |
+
+Median length 18 -> **19** turns. `thug_solo` and `dio_boss` are bit-identical to
+their previous runs, so the change reached only the encounter it was aimed at.
+
+### What this cost and what it bought
+
+Six changes were spent moving a ratio along the flat part of a curve nobody had
+plotted. The sweep that plotted it cost one run and two files that never ship.
+**Measure the response curve before sizing the first change, not after the
+sixth.** That is the only transferable lesson in this document, and it was
+available from the beginning.
+
+Two things this did **not** fix, both still true and both recorded so they are
+not mistaken for solved:
+
+- **Jotaro is still the encounter.** His survival tracks the win rate exactly
+  across all five sweep points: 100, 67, 67, 42, 8. The party loses when he
+  falls, and nothing else in the fight decides the outcome. Change G closed the
+  band; it did not make this a two-versus-two.
+- **The Iron Brawler now hits at effective 157 against Dio's 160.** Mechanically
+  correct, fictionally awkward: a random-encounter bruiser punching within 2% of
+  the final boss. The alternative was nerfing `skill.rush_barrage`, a lever
+  shared with `matchup.dio_boss`, which sits at 50% with 15 points of slack. That
+  trade is deliberate and is the one to revisit first if the roster grows.
+
+---
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
@@ -688,9 +791,11 @@ Recorded here so a number is not over-read:
 - **`miss%` is inflated for area skills.** A miss is counted per target while an
   action is counted once, so a combatant using an `all_enemies` skill can show a
   miss rate above its true accuracy. Kakyoin's 13-21% is mostly this.
-- **Twelve seeds is a small sample.** A win rate near a band edge should not be
-  treated as decisively inside or outside it. Widen the seed list in a commit of
-  its own, never in the same commit as a content change.
+- **Twelve seeds is a small sample.** The resolution is 8.3 percentage points:
+  one seed flipping moves a reported win rate by that much, so 67% and 75% are
+  not distinguishable results. A win rate near a band edge should not be treated
+  as decisively inside or outside it. Widen the seed list in a commit of its own,
+  never in the same commit as a content change.
 - **A rules change resets the series.** RNG draw order is part of the rules, so
   after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the same seed no longer
   reproduces the same battle. Cross-boundary comparison is meaningless even when
@@ -706,6 +811,8 @@ Recorded here so a number is not over-read:
 - **A "turn" in the report is one action, not one round.** Reading it as a round
   inflates every per-turn estimate by the number of combatants, and that error
   contributed directly to the failed Change E sizing.
-- **The win-rate curve has never been mapped.** Every ratio measured so far is
-  either at 0.54-0.69 (flat, 100%) or at 0.92 (50%). Until something is measured
-  between those, any prediction inside that gap is extrapolation.
+- **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
+  current rules, not a constant.** It was measured on one encounter with one
+  party, and any edit to `resolve.rs`, `ai.rs`, the roster or the skill list
+  invalidates it. Re-run the sweep before sizing an encounter against it, and
+  replace the table rather than appending to it.
