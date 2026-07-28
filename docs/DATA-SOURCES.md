@@ -9,7 +9,7 @@ worth more than the data itself.
 
 ## 1. Current status: no scraped data, no external datasets
 
-**As of `v0.1.0`, nothing in `data/*.json` is scraped, imported or derived from a
+**As of `v0.2.0`, nothing in `data/*.json` is scraped, imported or derived from a
 third-party dataset.** Every stat, skill and cost is hand-authored for balance
 purposes in this repository.
 
@@ -21,6 +21,11 @@ That is a deliberate choice, not an omission:
 | Legal exposure | Names and abilities are third-party IP. Numbers invented here are ours; scraped tables carry the licence and terms of their source |
 | Balance beats fidelity | A skill that is canonically strong but ruins the tempo economy has to be nerfed anyway. Fidelity to a wiki table is not a design goal |
 | Reproducibility | A hand-authored file always builds. A scraper breaks when a page changes its markup, and CI turns red for a reason unrelated to the code |
+
+The M2 balance harness sharpens this position rather than softening it. Once win
+rates are measured, the numbers in `data/*.json` are answerable to simulation
+output, and a canon-derived table would have to beat that evidence to justify
+itself. Provenance is therefore recorded per entry, not per repository.
 
 If you disagree and want canon-derived stats, do it under the rules in section 3,
 not ad hoc.
