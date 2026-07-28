@@ -40,3 +40,10 @@ Thumbs.db
 /dist/
 *.apk
 *.aab
+
+# ---------- Balance harness output ----------
+# Written by `cargo run -p rpg-core --bin balance -- --json > ../balance-report.json`.
+# A saved report describes one working copy at one moment; the branch it is
+# read on may no longer produce it. Measurements that are worth keeping go in
+# docs/BALANCE-LOG.md and docs/BALANCE-CURVE.md, with the commit they came from.
+balance-report.json
