@@ -30,10 +30,12 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status:** `v0.1.0` released. M1 (`0.2.0`, playable battle loop) has been
-> implemented on `development` -- a command menu, target picker, HP/SP bars
-> and an event animator -- but not yet run inside the Godot editor. See
-> [ROADMAP.md](docs/ROADMAP.md) and the `[Unreleased]` section of
+> **Status:** playable. M1 is met: a full battle -- command menu, target
+> picker, animated event log, resolution screen -- was played start to finish
+> in Godot 4.7.1 with a clean console. The combat numbers are another matter:
+> that first playthrough ended in defeat with the boss still above a quarter
+> health, which is exactly the kind of claim the M2 balance harness exists to
+> replace with evidence. See [ROADMAP.md](docs/ROADMAP.md) and
 > [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -99,6 +101,9 @@ is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
 Requires the Rust toolchain, MSVC Build Tools, Godot 4.6+ and Python 3.11+ —
 exact versions and install links in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
+Every block below is PowerShell, not `cmd.exe`, and paths are relative to the
+directory the block says you are in.
+
 ```powershell
 git clone https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-.git
 cd Yet-to-be-JoJo-s-RPG-Game-
@@ -110,15 +115,24 @@ cargo test -p rpg-core --all-targets
 
 # 2. Build the GDExtension library.
 cargo build -p rpg-bridge
+
+# 3. Back to the repository root. The paths below start with src\, so running
+#    them from inside src\ looks for src\src\ and fails.
 cd ..
 
-# 3. Wire it into the Godot project (both directories are gitignored build output).
+# 4. Wire it into the Godot project (both directories are gitignored output).
 New-Item -ItemType Directory -Force -Path src\game\bin | Out-Null
 Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force
-pwsh -File tools/sync_data.ps1
+.\tools\sync_data.ps1
 
-# 4. Open src/game/project.godot in Godot and run the main scene.
+# 5. Open src/game/project.godot in Godot and run the main scene.
 ```
+
+The sync script is Windows PowerShell 5.1 compatible, so PowerShell 7 is not
+required. If your execution policy blocks the script, run
+`powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` instead; that
+affects one process and changes no machine-wide setting. On Linux and macOS,
+run `sh tools/sync_data.sh`.
 
 Prebuilt libraries for Windows, Linux and macOS are attached to every
 [release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases) with
@@ -156,6 +170,10 @@ Every push and pull request runs, on **Linux and Windows**:
 | Spelling | [`typos`](https://github.com/crate-ci/typos) |
 | Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |
 | Dependency updates | Dependabot, weekly and grouped |
+
+None of these run Godot. The GDScript layer is verified by playing it, which is
+why every milestone's exit criterion is written as an observable playthrough
+rather than a green pipeline.
 
 Tagging `vX.Y.Z` builds, tests and publishes per-platform archives with release
 notes taken from the changelog. The workflow refuses to publish if the tag does
