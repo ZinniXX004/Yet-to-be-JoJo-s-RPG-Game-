@@ -17,21 +17,45 @@
 //! Exit code 1 when a matchup falls outside its declared band or stalls, so the
 //! same command works as a CI gate. `--no-fail` reports without judging, which
 //! is what you want while actively retuning numbers.
+//!
+//! # Probing
+//!
+//! `--combatants`, `--stands` and `--skills` replace the compiled-in content
+//! with a file. This exists for one purpose: measuring how a stat maps to a win
+//! rate needs several variants of the same enemy in a single run, and editing
+//! shipped content once per variant would put five throwaway combatants in
+//! `data/` and five commits in the history for numbers nobody intends to keep.
+//! Probe rosters live in `tools/probe/`, where the game, the data validator and
+//! the CI gate never see them:
+//!
+//! ```text
+//! cargo run -q -p rpg-core --bin balance -- \
+//!     --combatants ../tools/probe/combatants.probe.json \
+//!     --matchups   ../tools/probe/matchups.probe.json \
+//!     --no-fail
+//! ```
+//!
+//! A probe run is a measurement, never a release gate. The gate is
+//! `cargo run -p rpg-core --bin balance` with no arguments, which can only ever
+//! read the content the build was made from.
 
 use std::process::ExitCode;
 
 use rpg_core::report::{BatchReport, MatchupReport};
 use rpg_core::{parse_matchups, run_batch, Database, Matchup};
 
-// Compiled in, exactly like the determinism test, so the harness measures the
-// content this build was made from. `--matchups` overrides only the encounter
-// list, which is the file a designer actually iterates on.
+// Compiled in, exactly like the determinism test, so that an argument-free run
+// measures the content this build was made from and nothing else.
 const STANDS: &str = include_str!("../../../../data/stands.json");
 const SKILLS: &str = include_str!("../../../../data/skills.json");
 const COMBATANTS: &str = include_str!("../../../../data/combatants.json");
 const MATCHUPS: &str = include_str!("../../../../data/matchups.json");
 
+#[derive(Debug, PartialEq, Eq)]
 struct Options {
+    stands_path: Option<String>,
+    skills_path: Option<String>,
+    combatants_path: Option<String>,
     matchups_path: Option<String>,
     only: Vec<String>,
     json: bool,
@@ -41,6 +65,9 @@ struct Options {
 impl Default for Options {
     fn default() -> Self {
         Options {
+            stands_path: None,
+            skills_path: None,
+            combatants_path: None,
             matchups_path: None,
             only: Vec::new(),
             json: false,
@@ -49,19 +76,31 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// True when any content file came from disk rather than from the build.
+    fn uses_external_content(&self) -> bool {
+        self.stands_path.is_some()
+            || self.skills_path.is_some()
+            || self.combatants_path.is_some()
+    }
+}
+
 const USAGE: &str = "\
 usage: balance [options]
 
-  --matchups <path>   read the encounter list from a file instead of the
-                      compiled-in data/matchups.json
-  --only <id>         run a single matchup; repeatable
-  --json              print the full report as JSON instead of a table
-  --no-fail           always exit 0, even when a band is violated
-  -h, --help          print this message
+  --matchups <path>     read the encounter list from a file instead of the
+                        compiled-in data/matchups.json
+  --combatants <path>   read the roster from a file (probe runs only)
+  --stands <path>       read the stand list from a file (probe runs only)
+  --skills <path>       read the skill list from a file (probe runs only)
+  --only <id>           run a single matchup; repeatable
+  --json                print the full report as JSON instead of a table
+  --no-fail             always exit 0, even when a band is violated
+  -h, --help            print this message
 ";
 
 fn main() -> ExitCode {
-    let options = match parse_args() {
+    let options = match parse_args_from(std::env::args().skip(1)) {
         Ok(Some(options)) => options,
         Ok(None) => {
             print!("{USAGE}");
@@ -85,11 +124,20 @@ fn main() -> ExitCode {
                 }
             } else {
                 print_report(&report);
+                if options.uses_external_content() {
+                    println!(
+                        "\nnote: content was read from disk, so these numbers do not \
+                         describe the shipped game"
+                    );
+                }
             }
 
             if options.fail_on_violation && !report.all_healthy() {
                 if !options.json {
-                    eprintln!("\nbalance: {} matchup(s) outside their declared band or stalling", report.unhealthy().len());
+                    eprintln!(
+                        "\nbalance: {} matchup(s) outside their declared band or stalling",
+                        report.unhealthy().len()
+                    );
                 }
                 return ExitCode::FAILURE;
             }
@@ -105,27 +153,28 @@ fn main() -> ExitCode {
 /// `Ok(None)` means help was requested; hand-rolled rather than pulling in an
 /// argument parser, because a dependency in `rpg-core` is a dependency in every
 /// consumer of the library, including the Godot bridge.
-fn parse_args() -> Result<Option<Options>, String> {
+///
+/// Takes an iterator rather than reading the environment directly so that the
+/// parser is testable.
+fn parse_args_from<I>(args: I) -> Result<Option<Options>, String>
+where
+    I: IntoIterator<Item = String>,
+{
     let mut options = Options::default();
-    let mut args = std::env::args().skip(1);
+    let mut args = args.into_iter();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-h" | "--help" => return Ok(None),
             "--json" => options.json = true,
             "--no-fail" => options.fail_on_violation = false,
-            "--matchups" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--matchups needs a path".to_string())?;
-                options.matchups_path = Some(value);
+            "--matchups" => options.matchups_path = Some(value_for(&mut args, "--matchups")?),
+            "--combatants" => {
+                options.combatants_path = Some(value_for(&mut args, "--combatants")?)
             }
-            "--only" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--only needs a matchup id".to_string())?;
-                options.only.push(value);
-            }
+            "--stands" => options.stands_path = Some(value_for(&mut args, "--stands")?),
+            "--skills" => options.skills_path = Some(value_for(&mut args, "--skills")?),
+            "--only" => options.only.push(value_for(&mut args, "--only")?),
             other => return Err(format!("unknown argument '{other}'")),
         }
     }
@@ -133,15 +182,39 @@ fn parse_args() -> Result<Option<Options>, String> {
     Ok(Some(options))
 }
 
-fn run(options: &Options) -> Result<BatchReport, String> {
-    let db = Database::from_json(STANDS, SKILLS, COMBATANTS)
-        .map_err(|error| format!("shipped content in data/ failed to load:\n{error}"))?;
+/// Pulls the value that follows a flag, naming the flag in the error so that a
+/// missing path is diagnosable without reading the source.
+fn value_for<I>(args: &mut I, flag: &str) -> Result<String, String>
+where
+    I: Iterator<Item = String>,
+{
+    let value = args
+        .next()
+        .ok_or_else(|| format!("{flag} needs a value"))?;
+    if value.starts_with("--") {
+        return Err(format!("{flag} needs a value, found the flag '{value}'"));
+    }
+    Ok(value)
+}
 
-    let source = match &options.matchups_path {
+/// Reads an override file, or hands back the compiled-in content.
+fn content(path: Option<&String>, embedded: &str) -> Result<String, String> {
+    match path {
         Some(path) => std::fs::read_to_string(path)
-            .map_err(|error| format!("could not read '{path}': {error}"))?,
-        None => MATCHUPS.to_string(),
-    };
+            .map_err(|error| format!("could not read '{path}': {error}")),
+        None => Ok(embedded.to_string()),
+    }
+}
+
+fn run(options: &Options) -> Result<BatchReport, String> {
+    let stands = content(options.stands_path.as_ref(), STANDS)?;
+    let skills = content(options.skills_path.as_ref(), SKILLS)?;
+    let combatants = content(options.combatants_path.as_ref(), COMBATANTS)?;
+
+    let db = Database::from_json(&stands, &skills, &combatants)
+        .map_err(|error| format!("content failed to load:\n{error}"))?;
+
+    let source = content(options.matchups_path.as_ref(), MATCHUPS)?;
     let all = parse_matchups(&source).map_err(|error| format!("{error}"))?;
 
     let selected: Vec<Matchup> = if options.only.is_empty() {
@@ -257,5 +330,65 @@ fn truncate(value: &str, width: usize) -> String {
     if value.chars().count() <= width {
         return value.to_string();
     }
-    value.chars().take(width.saturating_sub(1)).collect::<String>() + "~"
+    value
+        .chars()
+        .take(width.saturating_sub(1))
+        .collect::<String>()
+        + "~"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn no_arguments_means_the_shipped_content_and_a_failing_gate() {
+        let options = parse_args_from(args(&[])).unwrap().unwrap();
+        assert_eq!(options, Options::default());
+        assert!(options.fail_on_violation);
+        assert!(!options.uses_external_content());
+    }
+
+    #[test]
+    fn a_probe_run_is_recognisable_from_its_options() {
+        let options = parse_args_from(args(&[
+            "--combatants",
+            "../tools/probe/combatants.probe.json",
+            "--matchups",
+            "../tools/probe/matchups.probe.json",
+            "--no-fail",
+        ]))
+        .unwrap()
+        .unwrap();
+
+        assert!(options.uses_external_content());
+        assert!(!options.fail_on_violation);
+        assert_eq!(
+            options.matchups_path.as_deref(),
+            Some("../tools/probe/matchups.probe.json")
+        );
+    }
+
+    /// A path is mandatory, and swallowing the *next flag* as the path would
+    /// turn a typo into a confusing "could not read '--json'".
+    #[test]
+    fn a_flag_that_needs_a_value_never_eats_the_next_flag() {
+        let error = parse_args_from(args(&["--combatants", "--json"])).unwrap_err();
+        assert!(error.contains("--combatants"), "{error}");
+
+        let error = parse_args_from(args(&["--matchups"])).unwrap_err();
+        assert!(error.contains("--matchups"), "{error}");
+    }
+
+    #[test]
+    fn help_short_circuits_and_an_unknown_flag_is_reported() {
+        assert!(parse_args_from(args(&["--help"])).unwrap().is_none());
+        assert!(parse_args_from(args(&["--sweep"]))
+            .unwrap_err()
+            .contains("--sweep"));
+    }
 }
