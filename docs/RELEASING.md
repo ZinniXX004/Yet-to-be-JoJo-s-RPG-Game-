@@ -21,34 +21,42 @@ with the pre-1.0 reading spelled out so it is not ambiguous:
 
 Milestone mapping, from [ROADMAP.md](ROADMAP.md):
 
-| Milestone | Version | Fixation criterion |
-| --- | --- | --- |
-| M0 scaffold + core | `0.1.0` | Simulation tested and deterministic |
-| M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot |
-| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates |
-| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances |
-| M4 polish | `1.0.0` | Exportable build with audio, art and UX |
+| Milestone | Version | Fixation criterion | State |
+| --- | --- | --- | --- |
+| M0 scaffold + core | `0.1.0` | Simulation tested and deterministic | Released |
+| M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Met, releasing |
+| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Next |
+| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Planned |
+| M4 polish | `1.0.0` | Exportable build with audio, art and UX | Planned |
 
 **One tag per fixation.** If work is not worth a changelog entry, it is not worth
 a tag.
+
+A milestone is fixed by its own exit criterion and nothing else. `0.2.0` shipped
+a battle that is playable and badly balanced, because M1 was about playability;
+balance is what `0.3.0` is for. Deferring a tag until everything is good is how
+projects end up with one release and no history.
 
 ---
 
 ## 2. Release checklist
 
-Automation refuses to publish if steps 2 and 3 are skipped, by design.
+Automation refuses to publish if steps 2 and 3 are skipped, by design. The
+commands are written for the next release, `0.3.0`; substitute the version you
+are actually cutting.
 
 1. **CI green on `development`.** No exceptions, including the optional-looking
    jobs.
 2. **Update `CHANGELOG.md`.** Move items out of `Unreleased` into a
-   `## [X.Y.Z] - YYYY-MM-DD` section. The release workflow greps for this exact
-   heading and fails without it.
+   `## [X.Y.Z] - YYYY-MM-DD` section, and update the link references at the
+   bottom of the file. The release workflow greps for this exact heading and
+   fails without it.
 3. **Bump the workspace version.**
 
    ```powershell
    cd src
-   cargo set-version 0.2.0    # requires cargo-edit
-   cargo check --workspace    # refreshes Cargo.lock, which is committed
+   cargo set-version 0.3.0    # requires cargo-edit
+   cargo test -p rpg-core --all-targets   # also refreshes Cargo.lock, which is committed
    cd ..
    ```
 
@@ -56,10 +64,16 @@ Automation refuses to publish if steps 2 and 3 are skipped, by design.
    mismatch. That check exists because a tag that disagrees with the manifest is
    the single most common release mistake.
 
+   Use `cargo set-version`, not an editor. The version is declared once under
+   `[workspace.package]` and inherited by `rpg-core` and `rpg-bridge`, and the
+   tool rewrites `Cargo.lock` in the same pass. Hand-editing the manifest leaves
+   the lockfile stale, and the mismatch surfaces later as a confusing diff.
+
 4. **Commit and merge.**
 
    ```powershell
-   git commit -am "chore(release): v0.2.0"
+   git add src/Cargo.toml src/Cargo.lock
+   git commit -m "chore(release): 0.3.0"
    git push origin development
    # open a PR into main, let CI pass, merge
    ```
@@ -68,14 +82,26 @@ Automation refuses to publish if steps 2 and 3 are skipped, by design.
 
    ```powershell
    git checkout main
-   git pull
-   git tag -a v0.2.0 -m "v0.2.0 - vertical slice"
-   git push origin v0.2.0
+   git pull origin main
+   git tag -a v0.3.0 -m "v0.3.0 - balance harness"
+   git push origin v0.3.0
+   git checkout development
    ```
 
 6. **Verify the published release.** Confirm three archives (Windows, Linux,
    macOS), a `.sha256` beside each, and release notes matching the changelog
    section.
+
+### Why the changelog compare links are excluded from the link check
+
+Keep a Changelog wants the heading of the version being prepared to link to
+`compare/<previous>...<this one>`, and `[Unreleased]` to point at
+`compare/<newest tag>...HEAD`. Both URLs 404 until the tag is pushed, which is
+precisely the window a release PR lives in, so the `markdown links` job would
+fail on every release by construction. `.lycheeignore` therefore excludes this
+repository's own `/compare/` ranges and **only** those; `/releases/tag/` links
+stay checked, so a wrong tag number is still caught, as is the tag/manifest
+comparison in the release workflow.
 
 ### If it goes wrong
 
@@ -91,7 +117,7 @@ Built by [`.github/workflows/release.yml`](../.github/workflows/release.yml) on
 every `v*.*.*` tag:
 
 ```text
-jojo-rpg-v0.2.0-x86_64-pc-windows-msvc.zip
+jojo-rpg-v0.3.0-x86_64-pc-windows-msvc.zip
 ├── bin/rpg_bridge.dll        # release build, LTO enabled
 ├── data/*.json               # the exact content the build was tested against
 ├── rpg.gdextension           # descriptor, so the library is usable immediately
