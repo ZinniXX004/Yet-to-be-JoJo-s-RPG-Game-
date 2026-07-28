@@ -7,13 +7,13 @@ Each milestone maps to exactly one version tag. The mapping is authoritative in
 [RELEASING.md](RELEASING.md); it is repeated here so the two documents can be
 checked against each other.
 
-| Milestone | Version | Exit criterion |
-| --- | --- | --- |
-| M0 Foundation | `0.1.0` | Simulation tested, deterministic, reaching Godot |
-| M1 Playable battle loop | `0.2.0` | One battle playable start to finish |
-| M2 Balance harness | `0.3.0` | Headless mass simulation reporting win rates |
-| M3 Content depth | `0.4.0` | Full roster, statuses and elemental resistances |
-| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds |
+| Milestone | Version | Exit criterion | State |
+| --- | --- | --- | --- |
+| M0 Foundation | `0.1.0` | Simulation tested, deterministic, reaching Godot | Released |
+| M1 Playable battle loop | `0.2.0` | One battle playable start to finish | Released |
+| M2 Balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
+| M3 Content depth | `0.4.0` | Full roster, statuses and elemental resistances | In progress |
+| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds | Planned |
 
 ## M0 - Foundation (done)
 
@@ -28,7 +28,7 @@ checked against each other.
 - [x] End-to-end proof: a full battle runs from GDScript through the FFI to a
       decisive outcome
 
-## M1 - Playable battle loop (done)
+## M1 - Playable battle loop (done, `0.2.0`)
 
 **Exit criterion:** one full battle, start to victory screen, playable with mouse
 and keyboard, no placeholder crashes.
@@ -62,7 +62,7 @@ than quietly folded into M1:
   which is correct but reads as a bug. It is a presentation problem, not a
   scheduler one.
 
-## M2 - Balance harness (done)
+## M2 - Balance harness (done, `0.3.0`)
 
 **Exit criterion:** `N` AI-vs-AI battles run headless in CI, reporting win rate,
 median turn count and damage taken per combatant.
@@ -136,62 +136,140 @@ one entry per change with the prediction written before the run, and
 [`BALANCE-CURVE.md`](BALANCE-CURVE.md), the swept response curve that ended six
 rounds of guessing.
 
-### Carried into M3
+---
 
-Closed bands are not a fixed game. These are open, and they are content or rules
-problems rather than tuning ones:
+## M3 - Content depth (in progress, `0.4.0`)
 
-- **`ai::best_offensive` filters on damage**, so five of eleven skills can never
-  be chosen by any profile -- every buff, guard and area attack is unreachable
-  content. Every number in `0.3.0` therefore measures a subset of the game.
+**Exit criterion:** three playable characters, six enemies and two boss fights,
+authored purely in `data/`, with every encounter declaring a win-rate band that
+the harness measures and CI enforces.
+
+One addition to the original criterion, and it is not negotiable: **no skill may
+be unreachable.** `0.3.0` shipped eleven skills of which the AI can choose six,
+so every win rate in that release measures a subset of the game. Adding content
+on top of an AI that cannot use half of it would multiply the blind spot instead
+of closing it.
+
+### Order of work, and why this order
+
+Rules first, seeds second, content third, presentation last. The reason is
+mechanical rather than stylistic: **RNG draw order is part of the rules**, so the
+moment `ai.rs` or `resolve.rs` changes, every win rate measured before it becomes
+incomparable -- the same seed no longer produces the same battle. Authoring
+content before the rules settle means measuring it twice and trusting neither
+number.
+
+1. **Make every skill reachable.** `ai::best_offensive` ranks candidates by total
+   damage, so buffs, guards and area attacks are filtered out before the choice
+   is made. Replace it with a scored choice that can value a buff, a heal, an
+   area attack against two or more living targets, and a guard at low HP.
+   Expect the three existing win rates to move; re-measure and argue any band
+   change in [BALANCE-LOG.md](BALANCE-LOG.md) rather than widening bands to fit.
+2. **Apply elemental resistances in damage resolution.** The schema and the
+   events already carry an element; `resolve.rs` ignores it. This is the last
+   rules change of the milestone, so it lands immediately after step 1 and the
+   two are re-measured together.
+3. **Attribute healing.** `Event::Healed` has a target and no actor, so healing
+   done cannot be reported and support characters are invisible in the report.
+   Adding the actor is a one-field change that makes a whole class of content
+   measurable, and it must precede any support-focused character.
+4. **Widen the seed list, in a commit that changes nothing else.** Twelve seeds
+   resolve to 8.3 percentage points, which is coarser than several of the
+   decisions taken in `0.3.0`. Twenty-four seeds halve that. Do this alone, so
+   the only thing that can explain a moved number is the resolution.
+5. **Then the content**, one entity per commit, each with its declared band and
+   a log entry: a third playable character, three more enemies to reach six, and
+   a second boss fight.
+6. **Then the presentation defects** carried from M1: floating damage numbers,
+   status icons with durations, and a tempo readout that stays legible when one
+   combatant is left. These cannot be verified by CI -- no job in this repository
+   runs Godot -- so each is closed by a recorded playthrough, exactly as M1 was.
+
+### Checklist
+
+- [ ] AI can choose buffs, guards and area attacks; zero unreachable skills
+- [ ] Elemental resistances applied in `resolve.rs` and covered by a unit test
+- [ ] `Event::Healed` carries an actor; `CombatantStats` reports healing done
+- [ ] Seed list widened to 24 in an isolated commit, bands re-measured
+- [ ] Third playable character, authored in `data/` only
+- [ ] Six enemies total, each exercised by at least one declared encounter
+- [ ] Second boss fight with its own band
+- [ ] Floating damage numbers, status icons, legible tempo readout
+- [ ] `BALANCE-CURVE.md` re-swept after the rules changes, with the stale curve
+      marked rather than deleted
+- [ ] A recorded playthrough of both boss fights, console clean
+
+### Planned changes, by file
+
+Written before the work, so it can be scored honestly afterwards the way M2's
+was.
+
+| Path | Change |
+| --- | --- |
+| `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, heals, guards and area attacks; keep every draw on the battle RNG |
+| `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs |
+| `src/core/src/event.rs` | `Event::Healed` gains an `actor` field |
+| `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target |
+| `data/matchups.json` | 24 seeds; two more encounters, including the second boss |
+| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need |
+| `src/data-pipeline/validate_data.py` | Warn on a skill no combatant can use, mirroring the existing orphan-combatant warning |
+| `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix |
+| `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces |
+| `docs/BALANCE-LOG.md` | One entry per change, prediction written before the run |
+
+### What this is expected to break
+
+A risk register is worth more than a wish list, because these are the issues that
+will actually be filed. Each is stated with its symptom, so it can be recognised
+rather than rediscovered.
+
+| Risk | Symptom you will see | Response |
+| --- | --- | --- |
+| **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
+| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | Expected, not a regression. Re-measure, then argue each band in the log. Widening a band to make a build green is how the harness becomes decoration |
+| **`miss%` becomes badly wrong** once area skills are reachable | Miss rates above 50% on characters that rarely miss | Fix the accounting in `report.rs` *before* step 1 ships, or every report in the milestone is misleading |
+| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Treat as a content defect first: an encounter that cannot end is unbalanced, not merely slow. Raise the limit only with evidence |
+| **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | The new validator warning catches it. An unused skill is unmeasured content, which is the exact problem M3 exists to remove |
+| **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
+| **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | Keep every seed well below 2^53, or pass it across the boundary as a string |
+
+Issue handling, labels and the reproduction a balance report must contain are in
+[TRIAGE.md](TRIAGE.md).
+
+### Carried in from M2, still open
+
 - **The ambush is decided by one character.** Jotaro deals 76% of the party's
   damage and his survival rate tracks the win rate exactly across all five swept
   points. The band is closed; the roster imbalance behind it is not.
 - **The Iron Brawler hits at an effective 157 against Dio's 160.** A random
-  encounter should not punch within 2% of the final boss.
-- **`Event::Healed` has no actor**, so healing done cannot be reported and has to
-  be inferred from SP spent.
-- **Twelve seeds resolve to 8.3 percentage points.** Widen the list in a commit
-  of its own, never alongside a content change.
+  encounter should not punch within 2% of the final boss. The third playable
+  character and the second boss both change the frame this sits in, so the
+  decision waits for them rather than being taken twice.
 
-### Deliberately out of scope for `0.3.0`
+### Explicitly not in `0.4.0`
 
-Floating damage numbers, status icons and the single-entry tempo readout are all
-presentation defects from the M1 playthrough. They belong to M3, and mixing them
-into a balance release would make it impossible to tell whether a changed win
-rate came from a number or from the UI.
+Overworld navigation, party management, equipment, levelling, saves and dialogue
+are all real features and none of them are content depth. They stay listed here
+so the milestone cannot quietly absorb them:
 
-## M3 - Content depth (next, `0.4.0`)
-
-**Exit criterion:** three playable characters, six enemies, two boss fights, all
-authored purely in `data/`.
-
-Every encounter added in M3 declares a band in `data/matchups.json` and is
-measured before it is called finished. The harness exists now; authoring against
-intuition again would waste it.
-
-- [ ] Give the AI a reason to use the five unreachable skills, so buffs, guards
-      and area damage stop being content that no measurement can see
-- [ ] Status effect icons and durations surfaced in the UI
-- [ ] Floating damage numbers on the combatants, so the log stops being the only
-      feedback channel (raised by the first M1 playthrough)
-- [ ] Tempo readout that stays legible when only one combatant is standing
-      (raised by the first M1 playthrough)
-- [ ] Elemental resistance table (extension point already in the core)
-- [ ] Enemy AI profiles beyond aggressive/support (scripted boss phases)
 - [ ] Overworld or node-based map navigation
-- [ ] Party management, equipment, leveling
-- [ ] Save/load (serialize the whole state; determinism makes this cheap)
+- [ ] Party management, equipment, levelling
+- [ ] Save/load (serialise the whole state; determinism makes this cheap)
 - [ ] Dialogue system fed from `data/`
 
-## M4 - Portfolio polish
+---
+
+## M4 - Portfolio polish (`1.0.0`)
 
 **Exit criterion:** a stranger can play it in under 60 seconds from the repo.
 
+- [ ] Headless Godot export in `release.yml`, so a release contains a runnable
+      game and not only a library
 - [ ] Web export playable in-browser, linked from the README
 - [ ] 30-second gameplay GIF in the README
 - [ ] Audio: SFX per event type, one battle track
 - [ ] Write-up of the determinism design with a replay demo
+- [ ] `v1.0.0-rc.1` published as a pre-release before the final tag
 
 ## Explicit non-goals
 
