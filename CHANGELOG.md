@@ -12,7 +12,45 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-Nothing yet. Next up is M3, the content pass.
+M3 planning and the process work that has to exist before content lands. No
+gameplay change yet: nothing in this section touches `src/` or `data/`, so every
+win rate published in `0.3.0` still holds.
+
+### Added
+
+- **[docs/TRIAGE.md](docs/TRIAGE.md)**: how issues and defects are handled. The
+  label taxonomy, four severity levels, and the distinction that matters most
+  here — a defect is fixed in code and a balance finding is fixed in `data/`,
+  and filing one as the other is the fastest route to a wrong fix. Because the
+  simulation is deterministic, a reproduction is a seed plus a command sequence,
+  so the reproduction standard is strict: meeting it costs nothing.
+- **Issue forms** in `.github/ISSUE_TEMPLATE/`: a defect report that requires
+  the seed, the encounter id and the version; a balance finding that requires
+  the pasted harness output, the band it contradicts, and a prediction written
+  before the proposed change is run; and a task form that requires a checkable
+  finish line. Blank issues are disabled, and setup problems are routed to
+  `DEVELOPMENT.md` rather than to the tracker.
+- **`.github/pull_request_template.md`**: the local gate as a checklist, plus
+  two questions CI cannot ask — whether the change touches `ai.rs`,
+  `resolve.rs`, `battle.rs` or `rng.rs` and therefore voids every previously
+  measured win rate, and whether a new encounter declares a band. PR #6 went up
+  without a template and both of those nearly slipped.
+- **The M3 plan** in [docs/ROADMAP.md](docs/ROADMAP.md): exit criteria, ordered
+  work items with the reason for the order, a planned-changes-by-file table
+  written before the work so it can be scored afterwards the way M2's was, and
+  a risk register naming each expected failure by the symptom it will produce.
+
+### Changed
+
+- `README.md` now states `0.3.0` as released and `0.4.0` as in progress, and
+  says plainly that five of eleven skills are unreachable by the AI — so every
+  published win rate measures a subset of the game. Adds a contributing section
+  and a link to the triage document.
+- [docs/RELEASING.md](docs/RELEASING.md) records the two failures that occurred
+  during the `0.3.0` release and were not caused by this repository: the
+  advisory-db fetch aborting with a schannel error, and `git push` timing out on
+  the LFS `locks/verify` endpoint. Both are retried, not worked around.
+  Suppressing either one hides a real failure the next time it happens.
 
 ## [0.3.0] - 2026-07-29
 
