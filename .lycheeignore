@@ -34,3 +34,15 @@ docs\.godotengine\.org/en/stable/tutorials/scripting/gdextension/
 # resolves fine from a normal connection; the citation stays, the blocking
 # check on someone else's uptime does not.
 prng\.di\.unimi\.it
+
+# This repository's own compare ranges in CHANGELOG.md. Keep a Changelog
+# requires the heading of the version being prepared to link to a diff that
+# only exists once that version is tagged, and the [Unreleased] entry always
+# points at compare/<newest tag>...HEAD. Between promoting the heading and
+# pushing the tag -- which is exactly the window a release PR lives in --
+# both URLs are guaranteed 404s, so leaving them checked would make the
+# links job fail on every release by design. Only /compare/ is excluded:
+# /releases/tag/ links stay checked, so a wrong or missing tag is still
+# caught, and the release workflow independently refuses to publish when the
+# tag, src/Cargo.toml and the CHANGELOG heading disagree.
+github\.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/
