@@ -1,8 +1,9 @@
 # Release automation.
 #
-# Trigger: pushing a tag shaped v0.1.0. The tag is the single source of truth for
+# Trigger: pushing a tag shaped v0.3.0. The tag is the single source of truth for
 # a release; nothing is published from a branch. That means a release is always
-# reproducible from an immutable ref.
+# reproducible from an immutable ref. Tags are cut from main, never from
+# development -- see docs/RELEASING.md section 2.
 #
 # Output: one archive per platform containing the GDExtension library, the
 # content data, the .gdextension descriptor and the licence, plus release notes
@@ -20,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to build (e.g. v0.1.0)"
+        description: "Existing tag to build (e.g. v0.3.0)"
         required: true
 
 permissions:
@@ -58,7 +59,7 @@ jobs:
             tag="${{ inputs.tag }}"
             tag="${tag#v}"
           fi
-          grep -q "## \[$tag\]" CHANGELOG.md || {
+          grep -q "## \\[$tag\\]" CHANGELOG.md || {
             echo "::error::CHANGELOG.md has no section for $tag"
             exit 1
           }
