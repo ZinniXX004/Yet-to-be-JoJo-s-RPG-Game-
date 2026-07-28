@@ -9,9 +9,9 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and four of them are already wrong below. That
-score is the argument for the harness: the same wrong guesses shipped as
-content, without measurement, would have been indistinguishable from design.
+the fact is a rationalisation, and **five of the six below are wrong**. That
+score is the argument for the harness, not against it: the same wrong guesses
+shipped as content, unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -26,6 +26,16 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > **Comparability boundary.** Change C alters `ai::choose`, which changes both
 > the decisions taken and the order in which the RNG is drawn. Every number
 > recorded above that entry is historical. Do not compare it to anything below.
+
+## Current status
+
+After Change D, commit `b279cda`:
+
+| Matchup | Win rate | Band | Status |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | ok |
+| `matchup.assassin_ambush` | 100% | 45..90 | **blocked on a design decision** |
+| `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre |
 
 ---
 
@@ -344,15 +354,60 @@ him more turns yields less than making each turn hurt more.
 encounter. A change to the 13% cannot move the result, as Change A demonstrated
 at some cost.
 
-**Prediction:** `dio_boss` lands at **78-92%**. That is *deliberately still out of
-band* -- +30% atk buys roughly +25-35% damage after Dio's damage is reduced by
-party defence and by his slightly shorter fight, which is not the 45% the
-arithmetic asks for. This entry is a calibration step: its purpose is to measure
-how much win rate one point of enemy attack actually buys, so the next change can
-be sized instead of guessed. `thug_solo` and `assassin_ambush` are unaffected;
-neither contains Dio.
+**Prediction:** 78-92%, deliberately still out of band, as a calibration step to
+measure how much win rate one point of enemy attack buys.
 
-**Result:** pending measurement.
+**Result: 50%. In band, dead centre, and 28 points below the bottom of the
+predicted range.**
+
+| Matchup | Before | After | Predicted | Band |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 100% | 85..100 ok |
+| `matchup.assassin_ambush` | 100% | 100% | 100% | 45..90 out of band |
+| `matchup.dio_boss` | 100% | **50%** | 78-92% | 35..75 **ok** |
+
+`matchup.dio_boss`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Alive |
+| --- | --- | --- | --- | --- |
+| Jotaro | 1304 -> 1258 | 422 -> **541** | 72 -> 72 | 83% -> **33%** |
+| Josuke | 446 -> 425 | 336 -> **763** | 83 -> 83 | 92% -> **25%** |
+| Kakyoin | 410 -> 389 | 956 -> 971 | 144 -> 142 | 33% -> 8% |
+| Dio | 1474 -> **2023** | 1520 -> **1431** | 176 -> 179 | 0% -> **50%** |
+| Flame Assassin | 215 -> 227 | 640 -> 640 | 26 -> 28 | 0% -> 0% |
+
+### The sensitivity finding
+
++30% attack produced +37% damage (1474 -> 2023) and **-50 points of win rate**.
+The two-parameter arithmetic behind the prediction was right; the conversion from
+damage to win rate was wrong by a factor of roughly three.
+
+- Enemy lifetime damage: 1689 -> **2250**
+- Party effective HP: **2440**
+
+The fight is a race, and a race resolves as a **step function around parity**, not
+as a slope. At 69% of the party's pool the enemy loses every time; at 92% it wins
+half. That single fact explains every earlier surprise in this document:
+
+- Changes A and B looked inert because they moved a ratio that was far from
+  parity. Nothing was going to show there.
+- Change D overshot because it moved a ratio that had arrived at parity, where
+  the derivative is at its steepest.
+
+**Practical rule for the rest of this project: compute the damage-versus-effective-HP
+ratio first, and size the change by distance from 1.0.** Below about 0.8 or above
+about 1.2, expect nothing to move and pick a bigger lever. Between them, expect a
+single-digit percentage change in damage to move the win rate by tens of points,
+and step in fives.
+
+Also worth recording: Dio at 50% survival means the fight now ends near
+simultaneous mutual destruction, and Josuke's damage taken tripled (336 -> 763).
+The healer is now a target rather than a spectator, which is what a boss fight is
+supposed to look like. That was not designed -- it fell out of one number.
+
+**Not tuned further.** 50% is the centre of 35..75 and the harness plays worse
+than a human, so this is a floor, not a ceiling. Chasing 60% would be tuning to
+noise on a twelve-seed sample.
 
 ---
 
