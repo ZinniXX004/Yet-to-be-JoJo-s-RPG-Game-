@@ -85,17 +85,15 @@ impl Matchup {
             issues.push(format!("matchup '{label}' band: {issue}"));
         }
 
-        let mut seen: Vec<&Id> = Vec::new();
-        for seed in &self.seeds {
-            let duplicate = self.seeds.iter().filter(|other| *other == seed).count() > 1;
-            if duplicate && !seen.iter().any(|_| false) {
-                // A repeated seed is a silently doubled data point, which skews
-                // the win rate without changing the battle count in any visible
-                // way.
+        // A repeated seed is a silently doubled data point: it skews the win
+        // rate without changing the battle count in any visible way.
+        let mut seen: Vec<u64> = Vec::with_capacity(self.seeds.len());
+        for &seed in &self.seeds {
+            if seen.contains(&seed) {
                 issues.push(format!("matchup '{label}' repeats seed {seed}"));
-                break;
+            } else {
+                seen.push(seed);
             }
-            seen.clear();
         }
 
         issues
@@ -388,8 +386,27 @@ mod tests {
             hero.damage_dealt, titan.damage_received,
             "every point dealt must land on someone"
         );
-        assert_eq!(hero.times_downed, 1, "the hero cannot survive this matchup");
         assert_eq!(hero.battles, 4);
+        // Statistics accumulate over the whole seed list, so a hopeless matchup
+        // downs the hero once per battle rather than once in total.
+        assert_eq!(
+            hero.times_downed, 4,
+            "the hero cannot survive this matchup, on any seed"
+        );
+        assert_eq!(hero.survived, 0, "no seed may leave the hero standing");
+    }
+
+    #[test]
+    fn a_repeated_seed_is_reported_rather_than_silently_doubled() {
+        let mut duplicated = matchup("m.dupe", "weakling", wide_band());
+        duplicated.seeds = vec![7, 7, 9];
+        let issues = duplicated.issues(&db());
+        assert_eq!(
+            issues.len(),
+            1,
+            "exactly one issue expected, got {issues:?}"
+        );
+        assert!(issues[0].contains("repeats seed 7"));
     }
 
     #[test]

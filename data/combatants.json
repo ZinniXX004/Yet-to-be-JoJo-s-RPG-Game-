@@ -30,7 +30,7 @@
     "id": "npc.dio",
     "name": "Dio",
     "team": "foe",
-    "stats": { "hp": 1400, "sp": 160, "atk": 100, "def": 82, "spd": 70, "will": 96 },
+    "stats": { "hp": 1400, "sp": 160, "atk": 130, "def": 82, "spd": 70, "will": 96 },
     "stand": "stand.the_world",
     "skills": ["skill.strike", "skill.blood_drain"],
     "ai": "aggressive"
