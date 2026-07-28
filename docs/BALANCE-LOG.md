@@ -34,7 +34,7 @@ After Change D, commit `b279cda`:
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | ok |
-| `matchup.assassin_ambush` | 100% | 45..90 | **blocked on a design decision** |
+| `matchup.assassin_ambush` | 100% | 45..90 | Change E pushed, awaiting measurement |
 | `matchup.dio_boss` | 50% | 35..75 | ok -- dead centre |
 
 ---
@@ -411,6 +411,68 @@ noise on a twelve-seed sample.
 
 ---
 
+## Change E -- the ambush's second foe becomes the Iron Brawler
+
+Commits `2a9564d` (Stand), `3362d16` (combatant), `a6a906e` (roster).
+
+**Decision, not a measurement:** the encounter definition was the defect. A
+300 HP thug that deals 13 damage per battle is a body, not a threat, and no stat
+on it can make a two-Stand-user party lose 10-55% of the time. The roster was
+changed rather than the band, because editing the band to match the measurement
+would have moved the goalposts and left the encounter exactly as unthreatening as
+it measured.
+
+**Sizing, taken from measured numbers rather than invented:**
+
+- Party throughput, measured: 940 damage over a 13-turn median = **~72 per turn**
+- Party HP pool, no healer in this encounter: **1140**
+- Target enemy lifetime damage: **~950**, a ratio of 0.83 -- inside the steep zone
+  identified in Change D, below parity so the party is favoured but can lose
+- Flame Assassin already contributes 27 per turn, so the new foe needs ~24 per
+  turn and enough HP to keep the fight near 18 turns: **~700 effective HP**
+
+That produced `npc.iron_brawler`: hp 620, sp 80, atk 80, def 48, spd 62, will 58,
+carrying the new `stand.iron_hymn` (hp +80, atk +22, def +18, spd +10, will +12).
+Effective 700 HP and 102 attack, deliberately slower than the Assassin's 94 speed
+so it lands fewer, heavier turns.
+
+**Its skill list is a complete SP ladder, and that is a deliberate constraint:**
+`concussive_slam` 140 power at 22 SP, then `blood_drain` 120 at 12 SP, then
+`strike` 100 free. `ai::best_offensive` picks the highest-power *affordable*
+skill, so a skill is unreachable content unless it is the strongest option in some
+SP band. This is worth stating as a general finding:
+
+- `skill.guard_stance`, `skill.rage_focus` and every other zero-damage skill can
+  never be chosen by any AI profile -- `best_offensive` filters on
+  `total_power > 0` and `Trickster` filters on hostile targets. Jotaro and Josuke
+  own `guard_stance` and have never once used it in any measurement in this
+  document.
+- `skill.blade_volley` (110 power, 24 SP) is likewise unreachable for anyone who
+  also owns `concussive_slam` (140 power, 22 SP): it costs more and hits less, so
+  no SP band exists where it wins.
+
+The AI is the reason, not the data. Fixing it means giving the profiles a reason
+to buff, guard and use area damage -- an M3 item, recorded here so it is not
+rediscovered a third time.
+
+**Prediction:** `matchup.assassin_ambush` lands at **55-85%**, inside its 45..90
+band. The range is wide on purpose: the target ratio of 0.83 sits inside the steep
+zone where, per Change D, a few percent of damage moves the win rate by tens of
+points. A result outside this range is expected to be *below* it rather than
+above, because `blood_drain` heals the Brawler and lengthens its own lifetime, an
+effect the sizing arithmetic ignores.
+
+`matchup.thug_solo` and `matchup.dio_boss` must be **bit-identical** to the
+previous run. Neither contains the Iron Brawler, no existing combatant was
+touched, and appending to `data/stands.json` and `data/combatants.json` does not
+perturb another matchup's RNG. If either moves, something is wrong with data
+loading rather than with balance, and that is worth more attention than the
+ambush number.
+
+**Result:** pending measurement.
+
+---
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
@@ -433,3 +495,7 @@ Recorded here so a number is not over-read:
   highest-nominal-power affordable skill and never sets up. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience, and a band should be read with that in mind.
+- **Only three of eleven skills are ever used.** Auto-battle reaches
+  `skill.strike`, `skill.restore`, `skill.blood_drain`, `skill.sun_flare` and
+  `skill.concussive_slam` at most; buffs and area damage are unreachable. Every
+  number in this document is therefore a measurement of a subset of the content.
