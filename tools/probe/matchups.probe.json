@@ -1,0 +1,52 @@
+[
+  {
+    "id": "probe.curve_a105",
+    "name": "Curve probe: enemy atk 105 (shipped Iron Brawler)",
+    "description": "Control row. This is matchup.assassin_ambush with the shipped combatant renamed, so it must report exactly 100% over the same 12 seeds. Any other result means the probe roster or the --combatants path is wrong, and the remaining four rows are unreadable.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.flame_assassin", "npc.probe_a105"],
+    "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
+    "band": { "min_percent": 0, "max_percent": 100 },
+    "max_turns": 300
+  },
+  {
+    "id": "probe.curve_a135",
+    "name": "Curve probe: enemy atk 135",
+    "description": "Predicted enemy damage per battle 551, total foe output 859, ratio 0.75 against 1140 party HP.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.flame_assassin", "npc.probe_a135"],
+    "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
+    "band": { "min_percent": 0, "max_percent": 100 },
+    "max_turns": 300
+  },
+  {
+    "id": "probe.curve_a165",
+    "name": "Curve probe: enemy atk 165",
+    "description": "Predicted enemy damage per battle 677, total foe output 985, ratio 0.86. This straddles the only interesting region: the curve is known flat at 0.69 and known halfway down at 0.92, and nothing has ever been measured between them.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.flame_assassin", "npc.probe_a165"],
+    "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
+    "band": { "min_percent": 0, "max_percent": 100 },
+    "max_turns": 300
+  },
+  {
+    "id": "probe.curve_a195",
+    "name": "Curve probe: enemy atk 195",
+    "description": "Predicted enemy damage per battle 799, total foe output 1107, ratio 0.97. Expected to be past the bend and losing more often than not.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.flame_assassin", "npc.probe_a195"],
+    "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
+    "band": { "min_percent": 0, "max_percent": 100 },
+    "max_turns": 300
+  },
+  {
+    "id": "probe.curve_a225",
+    "name": "Curve probe: enemy atk 225",
+    "description": "Predicted enemy damage per battle 921, total foe output 1229, ratio 1.08. The far anchor. Its only job is to prove the curve reaches the bottom, so that a flat reading anywhere else is a real result and not a broken probe.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.flame_assassin", "npc.probe_a225"],
+    "seeds": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233],
+    "band": { "min_percent": 0, "max_percent": 100 },
+    "max_turns": 300
+  }
+]
