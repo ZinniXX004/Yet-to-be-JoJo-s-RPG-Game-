@@ -25,8 +25,8 @@ Milestone mapping, from [ROADMAP.md](ROADMAP.md):
 | --- | --- | --- | --- |
 | M0 scaffold + core | `0.1.0` | Simulation tested and deterministic | Released |
 | M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Released |
-| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Met, releasing |
-| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Next |
+| M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
+| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | In progress |
 | M4 polish | `1.0.0` | Exportable build with audio, art and UX | Planned |
 
 **One tag per fixation.** If work is not worth a changelog entry, it is not worth
@@ -34,12 +34,12 @@ a tag.
 
 A milestone is fixed by its own exit criterion and nothing else. `0.2.0` shipped
 a battle that was playable and badly balanced, because M1 was about playability.
-`0.3.0` fixes the measuring instrument rather than the game: every encounter now
+`0.3.0` fixed the measuring instrument rather than the game: every encounter now
 declares the win rate it should produce and CI checks the claim, which is what
-made five of the six content changes in that release arguable at all. It does
-**not** ship new content, and it leaves five of eleven skills unreachable by the
-AI -- that is M3's problem, not a reason to hold the tag. Deferring a release
-until everything is good is how projects end up with one release and no history.
+made five of the six content changes in that release arguable at all. It shipped
+with five of eleven skills unreachable by the AI, because that is M3's problem
+and not a reason to hold a tag. Deferring a release until everything is good is
+how projects end up with one release and no history.
 
 ---
 
@@ -107,6 +107,20 @@ are actually cutting.
    macOS), a `.sha256` beside each, and release notes matching the changelog
    section.
 
+### Two failures that are not yours
+
+Both appeared while cutting `0.3.0` and both cleared on an immediate retry. They
+are network calls, not defects, and neither should be worked around with a flag:
+
+- `failed to fetch advisory database ... schannel: server closed abruptly` from
+  `cargo deny check`. The advisory database is cloned from GitHub on every run.
+  Re-run the command. Do not pass `--offline`, which would silently audit
+  yesterday's advisory list.
+- `Post ".../info/lfs/locks/verify": i/o timeout` when pushing a tag. Git LFS
+  probes a locking API this repository does not use. Re-run `git push`. Disabling
+  `lfs.locksverify` is a real option, but it hides a real feature to silence one
+  timeout.
+
 ### Why the changelog compare links are excluded from the link check
 
 Keep a Changelog wants the heading of the version being prepared to link to
@@ -170,6 +184,8 @@ These are manual, one-time, and cannot be committed to the repo:
    repository setting must permit it).
 3. **Dependabot:** enabled via [`.github/dependabot.yml`](../.github/dependabot.yml);
    confirm alerts are on in *Settings → Code security*.
+4. **Issue labels:** the taxonomy in [TRIAGE.md](TRIAGE.md) has to exist in
+   *Issues → Labels* before the issue forms can apply it.
 
 ---
 
