@@ -9,8 +9,20 @@
     directly. Rather than committing two copies of the JSON, it is copied as a
     build step. src/game/data/ is generated output and is gitignored.
 
+    Windows PowerShell 5.1 compatible: PowerShell 7 (pwsh) is not required and
+    is not present on a stock Windows install.
+
 .EXAMPLE
-    pwsh -File tools/sync_data.ps1
+    .\tools\sync_data.ps1
+
+    Run from the repository root.
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1
+
+    Same thing when the machine's execution policy blocks unsigned scripts.
+    The override applies to that one process and changes no machine-wide
+    setting.
 #>
 
 [CmdletBinding()]
