@@ -62,58 +62,97 @@ than quietly folded into M1:
   which is correct but reads as a bug. It is a presentation problem, not a
   scheduler one.
 
-## M2 - Balance harness (next, `0.3.0`)
+## M2 - Balance harness (done)
 
 **Exit criterion:** `N` AI-vs-AI battles run headless in CI, reporting win rate,
 median turn count and damage taken per combatant.
 
-This lands before the content pass on purpose. Authoring a roster against
-numbers that are still moving means authoring it twice.
+**Met.** 36 battles per run -- three encounters over twelve fixed seeds each --
+play headless in the `balance` CI job and in `cargo test`, reporting exactly
+those three quantities plus damage dealt, SP spent, miss rate and survival rate
+per combatant. The job fails the build when a measured win rate leaves the band
+its encounter declares in `data/matchups.json`.
 
-- [ ] Batch runner over `step_with_ai`, seeded from a fixed list so results are
+| Encounter | Win rate | Declared band | Median length |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 67% | 45..90 | 19 turns |
+| `matchup.dio_boss` | 50% | 35..75 | 50 turns |
+
+The M1 suspicion was half right and half backwards: the numbers were indeed
+one-sided, but in the party's favour. Unattended, the party won the boss fight
+that the first playthrough lost -- 11 times out of 12.
+
+- [x] Batch runner over `step_with_ai`, seeded from a fixed list so results are
       comparable between commits
-- [ ] Report per-combatant damage dealt and received, to catch enemies the AI
+- [x] Report per-combatant damage dealt and received, to catch enemies the AI
       never targets
-- [ ] Assert bounds in CI: a matchup that is a guaranteed win or a guaranteed
+- [x] Assert bounds in CI: a matchup that is a guaranteed win or a guaranteed
       loss fails the build
-- [ ] Rebalance `data/*.json` against the harness output, not against intuition
-- [ ] Re-examine the SP economy: if a skill can be spammed for an entire battle
+- [x] Rebalance `data/*.json` against the harness output, not against intuition
+- [x] Re-examine the SP economy: if a skill can be spammed for an entire battle
       without running dry, SP is not a resource and the AI is not choosing
 
-### Planned changes, by file
+On that last item, the answer turned out to be the opposite of the M1 reading.
+SP **is** binding: the Flame Assassin's per-battle damage is effectively constant
+across fights of 13, 19 and 18 turns because 70 SP buys four expensive casts and
+nothing more. The `176 SP` figure from M1 was a fight that ended early, not a
+pool that could not be drained.
 
-Written out before any code so the diff can be reviewed against an intention
-rather than justified after the fact.
+### Planned changes, by file -- and what was actually delivered
 
-| Path | Change | Why |
+The table below was written before any code. It is kept, rather than rewritten to
+match the outcome, because the gap between the two is the interesting part.
+
+| Path | Change | Delivered |
 | --- | --- | --- |
-| `src/core/src/sim.rs` *(new)* | `run_batch(matchup, seeds) -> BatchReport`, pure, no I/O | Statistics are a rule of the simulation, not of a binary. Keeping them in the library means they are unit-testable and reusable from a future frontend |
-| `src/core/src/report.rs` *(new)* | `BatchReport`, `MatchupReport`, `CombatantStats`, all `Serialize` | A struct that serialises to JSON is both a CI artefact and a test fixture. Printing straight to stdout would make assertions impossible |
-| `src/core/src/lib.rs` | Export the two new modules | -- |
-| `src/core/src/bin/balance.rs` *(new)* | Thin CLI: parse args, call `run_batch`, print a table or `--json` | All I/O lives here, so `rpg-core`'s no-engine-no-clock-no-globals rule survives. A binary target needs no new crate and no workspace change |
-| `src/core/tests/balance_bounds.rs` *(new)* | Assert every shipped matchup lands inside its declared win-rate band | This is the exit criterion, expressed as a test rather than as a paragraph |
-| `data/matchups.json` *(new)* | Declared encounters: party, foes, seed list, acceptable win-rate band | Content, not code, in line with rule 4 of the layering rules. Adding an encounter must not require a recompile |
-| `src/data-pipeline/validate_data.py` | Validate `matchups.json`: ids resolve, bands are ordered and within 0..100 | A typo in a combatant id must fail in the validator, not as a confusing panic inside the harness |
-| `.github/workflows/ci.yml` | New `balance` job running the bounds test and uploading the JSON report | Cheap: it is CPU-only, no engine, no network |
-| `data/*.json` | Rebalanced numbers, driven by harness output | -- |
-| `CHANGELOG.md`, `README.md` | Record the harness and the measured win rates | A portfolio reader should see numbers, not adjectives |
+| `src/core/src/sim.rs` *(new)* | `run_batch(matchup, seeds) -> BatchReport`, pure, no I/O | Yes |
+| `src/core/src/report.rs` *(new)* | `BatchReport`, `MatchupReport`, `CombatantStats`, all `Serialize` | Yes |
+| `src/core/src/lib.rs` | Export the two new modules | Yes |
+| `src/core/src/bin/balance.rs` *(new)* | Thin CLI: parse args, call `run_batch`, print a table or `--json` | Yes, plus `--only`, `--no-fail` and external-content flags |
+| `src/core/tests/balance_bounds.rs` *(new)* | Assert every shipped matchup lands inside its declared win-rate band | Yes, five tests |
+| `data/matchups.json` *(new)* | Declared encounters: party, foes, seed list, acceptable win-rate band | Yes |
+| `src/data-pipeline/validate_data.py` | Validate `matchups.json`: ids resolve, bands are ordered and within 0..100 | Yes, plus duplicate seeds, both-sides membership and orphan combatants |
+| `.github/workflows/ci.yml` | New `balance` job running the bounds test and uploading the JSON report | Job yes, **artefact no** |
+| `data/*.json` | Rebalanced numbers, driven by harness output | Yes, five stat changes and one new enemy |
+| `CHANGELOG.md`, `README.md` | Record the harness and the measured win rates | Yes |
 
-### Design constraints for the harness
+Two deviations, both worth stating plainly:
 
-1. **Determinism is the whole point.** A run is `(matchup, seed)`; the same pair
-   must produce the same report on any machine. No wall-clock, no thread pool
-   ordering, no `HashMap` iteration leaking into the output.
-2. **A fixed seed list, not a random sample.** Comparability between commits
-   matters more than statistical purity. Widen the list deliberately, in a commit
-   that says so.
-3. **The harness never contains rules.** If it needs to know what a skill does,
-   the rule is in the wrong layer.
-4. **A band, not a target.** Asserting a 50 percent win rate makes the test
-   fragile and the game boring. Assert an interval, and let a matchup that is a
-   guaranteed win or a guaranteed loss fail the build.
-5. **Report damage received per combatant.** The M1 playthrough had one character
-   absorbing 78, 79, 87 and 105 damage in sequence while the boss spent 22 SP of
-   200. Aggregate win rate hides that; per-combatant totals do not.
+1. **The plan contained no rules change, and the milestone turned on one.** Every
+   finding reduced to `ai.rs` targeting the lowest-HP enemy unconditionally,
+   which made a damage advantage compound and killed the same party member in 12
+   of 12 battles. `FOCUS_FIRE_CHANCE = 55` is the single most consequential edit
+   in `0.3.0`, and no line of this table anticipated it. A plan that survives
+   contact with measurement unchanged is usually a plan that was not measured
+   against.
+2. **The `balance` job does not upload a JSON artefact.** The report is printed
+   to the job log and `--json` exists for local use; an artefact nobody
+   downloads is a cost without a reader. `balance-report.json` is gitignored so
+   a local run cannot be committed by accident.
+
+Two files were delivered that no plan mentioned: [`BALANCE-LOG.md`](BALANCE-LOG.md),
+one entry per change with the prediction written before the run, and
+[`BALANCE-CURVE.md`](BALANCE-CURVE.md), the swept response curve that ended six
+rounds of guessing.
+
+### Carried into M3
+
+Closed bands are not a fixed game. These are open, and they are content or rules
+problems rather than tuning ones:
+
+- **`ai::best_offensive` filters on damage**, so five of eleven skills can never
+  be chosen by any profile -- every buff, guard and area attack is unreachable
+  content. Every number in `0.3.0` therefore measures a subset of the game.
+- **The ambush is decided by one character.** Jotaro deals 76% of the party's
+  damage and his survival rate tracks the win rate exactly across all five swept
+  points. The band is closed; the roster imbalance behind it is not.
+- **The Iron Brawler hits at an effective 157 against Dio's 160.** A random
+  encounter should not punch within 2% of the final boss.
+- **`Event::Healed` has no actor**, so healing done cannot be reported and has to
+  be inferred from SP spent.
+- **Twelve seeds resolve to 8.3 percentage points.** Widen the list in a commit
+  of its own, never alongside a content change.
 
 ### Deliberately out of scope for `0.3.0`
 
@@ -122,11 +161,17 @@ presentation defects from the M1 playthrough. They belong to M3, and mixing them
 into a balance release would make it impossible to tell whether a changed win
 rate came from a number or from the UI.
 
-## M3 - Content depth
+## M3 - Content depth (next, `0.4.0`)
 
 **Exit criterion:** three playable characters, six enemies, two boss fights, all
 authored purely in `data/`.
 
+Every encounter added in M3 declares a band in `data/matchups.json` and is
+measured before it is called finished. The harness exists now; authoring against
+intuition again would waste it.
+
+- [ ] Give the AI a reason to use the five unreachable skills, so buffs, guards
+      and area damage stop being content that no measurement can see
 - [ ] Status effect icons and durations surfaced in the UI
 - [ ] Floating damage numbers on the combatants, so the log stops being the only
       feedback channel (raised by the first M1 playthrough)
