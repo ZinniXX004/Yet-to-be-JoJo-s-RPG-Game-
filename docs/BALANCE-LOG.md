@@ -21,6 +21,10 @@ cargo run -q -p rpg-core --bin balance
 over the fixed seed list in [`data/matchups.json`](../data/matchups.json).
 Seeds are fixed precisely so two rows of this table can be compared.
 
+> **Comparability boundary.** Change C alters `ai::choose`, which changes both
+> the decisions taken and the order in which the RNG is drawn. Every number
+> recorded above that entry is historical. Do not compare it to anything below.
+
 ---
 
 ## Baseline -- 2026-07-28, commit `0fcfd86`
@@ -156,7 +160,106 @@ one quantity.
 above the 75% band edge. `matchup.assassin_ambush` and `matchup.thug_solo` are
 unaffected, because neither party contains Josuke.
 
+**Result: no movement whatsoever.** 83% before, 83% after; the same 10 wins and
+the same 2 losses. The prediction was wrong for the third time, and this time it
+was wrong about the *direction being detectable at all*.
+
+| Matchup | Before | After |
+| --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% |
+| `matchup.assassin_ambush` | 100% | 100% |
+| `matchup.dio_boss` | 83% | **83%** |
+
+`matchup.dio_boss`, per battle, before -> after:
+
+| Combatant | Dealt | Taken | SP | Alive |
+| --- | --- | --- | --- | --- |
+| Jotaro | 1262 -> 1284 | 562 -> 547 | 72 -> 72 | 50% -> **42%** |
+| Josuke | 470 -> 461 | 218 -> 273 | 83 -> 83 | 83% -> 83% |
+| Kakyoin | 308 -> 295 | 1145 -> **1053** | 126 -> 122 | 0% -> 0% |
+| Dio | 1717 -> **1665** | 1400 -> 1400 | 181 -> 177 | 17% -> 17% |
+| Flame Assassin | 209 -> 209 | 640 -> 640 | 33 -> 33 | 16% -> 16% |
+
+### Why removing 370 HP of healing changed nothing
+
+Josuke's SP spend is identical, so he cast the same number of heals; only their
+size fell. The healing that disappeared was healing that did not matter:
+
+- Support triage fires below 55% max HP and picks the **most wounded ally**,
+  which in this encounter is almost always Kakyoin -- who is simultaneously the
+  focus-fire target of every hostile actor. HP poured into him is removed again
+  before his next turn. He still dies in 12 of 12 battles.
+- Dio's damage *fell* by 52 and Kakyoin's damage taken fell by 92. Smaller heals
+  mean Kakyoin dies slightly sooner, which means the enemy stops shooting a
+  corpse and the total damage the enemy manages to deal goes **down**. Part of
+  the nerf refunded itself.
+- What actually decides the fight is whether Jotaro, at 1284 damage per battle
+  out of the party's 2040, out-lives Dio's 1520 effective HP. Healing Kakyoin
+  does not enter that race. Jotaro's survival fell 50% -> 42% and the outcome
+  still did not move.
+
+**Conclusion: healing magnitude is a third-order lever in this encounter, and
+targeting is the first-order one.** Two content changes have now been spent to
+learn that the same rule is behind every finding. That is the case for fixing
+the rule rather than paying for it repeatedly, one commit at a time.
+
+The 140 value is kept. It was independently defensible -- 11.5 HP per SP was
+over-priced healing -- and reverting it would only add a variable.
+
+---
+
+## Change C -- weighted target selection in `ai::choose`
+
+Commit `87c8220`. **This is a rules change, not a content change.**
+
+**Motivation:** every finding above reduces to one rule. Unconditional lowest-HP
+focus fire makes an advantage compound, because each kill removes output from the
+losing side permanently while the winning side keeps all of its own. Two
+consequences were measured, not guessed:
+
+- a 2.3 : 1 damage-per-turn edge produced a **100%** win rate in
+  `matchup.assassin_ambush`, where a fair fight of that ratio should sit near the
+  top of the 45..90 band, not past it;
+- Kakyoin was downed in **12 of 12** boss battles, absorbing 63% of all enemy
+  damage, because he is deterministically the softest target from turn one.
+
+Both are the same bug seen from the two sides of the board.
+
+**The change:** a new `FOCUS_FIRE_CHANCE = 55` constant. Every hostile action now
+commits to the weakest enemy 55% of the time and picks a uniformly random living
+enemy otherwise. `AiProfile::Trickster` is untouched (already fully random) and
+healer triage is untouched (still the most wounded ally) -- healing the wrong
+ally would be a different bug.
+
+**Why 55 and not 100 or 0:** at 100 the advantage compounds, which is the defect.
+At 0 the AI stops finishing wounded enemies, fights lengthen without becoming
+harder, and enemy behaviour becomes illegible to a player -- the property
+`ai.rs` was written to protect. 55 keeps a wounded target the single most likely
+victim while making no death certain.
+
+**Prediction, written before the run:**
+
+| Matchup | Now | Predicted | Reasoning |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | one enemy, one ally; targeting cannot differ |
+| `matchup.assassin_ambush` | 100% | **80-95%** | the party can no longer delete the 300 HP thug first every time, so enemy output decays later; may still exceed 90 |
+| `matchup.dio_boss` | 83% | **70-88%** | two effects fight each other: Kakyoin survives more, which *helps* the party, while damage spread across three party members is less efficient for the enemy. Direction genuinely uncertain, and it may rise |
+
+The boss prediction is deliberately allowed to move upward. If it does, that is
+information, not a failure: it would mean the party was previously being *saved*
+by having a designated victim.
+
+**Secondary expectations:** Kakyoin's survival rises off 0%; Jotaro's and
+Josuke's damage taken rises; Flame Assassin's lifetime lengthens in the boss
+fight without any further content change; `median_turns` rises in every
+multi-combatant matchup.
+
 **Result:** pending measurement.
+
+**Consequence for this document:** the baseline, Change A and Change B are now
+historical. The run after this commit is the new reference point, and the bands
+in `data/matchups.json` must be judged against it before any further content
+number is touched.
 
 ---
 
@@ -174,3 +277,7 @@ Recorded here so a number is not over-read:
 - **Twelve seeds is a small sample.** A win rate near a band edge should not be
   treated as decisively inside or outside it. Widen the seed list in a commit of
   its own, never in the same commit as a content change.
+- **A rules change resets the series.** RNG draw order is part of the rules, so
+  after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the same seed no longer
+  reproduces the same battle. Cross-boundary comparison is meaningless even when
+  the numbers look adjacent.
