@@ -636,7 +636,10 @@ mod tests {
         ];
         let list = ids(&skills);
         let db = database(skills);
-        assert_eq!(best_action(&db, &list, &healthy(0)).as_deref(), Some("punch"));
+        assert_eq!(
+            best_action(&db, &list, &healthy(0)).as_deref(),
+            Some("punch")
+        );
     }
 
     /// And the scorer is not biased against defence either: quadruple the
@@ -649,7 +652,10 @@ mod tests {
         ];
         let list = ids(&skills);
         let db = database(skills);
-        assert_eq!(best_action(&db, &list, &healthy(0)).as_deref(), Some("guard"));
+        assert_eq!(
+            best_action(&db, &list, &healthy(0)).as_deref(),
+            Some("guard")
+        );
     }
 
     /// The same finding for the attack buff: 40% over three turns returns 0.8
@@ -667,7 +673,10 @@ mod tests {
         let skills = vec![rage, punch];
         let list = ids(&skills);
         let db = database(skills);
-        assert_eq!(best_action(&db, &list, &healthy(10)).as_deref(), Some("punch"));
+        assert_eq!(
+            best_action(&db, &list, &healthy(10)).as_deref(),
+            Some("punch")
+        );
     }
 
     #[test]
@@ -742,7 +751,10 @@ mod tests {
         let skills = jotaro_skills();
         let list = ids(&skills);
         let db = database(skills);
-        assert_eq!(best_action(&db, &list, &healthy(80)).as_deref(), Some("rush"));
+        assert_eq!(
+            best_action(&db, &list, &healthy(80)).as_deref(),
+            Some("rush")
+        );
 
         let without_barrage: Vec<SkillDef> = jotaro_skills()
             .into_iter()
@@ -750,7 +762,10 @@ mod tests {
             .collect();
         let list = ids(&without_barrage);
         let db = database(without_barrage);
-        assert_eq!(best_action(&db, &list, &healthy(80)).as_deref(), Some("halt"));
+        assert_eq!(
+            best_action(&db, &list, &healthy(80)).as_deref(),
+            Some("halt")
+        );
     }
 
     /// Efficiency, not size. A cheap converter outbids a bigger skill whose SP
