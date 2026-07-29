@@ -237,6 +237,13 @@ fn run(options: &Options) -> Result<BatchReport, String> {
 }
 
 fn print_report(report: &BatchReport) {
+    // Two units share one table: three columns are per-battle averages and one
+    // is a whole-batch total. Dio printing `rolls 179` beside `sp/b 179` is a
+    // coincidence, and without this line it reads as a relation.
+    println!("columns: dealt/b, taken/b and sp/b are per-battle averages, while");
+    println!("rolls counts every accuracy check in the whole batch and miss% the");
+    println!("share of those rolls that failed");
+
     for matchup in &report.matchups {
         print_matchup(matchup);
     }
