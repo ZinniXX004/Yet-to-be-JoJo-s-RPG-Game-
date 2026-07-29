@@ -15,14 +15,27 @@
 //! wins. Adding a consideration means changing a score, never adding a branch
 //! per skill id.
 //!
-//! Scores are in **damage-equivalent points**: one point is one point of
-//! nominal damage as written in `data/*.json`. Everything else is converted
-//! into that unit -- defence into the damage it prevents, a tempo lock into the
-//! enemy actions it denies -- because a choice between an attack and a buff is
-//! meaningless until both are quoted in the same currency. Two consequences are
-//! deliberate: the numbers a designer edits are the numbers the AI reasons
-//! about, and no scorer touches the RNG, so a scoring change can be reviewed
-//! without replaying a battle.
+//! # The unit
+//!
+//! Scores are in **nominal power points**: the same unit a designer writes in
+//! the `power` field of `data/skills.json`. Everything else is converted into
+//! it, because a choice between an attack and a buff is meaningless until both
+//! are quoted in one currency.
+//!
+//! The conversion that is easy to get wrong, and was wrong once: a `power`
+//! value is *not* damage. [`crate::resolve`] turns it into damage by
+//! multiplying by `atk / 100` and subtracting `def / 2`. So a quantity that is
+//! already in HP -- damage prevented by a defence buff, HP lost to a bleed --
+//! must be divided by the actor's attack before it can be compared to a power
+//! value. Skipping that step silently overvalues every defensive and
+//! damage-over-time effect by the actor's attack multiplier, and the balance
+//! harness measured the result: a party member who braced instead of attacking
+//! and lost the encounter doing it.
+//!
+//! Effects whose value is a number of *actions* rather than an amount of HP --
+//! a tempo lock, a stun, an attack or speed buff -- are priced against
+//! [`Situation::baseline`], which is already a power value, so they need no
+//! conversion.
 
 use crate::data::{AiProfile, Database, Effect, Id, SkillDef, StatusKind, TargetKind};
 use crate::resolve::BASIC_ATTACK_ID;
@@ -64,15 +77,6 @@ const FOCUS_FIRE_CHANCE: i32 = 55;
 /// a scoring bug impossible to reproduce from a skill definition alone.
 const TICKS_PER_ACTION: i32 = 12;
 
-/// At or below this share of max HP, defence is priced as if it mattered twice
-/// as much. Not a separate rule about when to guard: bracing genuinely is worth
-/// more when the next hit is the last one, and this is the cheapest honest way
-/// to say so without simulating the next hit.
-const DESPERATE_HP_PERCENT: i32 = 40;
-
-/// Multiplier applied to defensive value below [`DESPERATE_HP_PERCENT`].
-const DESPERATION_MULTIPLIER: i32 = 2;
-
 /// A score at or below this is not worth an action.
 const WORTHLESS: i32 = 0;
 
@@ -88,8 +92,9 @@ const FALLBACK_BASELINE: i32 = 100;
 struct Situation {
     /// SP the actor can spend right now.
     sp: i32,
-    /// Actor's current HP as a percentage of its maximum.
-    hp_percent: i32,
+    /// Actor's current effective attack. Only used as the exchange rate between
+    /// HP and power points; see the module docs.
+    atk: i32,
     /// Living hostiles, which is both the target count of an area attack and
     /// the number of incoming hits defence is worth something against.
     enemies: i32,
@@ -113,8 +118,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
     let team = st.combatants[actor].team;
     let profile = st.combatants[actor].ai;
     let sp = st.combatants[actor].sp;
-    let hp = st.combatants[actor].hp;
-    let max_hp = st.combatants[actor].max_hp;
+    let atk = st.combatants[actor].atk();
     let skills: Vec<Id> = st.combatants[actor].skills.clone();
 
     let enemies = st.alive_on(team.opposite());
@@ -126,7 +130,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
 
     let situation = Situation {
         sp,
-        hp_percent: hp * 100 / max_hp.max(1),
+        atk,
         enemies: enemies.len() as i32,
         allies: allies.len() as i32,
         baseline: baseline_power(db, &skills, sp),
@@ -240,12 +244,13 @@ fn total_power(def: &SkillDef) -> i32 {
         .sum()
 }
 
-/// The exchange rate between an *action* and *damage*, for this actor, now.
+/// The exchange rate between an *action* and *power points*, for this actor,
+/// now.
 ///
-/// Effects like a tempo lock are worth some number of actions; to price them in
-/// points we need to know what an action is worth. The best hit the actor can
-/// currently pay for is the honest answer: a boss with a 140-power slam values
-/// a denied enemy turn more than a thug with a 100-power punch does.
+/// Effects like a tempo lock are worth some number of actions; to price them we
+/// need to know what an action is worth. The best hit the actor can currently
+/// pay for is the honest answer: a boss with a 140-power slam values a denied
+/// enemy turn more than a thug with a 100-power punch does.
 fn baseline_power(db: &Database, skills: &[Id], sp: i32) -> i32 {
     let best = skills
         .iter()
@@ -260,6 +265,19 @@ fn baseline_power(db: &Database, skills: &[Id], sp: i32) -> i32 {
     db.skill(BASIC_ATTACK_ID)
         .map(total_power)
         .unwrap_or(FALLBACK_BASELINE)
+}
+
+/// Converts an amount of HP into the power points that would have produced it.
+///
+/// The inverse of the `power * atk / 100` step in [`crate::resolve`], and the
+/// only reason [`Situation::atk`] exists. The `def / 2` subtraction is
+/// deliberately not inverted: it depends on the target, and a scorer that reads
+/// the defence of a specific combatant stops being reproducible from content
+/// alone. The omission biases attacks slightly upward against defensive
+/// effects, which is the safer direction -- an AI that overrates attacking is
+/// merely suboptimal, while one that overrates bracing stops trying to win.
+fn as_power_units(hp: i32, at: &Situation) -> i32 {
+    hp * 100 / at.atk.max(1)
 }
 
 /// Whether this skill is a candidate for the action slot at all.
@@ -294,25 +312,23 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
     let duration = duration as i32;
     let own_turns = (duration - 1).max(0);
     match status {
-        // More attack, or more turns to attack in, both convert to hits.
+        // More attack, or more turns to attack in, both convert to hits, and a
+        // hit is already a power value.
         StatusKind::AtkUp | StatusKind::SpdUp => at.baseline * potency / 100 * own_turns,
-        // Damage prevented: the model subtracts def/2 from every incoming hit,
-        // and every living enemy is one incoming hit per round.
+        // Damage prevented, in HP: the model subtracts def/2 from every incoming
+        // hit, and every living enemy is one incoming hit per round. Converted,
+        // because HP and power are not the same unit.
         StatusKind::DefUp => {
             let prevented = potency / 2 * at.enemies.max(1) * own_turns;
-            if at.hp_percent <= DESPERATE_HP_PERCENT {
-                prevented * DESPERATION_MULTIPLIER
-            } else {
-                prevented
-            }
+            as_power_units(prevented, at)
         }
         // Output taken away from the target, valued at our own exchange rate.
         StatusKind::AtkDown | StatusKind::SpdDown => at.baseline * potency / 100 * duration,
         // Halved: a softer target is worth less than a weaker attacker,
         // because def is halved again inside the damage model.
         StatusKind::DefDown => at.baseline * potency / 200 * duration,
-        // Bleed is plain damage, just spread over turns.
-        StatusKind::Bleed => potency * duration,
+        // Bleed is HP, dealt over turns rather than at once.
+        StatusKind::Bleed => as_power_units(potency * duration, at),
         // Healing is the triage branch's decision, not the scorer's.
         StatusKind::Regen => WORTHLESS,
         // A stunned combatant loses its action outright.
@@ -443,15 +459,25 @@ mod tests {
         skills.iter().map(|def| def.id.clone()).collect()
     }
 
-    /// Healthy actor, two enemies, one ally, an ordinary 100-power baseline.
+    /// Two enemies, one ally, Jotaro's effective attack, an ordinary 100-power
+    /// baseline.
     fn healthy(sp: i32) -> Situation {
         Situation {
             sp,
-            hp_percent: 100,
+            atk: 120,
             enemies: 2,
             allies: 1,
             baseline: 100,
         }
+    }
+
+    fn guard(potency: i32) -> SkillDef {
+        skill(
+            "guard",
+            TargetKind::SelfOnly,
+            0,
+            vec![status(StatusKind::DefUp, potency, 2, 100)],
+        )
     }
 
     #[test]
@@ -497,56 +523,49 @@ mod tests {
         assert_eq!(score_action(&drain, &healthy(12)), Some(120));
     }
 
-    /// The behaviour change this commit exists for, stated as an assertion:
-    /// bracing is worthless while healthy and worth taking while dying.
+    /// The defect this commit exists for. 60 prevented HP is worth fewer power
+    /// points to a strong attacker, because that attacker converts a power
+    /// point into more than one point of damage.
     #[test]
-    fn defence_is_worth_more_to_a_dying_actor_than_to_a_healthy_one() {
-        let guard = skill(
-            "guard",
-            TargetKind::SelfOnly,
-            0,
-            vec![status(StatusKind::DefUp, 60, 2, 100)],
-        );
-        let punch = skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]);
-        let skills = vec![punch, guard];
-        let list = ids(&skills);
-        let db = database(skills);
-
-        assert_eq!(best_action(&db, &list, &healthy(0)).as_deref(), Some("punch"));
-
-        let dying = Situation {
-            hp_percent: 20,
+    fn hp_denominated_effects_are_converted_into_power_units() {
+        let braced = guard(60);
+        assert_eq!(score_action(&braced, &healthy(0)), Some(50));
+        let weak_attacker = Situation {
+            atk: 60,
             ..healthy(0)
         };
-        assert_eq!(best_action(&db, &list, &dying).as_deref(), Some("guard"));
+        assert_eq!(score_action(&braced, &weak_attacker), Some(100));
     }
 
-    /// Even while dying, bracing must lose to a real attack. A defensive AI
-    /// that stops attacking does not lose the fight, it refuses to end it.
+    /// Records a content finding rather than hiding it: at potency 60 over two
+    /// turns, bracing prevents less than attacking deals, so declining it is
+    /// correct. Changing that is a number in `data/skills.json`.
     #[test]
-    fn a_strong_attack_still_beats_bracing_at_low_hp() {
-        let guard = skill(
-            "guard",
-            TargetKind::SelfOnly,
-            0,
-            vec![status(StatusKind::DefUp, 60, 2, 100)],
-        );
-        let barrage = skill("barrage", TargetKind::OneEnemy, 18, vec![damage(195)]);
-        let skills = vec![guard, barrage];
+    fn bracing_is_declined_at_the_potency_the_game_ships() {
+        let skills = vec![
+            skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]),
+            guard(60),
+        ];
         let list = ids(&skills);
         let db = database(skills);
-        let dying = Situation {
-            hp_percent: 10,
-            sp: 18,
-            ..healthy(18)
-        };
-        assert_eq!(best_action(&db, &list, &dying).as_deref(), Some("barrage"));
+        assert_eq!(best_action(&db, &list, &healthy(0)).as_deref(), Some("punch"));
     }
 
-    /// Records a content finding rather than hiding it: at potency 40 over three
-    /// turns, an attack buff returns 0.8 of a hit for the price of one, so the
-    /// AI correctly declines it. Changing that is a number in
-    /// `data/skills.json`, not a line in this module.
+    /// And the scorer is not biased against defence either: quadruple the
+    /// potency and the same arithmetic chooses it.
+    #[test]
+    fn bracing_wins_once_it_prevents_more_than_an_attack_deals() {
+        let skills = vec![
+            skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]),
+            guard(240),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(best_action(&db, &list, &healthy(0)).as_deref(), Some("guard"));
+    }
+
+    /// The same finding for the attack buff: 40% over three turns returns 0.8
+    /// of a hit for the price of one.
     #[test]
     fn an_attack_buff_worth_less_than_one_hit_is_declined() {
         let rage = skill(
@@ -556,10 +575,10 @@ mod tests {
             vec![status(StatusKind::AtkUp, 40, 3, 100)],
         );
         let punch = skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]);
+        assert_eq!(score_action(&rage, &healthy(10)), Some(80));
         let skills = vec![rage, punch];
         let list = ids(&skills);
         let db = database(skills);
-        assert_eq!(score_action(&rage, &healthy(10)), Some(80));
         assert_eq!(best_action(&db, &list, &healthy(10)).as_deref(), Some("punch"));
     }
 
@@ -600,8 +619,9 @@ mod tests {
             16,
             vec![damage(150), status(StatusKind::Bleed, 25, 3, 60)],
         );
-        // 150 plus 60% of 25 * 3.
-        assert_eq!(score_action(&flare, &healthy(16)), Some(195));
+        // 75 HP over three turns is 62 power points at atk 120, of which 60%
+        // is expected to land.
+        assert_eq!(score_action(&flare, &healthy(16)), Some(187));
     }
 
     #[test]
