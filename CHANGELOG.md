@@ -13,8 +13,9 @@ with prebuilt libraries. A section here without a tag is not a release.
 ## [Unreleased]
 
 M3 in progress. Process work plus the first of four rules fixes. `data/` is
-untouched, so every win rate published in `0.3.0` still holds — the accounting
-fix below changes a reported column, not a battle.
+untouched and no RNG draw moved, so every *win rate* published in `0.3.0` still
+reproduces digit for digit. One *reported column* did not survive the audit: see
+the accounting fix below.
 
 ### Added
 
@@ -39,30 +40,58 @@ fix below changes a reported column, not a battle.
   work items with the reason for the order, a planned-changes-by-file table
   written before the work so it can be scored afterwards the way M2's was, and
   a risk register naming each expected failure by the symptom it will produce.
+- **`tools/setup_labels.ps1`**: creates or updates the fourteen labels the issue
+  forms and the triage rules refer to, idempotently and with `-WhatIf`, because
+  a form that applies a label the repository does not have silently applies
+  nothing.
+- **A `rolls` column in the harness table**, next to `miss%`. A percentage on
+  its own cannot tell an accurate attacker from one that never attacked: both
+  print 0%. It is also the diagnostic for #9 — a combatant whose rolls exceed
+  its actions is using an area skill, which is exactly what the AI was believed
+  never to do.
 
 ### Changed
 
 - `README.md` now states `0.3.0` as released and `0.4.0` as in progress, and
-  says plainly that five of eleven skills are unreachable by the AI — so every
-  published win rate measures a subset of the game. Adds a contributing section
-  and a link to the triage document.
+  names the three skills the AI can never choose — `skill.guard_stance`,
+  `skill.rage_focus` and `skill.tempo_halt` — so every published win rate is
+  read as measuring a subset of the content. Adds a contributing section and a
+  link to the triage document.
 - [docs/RELEASING.md](docs/RELEASING.md) records the two failures that occurred
   during the `0.3.0` release and were not caused by this repository: the
   advisory-db fetch aborting with a schannel error, and `git push` timing out on
   the LFS `locks/verify` endpoint. Both are retried, not worked around.
   Suppressing either one hides a real failure the next time it happens.
+- [docs/TRIAGE.md](docs/TRIAGE.md) gained the label-creation procedure, an
+  explanation of how each form field becomes issue text, and the `0.4.0`
+  backlog as filed.
 
 ### Fixed
 
 - **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
   per target and an action once per skill use, so the two only agree for
-  single-target skills — which is every skill the AI can currently reach, which
-  is why the column looked plausible for two releases. An area attack missing
-  three foes would have reported 300%. `CombatantStats` now counts
-  `attack_rolls` and owns `miss_percent()`, so the binary can no longer invent
-  its own definition of the column, and the report warns loudly if misses ever
-  exceed rolls. No RNG draw changed, so every `0.3.0` win rate reproduces
-  digit for digit.
+  single-target skills. `CombatantStats` now counts `attack_rolls` and owns
+  `miss_percent()`, so the binary can no longer invent its own definition of the
+  column, and the report warns loudly if misses ever exceed rolls. No RNG draw
+  changed, so every `0.3.0` win rate reproduces digit for digit.
+
+  **The old column was already wrong on shipped content, not merely at risk.**
+  This fix was written as a defence against a future area skill, on the belief
+  that the AI could not reach one. Reading `ai::best_offensive` disproved that:
+  it filters on affordability, hostility and non-zero power, and nothing else,
+  so `skill.blade_volley` — power 110, `all_enemies` — is Kakyoin's highest
+  scoring option and is chosen whenever he can pay for it. `0.3.0` therefore
+  reported Kakyoin at 20% miss against a true 11% in `matchup.assassin_ambush`.
+  The arithmetic closes exactly: eight misses over roughly forty actions reads
+  as 20%, and the same eight misses over seventy-two accuracy rolls is 11%. The
+  numerator never moved; only the denominator was wrong. Josuke moved the other
+  way, to a figure *higher* than the old formula gave, because every `restore`
+  was an action that made no roll and quietly inflated the old denominator.
+
+  Three skills are unreachable, not five: `skill.guard_stance` and
+  `skill.rage_focus` deal no damage and are filtered out, and `skill.tempo_halt`
+  is always dominated by a stronger option on every combatant that owns it. The
+  cause recorded in #9 is corrected there.
 
 ## [0.3.0] - 2026-07-29
 
