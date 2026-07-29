@@ -36,6 +36,33 @@
 //! a tempo lock, a stun, an attack or speed buff -- are priced against
 //! [`Situation::baseline`], which is already a power value, so they need no
 //! conversion.
+//!
+//! # The price of SP
+//!
+//! Points on their own are only half of a decision. SP does not regenerate, so
+//! a battle hands each combatant one fixed budget and every skill spends from
+//! it; a skill worth 220 points at 45 SP and one worth 195 at 18 are not
+//! comparable until the SP is priced too.
+//!
+//! Treating "affordable" as "free" is not a rounding error. The harness
+//! measured it: Jotaro spent 45 of his 80 SP on a single tempo lock, which is
+//! 71% of his budget for 13% of his turns, and then could no longer pay the 18
+//! SP for the barrage that is his actual output, so three quarters of his
+//! remaining turns were basic attacks. Dio committed 90% of his SP the same
+//! way. Both were following the score exactly.
+//!
+//! So each candidate is charged for the SP it spends, at the surplus the **best
+//! other** affordable paid skill would return per SP. Excluding the candidate
+//! itself matters: a skill is not its own alternative, and pricing it against
+//! its own rate would leave every paid skill worth roughly the same as a free
+//! attack. Surplus rather than raw points, because the free attack is available
+//! whether the SP is spent or not, so only the amount *above* it was bought.
+//!
+//! Two consequences worth stating, since both are design decisions and not
+//! oversights. Free skills are charged nothing, so the basic attack and
+//! `guard_stance` are unaffected. And the rate is derived entirely from the
+//! skills the actor is holding, so there is no new constant to tune --
+//! `data/skills.json` keeps deciding behaviour.
 
 use crate::data::{AiProfile, Database, Effect, Id, SkillDef, StatusKind, TargetKind};
 use crate::resolve::BASIC_ATTACK_ID;
@@ -352,13 +379,17 @@ fn effect_points(effect: &Effect, at: &Situation, targets: i32) -> i32 {
     }
 }
 
-/// What this skill is worth to the actor right now, or `None` if it is not a
-/// candidate at all.
+/// What this skill is worth to the actor right now, **gross of its SP cost**, or
+/// `None` if it is not a candidate at all.
 ///
 /// Splitting "is it a candidate" from "how good is it" is the point of the
 /// signature: an unaffordable skill and a worthless one are different facts,
 /// and conflating them is what made three skills unreachable without anyone
 /// deciding they should be.
+///
+/// Gross rather than net, because the price of SP depends on what *else* the
+/// actor could buy with it, which a function looking at one skill cannot know.
+/// [`best_action`] applies it.
 fn score_action(def: &SkillDef, at: &Situation) -> Option<i32> {
     if def.sp_cost > at.sp || !is_candidate(def) {
         return None;
@@ -376,19 +407,61 @@ fn score_action(def: &SkillDef, at: &Situation) -> Option<i32> {
     }
 }
 
-/// Highest scoring candidate in the actor's skill list, or `None` when nothing
-/// scores.
+/// Points the actor gets for spending no SP at all.
+///
+/// The floor under every decision: a free skill is available whether the budget
+/// is spent or not, so only the points *above* this were actually bought with
+/// SP.
+fn free_points(candidates: &[&SkillDef], at: &Situation) -> i32 {
+    candidates
+        .iter()
+        .filter(|def| def.sp_cost == 0)
+        .filter_map(|def| score_action(def, at))
+        .max()
+        .unwrap_or(WORTHLESS)
+}
+
+/// Points per SP the actor could get from the best paid skill that is *not*
+/// `exclude`.
+///
+/// The opportunity cost of one SP. Excluding the candidate being priced is not
+/// a detail: a skill is not its own alternative, and charging each skill its own
+/// rate would value every paid skill at roughly a free attack, which is a
+/// different -- and equally wrong -- model.
+///
+/// Floored at zero so that an actor whose only other paid options are bad does
+/// not receive a discount for holding them.
+fn best_other_rate(candidates: &[&SkillDef], at: &Situation, exclude: &str, free: i32) -> i32 {
+    candidates
+        .iter()
+        .filter(|def| def.sp_cost > 0 && def.id != exclude)
+        .filter_map(|def| score_action(def, at).map(|gross| (gross - free) / def.sp_cost))
+        .max()
+        .unwrap_or(WORTHLESS)
+        .max(WORTHLESS)
+}
+
+/// Highest scoring candidate in the actor's skill list, net of what its SP would
+/// have bought elsewhere, or `None` when nothing scores.
 ///
 /// Ties resolve to the *last* candidate in declaration order. That is not a
 /// preference, it is preservation: `Iterator::max_by_key` returns the last
 /// maximum, and this reduction replaced one. Changing it would move win rates
 /// for a reason unrelated to any design decision.
 fn best_action(db: &Database, skills: &[Id], at: &Situation) -> Option<Id> {
+    let candidates: Vec<&SkillDef> = skills.iter().filter_map(|id| db.skill(id)).collect();
+    let free = free_points(&candidates, at);
+
     let mut best: Option<(i32, Id)> = None;
-    for def in skills.iter().filter_map(|id| db.skill(id)) {
-        let Some(points) = score_action(def, at) else {
+    for def in &candidates {
+        let Some(gross) = score_action(def, at) else {
             continue;
         };
+        let points = gross - def.sp_cost * best_other_rate(&candidates, at, &def.id, free);
+        if points <= WORTHLESS {
+            // Not "a bad skill": the same SP buys more elsewhere right now.
+            continue;
+        }
         let wins = match &best {
             Some((leader, _)) => points >= *leader,
             None => true,
@@ -478,6 +551,21 @@ mod tests {
             0,
             vec![status(StatusKind::DefUp, potency, 2, 100)],
         )
+    }
+
+    /// Jotaro's actual repertoire at full SP, which is the case the harness
+    /// measured going wrong.
+    fn jotaro_skills() -> Vec<SkillDef> {
+        vec![
+            skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill("rush", TargetKind::OneEnemy, 18, vec![damage(195)]),
+            skill(
+                "halt",
+                TargetKind::AllEnemies,
+                45,
+                vec![Effect::TempoLock { ticks: 6 }, damage(60)],
+            ),
+        ]
     }
 
     #[test]
@@ -622,6 +710,74 @@ mod tests {
         // 75 HP over three turns is 62 power points at atk 120, of which 60%
         // is expected to land.
         assert_eq!(score_action(&flare, &healthy(16)), Some(187));
+    }
+
+    /// The exchange rate between SP and points, spelled out on the repertoire
+    /// the harness measured. The barrage buys 95 points above a free strike for
+    /// 18 SP; the tempo lock buys 120 for 45.
+    #[test]
+    fn sp_is_priced_at_the_best_other_use_of_it() {
+        let skills = jotaro_skills();
+        let candidates: Vec<&SkillDef> = skills.iter().collect();
+        let at = healthy(80);
+
+        assert_eq!(free_points(&candidates, &at), 100);
+        // Pricing the lock, the alternative is the barrage: 95 / 18 = 5.
+        assert_eq!(best_other_rate(&candidates, &at, "halt", 100), 5);
+        // Pricing the barrage, the alternative is the lock: 120 / 45 = 2.
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 100), 2);
+        // A skill with no paid alternative is charged nothing.
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 195), 0);
+    }
+
+    /// The measured defect, as a unit test. 45 SP on a tempo lock is two and a
+    /// half barrages never thrown, and the harness recorded exactly that: one
+    /// lock per battle, then basic attacks for the rest of it.
+    ///
+    /// The second half of the test is the part that matters -- the lock is not
+    /// disliked, it is *outbid*. Take the barrage away and the same arithmetic
+    /// chooses it.
+    #[test]
+    fn an_expensive_denial_loses_to_the_barrage_it_would_forgo() {
+        let skills = jotaro_skills();
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(best_action(&db, &list, &healthy(80)).as_deref(), Some("rush"));
+
+        let without_barrage: Vec<SkillDef> = jotaro_skills()
+            .into_iter()
+            .filter(|def| def.id != "rush")
+            .collect();
+        let list = ids(&without_barrage);
+        let db = database(without_barrage);
+        assert_eq!(best_action(&db, &list, &healthy(80)).as_deref(), Some("halt"));
+    }
+
+    /// Efficiency, not size. A cheap converter outbids a bigger skill whose SP
+    /// would buy more elsewhere, and the bigger skill comes back the moment the
+    /// cheap one is gone.
+    #[test]
+    fn a_skill_is_declined_when_the_same_sp_buys_more_elsewhere() {
+        let cheap = skill("cheap", TargetKind::OneEnemy, 5, vec![damage(150)]);
+        let heavy = skill("heavy", TargetKind::OneEnemy, 40, vec![damage(120)]);
+        let strike = skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]);
+
+        let skills = vec![strike.clone(), heavy.clone(), cheap];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(
+            best_action(&db, &list, &healthy(80)).as_deref(),
+            Some("cheap")
+        );
+
+        let skills = vec![strike, heavy];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(
+            best_action(&db, &list, &healthy(80)).as_deref(),
+            Some("heavy"),
+            "with no cheaper converter to forgo, the heavy skill is worth its SP"
+        );
     }
 
     #[test]
