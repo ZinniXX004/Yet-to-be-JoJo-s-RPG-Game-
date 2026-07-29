@@ -74,6 +74,18 @@
     ]
   },
   {
+    "id": "skill.emerald_splash",
+    "name": "Emerald Splash",
+    "description": "Scatters a burst of psychic emeralds across the enemy line.",
+    "sp_cost": 22,
+    "target": "all_enemies",
+    "accuracy": 90,
+    "tempo_cost": 1300,
+    "effects": [
+      { "kind": "damage", "power": 105, "element": "psychic", "variance": 12 }
+    ]
+  },
+  {
     "id": "skill.blade_volley",
     "name": "Blade Volley",
     "description": "Scatters throwing blades across the enemy line.",
