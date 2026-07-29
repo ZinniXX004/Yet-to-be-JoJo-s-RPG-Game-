@@ -7,6 +7,11 @@
 //! acceptable. That split is what keeps `rpg-core` free of I/O while still
 //! shipping a usable tool.
 //!
+//! It also means this binary must not *derive* statistics. Every figure in the
+//! table comes from a method on the report, because a column computed here is a
+//! second definition of a number that nothing tests -- which is exactly how
+//! `miss%` was wrong for two releases.
+//!
 //! ```text
 //! cargo run -p rpg-core --bin balance
 //! cargo run -p rpg-core --bin balance -- --json > ../balance-report.json
@@ -270,24 +275,27 @@ fn print_matchup(matchup: &MatchupReport) {
         matchup.median_turns, matchup.shortest_turns, matchup.longest_turns
     );
 
+    // `rolls` is printed next to `miss%` on purpose: the percentage alone cannot
+    // distinguish an accurate attacker from one that never attacked, and both
+    // read as 0%.
     println!(
-        "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>7} {:>7}",
-        "combatant", "team", "dealt/b", "taken/b", "sp/b", "miss%", "alive%"
+        "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>7} {:>7} {:>7}",
+        "combatant", "team", "dealt/b", "taken/b", "sp/b", "rolls", "miss%", "alive%"
     );
     for stats in &matchup.combatants {
         let team = match stats.team {
             rpg_core::Team::Party => "party",
             rpg_core::Team::Foe => "foe",
         };
-        let attempts = stats.actions.max(1);
         println!(
-            "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>6}% {:>6}%",
+            "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>7} {:>6}% {:>6}%",
             truncate(&stats.name, 20),
             team,
             stats.damage_dealt_per_battle(),
             stats.damage_received_per_battle(),
             stats.sp_spent / i64::from(stats.battles.max(1)),
-            rpg_core::report::percent(stats.misses, attempts),
+            stats.attack_rolls,
+            stats.miss_percent(),
             stats.survival_percent()
         );
     }
@@ -299,6 +307,16 @@ fn print_matchup(matchup: &MatchupReport) {
         let names: Vec<&str> = inert.iter().map(|stats| stats.name.as_str()).collect();
         println!(
             "  warning: dealt no damage in any battle: {}",
+            names.join(", ")
+        );
+    }
+    // Arithmetically impossible, so it can only mean the accounting in
+    // `sim::accumulate` drifted again. Louder than a wrong percentage.
+    let miscounted = matchup.miscounted_combatants();
+    if !miscounted.is_empty() {
+        let names: Vec<&str> = miscounted.iter().map(|stats| stats.name.as_str()).collect();
+        println!(
+            "  warning: more misses than accuracy rolls, so miss% is not trustworthy: {}",
             names.join(", ")
         );
     }
