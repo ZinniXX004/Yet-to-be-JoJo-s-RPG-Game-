@@ -6,6 +6,13 @@
 //! heavy skill genuinely delays the next turn. That single rule is what makes
 //! speed a resource and makes tempo denial a real strategy.
 //!
+//! Resources recover with time as well: each turn returns
+//! [`SP_REGEN_PER_TURN`] to the combatant that took it, capped at that
+//! combatant's own pool. Without a trickle, SP is a one-shot budget, the
+//! correct play is to empty it in the opening exchange, and every turn after
+//! that is a basic attack -- which is how `matchup.dio_boss` came to be decided
+//! by whose hit points were larger rather than by whose skills were better.
+//!
 //! The loop is driven by the caller. [`Battle::advance`] runs until a decision
 //! is required and returns; it never blocks and never calls back into the
 //! presentation layer.
@@ -17,7 +24,7 @@ use crate::command::Command;
 use crate::data::{CombatantDef, DataError, Database, Id, SkillDef, StandDef, StatusKind, Team};
 use crate::event::Event;
 use crate::resolve;
-use crate::state::{BattleState, TEMPO_THRESHOLD};
+use crate::state::{BattleState, SP_REGEN_PER_TURN, TEMPO_THRESHOLD};
 
 /// Hard stop on scheduler ticks. Without it, a content bug (every combatant
 /// tempo-locked forever, zero-damage stalemate) would hang the game instead of
@@ -217,13 +224,19 @@ impl Battle {
         }
     }
 
-    /// Charges tempo, then ticks the actor's own statuses. Status duration is
-    /// counted per *turn of its bearer*, not per global tick, so a fast
-    /// character burns through its buffs faster. That is intentional.
+    /// Charges tempo, returns a turn's worth of SP, then ticks the actor's own
+    /// statuses. Status duration and SP recovery are both counted per *turn of
+    /// the combatant*, not per global tick, so a fast character burns through
+    /// its buffs faster and recovers its reserve faster. That is intentional:
+    /// the engine has one notion of a turn, not two.
+    ///
+    /// A turn burned to a stun recovers as well. The fighter did nothing, and
+    /// standing still is exactly when a reserve comes back.
     fn end_turn(&mut self, actor: usize, cost: u32) {
         {
             let combatant = &mut self.state.combatants[actor];
             combatant.tempo = combatant.tempo.saturating_sub(cost.max(1));
+            combatant.recover_sp(SP_REGEN_PER_TURN);
         }
         self.tick_statuses(actor);
         self.state.turn += 1;
@@ -399,6 +412,51 @@ mod tests {
             battle.log().last(),
             Some(Event::BattleEnded { .. })
         ));
+    }
+
+    /// Recovery is per turn taken, so the combatant that acted is the only one
+    /// whose reserve moves. A tick-based trickle would quietly pay the whole
+    /// field, including whoever is standing tempo-locked.
+    #[test]
+    fn a_turn_returns_sp_to_the_actor_who_took_it_and_to_nobody_else() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        battle.state.combatants[0].sp = 0;
+        battle.state.combatants[1].sp = 0;
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+
+        assert_eq!(
+            battle.state.combatants[actor].sp, SP_REGEN_PER_TURN,
+            "the actor should recover exactly one turn's worth of SP"
+        );
+        assert_eq!(
+            battle.state.combatants[1].sp, 0,
+            "a combatant that never took a turn recovers nothing"
+        );
+    }
+
+    #[test]
+    fn recovery_never_pushes_a_pool_above_where_it_started() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        let full = battle.state.combatants[actor].max_sp;
+        battle.state.combatants[actor].sp = full;
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+
+        assert_eq!(
+            battle.state.combatants[actor].sp, full,
+            "a full pool must stay at its maximum, not drift above it"
+        );
     }
 
     /// Regression test for a defect found in the first end-to-end run, where a
