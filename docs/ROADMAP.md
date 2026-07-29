@@ -79,6 +79,10 @@ its encounter declares in `data/matchups.json`.
 | `matchup.assassin_ambush` | 67% | 45..90 | 19 turns |
 | `matchup.dio_boss` | 50% | 35..75 | 50 turns |
 
+These are the figures as released. They no longer reproduce: M3 step 1 changed
+the rules, so the same seeds now produce different battles. The re-measured
+series is below.
+
 The M1 suspicion was half right and half backwards: the numbers were indeed
 one-sided, but in the party's favour. Unattended, the party won the boss fight
 that the first playthrough lost -- 11 times out of 12.
@@ -98,6 +102,12 @@ SP **is** binding: the Flame Assassin's per-battle damage is effectively constan
 across fights of 13, 19 and 18 turns because 70 SP buys four expensive casts and
 nothing more. The `176 SP` figure from M1 was a fight that ended early, not a
 pool that could not be drained.
+
+That conclusion was right and incomplete, and the incompleteness cost most of
+M3's step 1. SP was binding because it was **never returned**: a pool was a
+one-off budget for a whole battle, so in a 52-turn boss fight every combatant
+spent its interesting options in the first few turns and threw basic attacks for
+the rest. See M3 step 1 below.
 
 ### Planned changes, by file -- and what was actually delivered
 
@@ -146,12 +156,26 @@ the harness measures and CI enforces.
 
 One addition to the original criterion, and it is not negotiable: **no skill may
 be unreachable.** `0.3.0` shipped eleven skills of which the AI could choose
-eight. The three it could never choose are named, because a count invites
-re-counting and a name can be checked: `skill.guard_stance` and `skill.rage_focus`
-deal no damage at all, and `skill.tempo_halt` deals 60 to every enemy but is
-dominated by a 140-power single-target slam in the same list. Adding content on
-top of an AI that cannot use part of it would multiply the blind spot instead of
-closing it.
+eight. Naming them rather than counting them turned out to matter, because the
+count moved twice while the work was done:
+
+- `skill.tempo_halt` was called unreachable because a 140-power slam dominated
+  it. That reading was wrong in a way only measurement could show: it is now
+  Dio's opening move, 44 uses per batch, and it was unreachable because the old
+  chooser ranked raw damage, not because its numbers were weak.
+- `skill.blade_volley` was never unreachable at all under the old rules -- it was
+  *dominant*, which is why the `miss%` defect in #8 was already live on shipped
+  content. It went briefly unused at 40 SP and is reachable at 36.
+- `skill.guard_stance` (potency 60) and `skill.rage_focus` (potency 40 for 10 SP)
+  are still declined, now for a reason with arithmetic behind it: both are worth
+  less than hitting something once, and two unit tests pin that conclusion at
+  the numbers the game currently ships. These are content problems, fixed under
+  step 5, not AI problems.
+
+Current content is **twelve skills, ten reachable**, after
+`skill.emerald_splash` was added so Hierophant Green stops borrowing Dio's
+thrown knives. Adding content on top of an AI that cannot use part of it would
+multiply the blind spot instead of closing it.
 
 ### Order of work, and why this order
 
@@ -164,34 +188,77 @@ number.
 
 1. **Make every skill reachable.** `ai::best_offensive` ranked candidates by total
    damage, so a skill with no damage effect could not be a candidate at all, and
-   an area attack was worth the same as a single-target one. Replace it with a
-   scored choice that can value a buff, an area attack against two or more living
-   targets, a tempo lock, and a guard at low HP. Expect the three existing win
-   rates to move; re-measure and argue any band change in
-   [BALANCE-LOG.md](BALANCE-LOG.md) rather than widening bands to fit.
+   an area attack was worth the same as a single-target one. Replaced with a
+   scored choice that values buffs, area attacks, tempo locks and guards in one
+   unit -- the damage a plain attack from that actor would deal -- and that pays
+   for SP at what the same SP would have bought from the actor's own remaining
+   options. **Delivered; see the result below.**
 2. **Apply elemental resistances in damage resolution.** The schema and the
    events already carry an element; `resolve.rs` ignores it. This is the last
    rules change of the milestone, so it lands immediately after step 1 and the
-   two are re-measured together.
+   two are re-measured together. `skill.emerald_splash` is psychic, so this step
+   now has one more skill riding on it.
 3. **Attribute healing.** `Event::Healed` has a target and no actor, so healing
    done cannot be reported and support characters are invisible in the report.
    Adding the actor is a one-field change that makes a whole class of content
    measurable, and it must precede any support-focused character.
 4. **Widen the seed list, in a commit that changes nothing else.** Twelve seeds
    resolve to 8.3 percentage points, which is coarser than several of the
-   decisions taken in `0.3.0`. Twenty-four seeds halve that. Do this alone, so
-   the only thing that can explain a moved number is the resolution.
+   decisions taken in `0.3.0` and coarser than the margin by which the boss
+   fight now passes. Twenty-four seeds halve that. Do this alone, so the only
+   thing that can explain a moved number is the resolution.
 5. **Then the content**, one entity per commit, each with its declared band and
    a log entry: a third playable character, three more enemies to reach six, and
-   a second boss fight.
+   a second boss fight. `skill.guard_stance` and `skill.rage_focus` are repriced
+   here, because that is where the unreachable-skill criterion is actually met.
 6. **Then the presentation defects** carried from M1: floating damage numbers,
    status icons with durations, and a tempo readout that stays legible when one
    combatant is left. These cannot be verified by CI -- no job in this repository
    runs Godot -- so each is closed by a recorded playthrough, exactly as M1 was.
 
+### Step 1 as measured
+
+Six runs of the harness separate the released rules from the current ones. The
+intermediate figures are kept because the path is the evidence: a single before
+and after would suggest the answer was obvious.
+
+| Rules at | `thug_solo` | `assassin_ambush` | `dio_boss` |
+| --- | --- | --- | --- |
+| `0.3.0`, as released | 100% | 67% | 50% |
+| Scored choice, first draft | 100% | 33% | 8% |
+| Units fixed (HP vs power) | 100% | 33% | 8% |
+| SP priced at its best other use | 100% | 58% | 0% |
+| `emerald_splash`, volley at 40 SP | 100% | 50% | 0% |
+| **SP recovery, volley at 36 SP** | **100%** | **67%** | **42%** |
+
+Four things this table says that no plan predicted:
+
+1. **The choice function was not the binding constraint; the SP economy was.**
+   A better chooser made the boss fight *worse* (50% to 8%), because scoring
+   correctly means spending correctly, and there was nothing to spend after the
+   first few turns. Dio's pool of 200 bought four tempo halts and then nothing
+   for forty turns.
+2. **Nothing in the engine ever returned SP.** `state::SP_REGEN_PER_TURN = 4`,
+   applied on a combatant's own turn and capped at its starting pool, is the fix
+   and it is the largest unplanned change of the milestone. It is charged per
+   turn rather than per tick so the engine keeps one notion of "a turn", and it
+   is flat rather than proportional because 4 is 5% of Jotaro's pool and 2% of
+   Dio's -- deliberately anti-boss.
+3. **`thug_solo` never moved, through all six runs.** Not because nothing
+   changed, but because a three-turn fight cannot exhaust a pool, so no SP rule
+   can reach it. A figure that does not move is worth as much as one that does.
+4. **The boss now passes at 42% against a floor of 35**, a margin of 7 points
+   where one battle is worth 8.3. It is inside its band and it is not decisively
+   inside it, which moves step 4 up in importance.
+
+All figures published before the last row of that table are void, not merely
+old: three of the changes touch `ai.rs`, `battle.rs` or `state.rs`.
+
 ### Checklist
 
 - [ ] AI can choose buffs, guards and area attacks; zero unreachable skills
+      *(scored choice delivered; two skills still declined on their own numbers,
+      which step 5 fixes)*
 - [ ] Elemental resistances applied in `resolve.rs` and covered by a unit test
 - [ ] `Event::Healed` carries an actor; `CombatantStats` reports healing done
 - [ ] Seed list widened to 24 in an isolated commit, bands re-measured
@@ -206,20 +273,21 @@ number.
 ### Planned changes, by file
 
 Written before the work, so it can be scored honestly afterwards the way M2's
-was.
+was. The `Delivered` column is filled in as each lands.
 
-| Path | Change |
-| --- | --- |
-| `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, guards, tempo locks and area attacks; keep every draw on the battle RNG |
-| `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs |
-| `src/core/src/event.rs` | `Event::Healed` gains an `actor` field |
-| `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target |
-| `data/matchups.json` | 24 seeds; two more encounters, including the second boss |
-| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need |
-| `src/data-pipeline/validate_data.py` | Warn on a skill no combatant can use, mirroring the existing orphan-combatant warning |
-| `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix |
-| `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces |
-| `docs/BALANCE-LOG.md` | One entry per change, prediction written before the run |
+| Path | Change | Delivered |
+| --- | --- | --- |
+| `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, guards, tempo locks and area attacks; keep every draw on the battle RNG | Yes, plus an SP price the plan did not contain |
+| `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs | Step 2 |
+| `src/core/src/event.rs` | `Event::Healed` gains an `actor` field | Step 3 |
+| `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target | `miss%` yes (#8), plus per-skill action accounting the plan did not contain; healing done in step 3 |
+| `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Steps 4 and 5 |
+| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Partly: `skill.emerald_splash` added and `skill.blade_volley` repriced, both forced by step 1 |
+| `src/core/src/state.rs`, `src/core/src/battle.rs` | *Not planned.* SP recovery per turn, without which step 1 makes the boss fight unwinnable | Yes |
+| `src/data-pipeline/validate_data.py` | Warn on a skill no combatant can use, mirroring the existing orphan-combatant warning | Not yet; the cwd-relative default path was fixed instead |
+| `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix | Step 6 |
+| `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces | Pending; the curve is now invalidated by four separate changes |
+| `docs/BALANCE-LOG.md` | One entry per change, prediction written before the run | Yes, with a scorecard per run |
 
 ### What this is expected to break
 
@@ -229,12 +297,12 @@ rather than rediscovered.
 
 | Risk | Symptom you will see | Response |
 | --- | --- | --- |
-| **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
-| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | Expected, not a regression. Re-measure, then argue each band in the log. Widening a band to make a build green is how the harness becomes decoration |
+| **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | **Fired.** Four changes invalidate it, not one. Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
+| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in a row**, on an encounter whose content was untouched. Not a regression: the ambush fell to 33% and the boss to 0%, and both were closed by fixing causes rather than by moving the band |
 | **`miss%` was already wrong**, not about to become wrong | Miss rates inflated on anyone holding an area skill | **Resolved before step 1, in #8.** This row originally predicted the defect would appear "once area skills are reachable". It had already appeared: `skill.blade_volley` is Kakyoin's highest-power option and was chosen throughout `0.3.0`, so his released 20% was two accuracy rolls counted as one action. He measures 11% once rolls are counted per roll. The released `0.3.0` report is wrong in that one column and stays on the record |
-| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Treat as a content defect first: an encounter that cannot end is unbalanced, not merely slow. Raise the limit only with evidence |
-| **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | The new validator warning catches it. An unused skill is unmeasured content, which is the exact problem M3 exists to remove |
-| **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | Read the arithmetic before touching the scorer. `skill.rage_focus` returns 0.8 of a hit for the price of one, so declining it is correct behaviour on wrong numbers. The fix is in `data/skills.json`, under step 5, with a log entry |
+| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and closer than it was: the boss fight runs 51 turns median against a 500-turn limit, and SP recovery lengthens fights by construction. Treat as a content defect first: an encounter that cannot end is unbalanced, not merely slow |
+| **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | **Fired, by my own hand.** `skill.blade_volley` at 40 SP went unused across twelve boss battles -- a dominance defect traded for dead content. The validator warning that would have caught it is still unwritten; per-skill action accounting in the harness caught it instead |
+| **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | **Fired, as predicted, and the prediction's arithmetic was right.** `skill.rage_focus` returns 0.8 of a hit for the price of one, so declining it is correct behaviour on wrong numbers. Two tests now pin that conclusion so a future scorer change cannot silently reverse it. The fix is in `data/skills.json`, under step 5, with a log entry |
 | **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
 | **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | Keep every seed well below 2^53, or pass it across the boundary as a string |
 
@@ -245,11 +313,16 @@ Issue handling, labels and the reproduction a balance report must contain are in
 
 - **The ambush is decided by one character.** Jotaro deals 76% of the party's
   damage and his survival rate tracks the win rate exactly across all five swept
-  points. The band is closed; the roster imbalance behind it is not.
+  points. The band is closed; the roster imbalance behind it is not. Step 1 made
+  this sharper rather than better: Jotaro deals 976 of the party's 1271 damage
+  per battle there, and Kakyoin survives 8% of the time.
 - **The Iron Brawler hits at an effective 157 against Dio's 160.** A random
   encounter should not punch within 2% of the final boss. The third playable
   character and the second boss both change the frame this sits in, so the
   decision waits for them rather than being taken twice.
+- **Kakyoin is the weakest link in both encounters he appears in.** 209 damage
+  per battle in the boss fight against Jotaro's 1413, and 8% survival in both.
+  Step 5 has to answer this with numbers, not with another skill.
 
 ### Explicitly not in `0.4.0`
 
