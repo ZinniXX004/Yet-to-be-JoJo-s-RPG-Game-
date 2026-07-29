@@ -46,7 +46,7 @@
 
 use std::process::ExitCode;
 
-use rpg_core::report::{BatchReport, MatchupReport};
+use rpg_core::report::{BatchReport, CombatantStats, MatchupReport};
 use rpg_core::{parse_matchups, run_batch, Database, Matchup};
 
 // Compiled in, exactly like the determinism test, so that an argument-free run
@@ -242,7 +242,9 @@ fn print_report(report: &BatchReport) {
     // coincidence, and without this line it reads as a relation.
     println!("columns: dealt/b, taken/b and sp/b are per-battle averages, while");
     println!("rolls counts every accuracy check in the whole batch and miss% the");
-    println!("share of those rolls that failed");
+    println!("share of those rolls that failed; the actions block under each");
+    println!("table counts whole-batch skill uses, with the share of that");
+    println!("combatant's own turns in brackets");
 
     for matchup in &report.matchups {
         print_matchup(matchup);
@@ -307,6 +309,20 @@ fn print_matchup(matchup: &MatchupReport) {
         );
     }
 
+    // What each combatant actually did. Printed as its own block rather than as
+    // a column because the repertoire is a list of variable length, and printed
+    // at all because every behavioural claim made about this AI before this
+    // block existed was inferred from `rolls` and `sp/b` -- and the inferences
+    // were wrong.
+    println!("  actions by skill");
+    for stats in &matchup.combatants {
+        println!(
+            "  {:<20} {}",
+            truncate(&stats.name, 20),
+            skill_breakdown(stats)
+        );
+    }
+
     // Called out explicitly because it is invisible in a win rate and is almost
     // always a targeting defect rather than a design choice.
     let inert = matchup.inert_combatants();
@@ -327,12 +343,60 @@ fn print_matchup(matchup: &MatchupReport) {
             names.join(", ")
         );
     }
+    // Same class of defect, one field over: a breakdown that does not sum to
+    // the action count is describing a different set of turns than the table.
+    let unattributed = matchup.unattributed_combatants();
+    if !unattributed.is_empty() {
+        let names: Vec<String> = unattributed
+            .iter()
+            .map(|stats| {
+                format!(
+                    "{} ({} of {} actions)",
+                    stats.name,
+                    stats.counted_skill_uses(),
+                    stats.actions
+                )
+            })
+            .collect();
+        println!(
+            "  warning: the skill breakdown does not account for every action: {}",
+            names.join(", ")
+        );
+    }
     if matchup.stalemates > 0 {
         println!(
             "  warning: {} battle(s) hit the turn limit without resolving",
             matchup.stalemates
         );
     }
+}
+
+/// One combatant's repertoire as a single line, most used skill first.
+fn skill_breakdown(stats: &CombatantStats) -> String {
+    let ranked = stats.skill_uses_ranked();
+    if ranked.is_empty() {
+        // Distinct from "used nothing but the basic attack": this combatant
+        // never got a turn, or the accounting lost it.
+        return "-".to_string();
+    }
+    ranked
+        .iter()
+        .map(|entry| {
+            format!(
+                "{} {} ({}%)",
+                short_skill(&entry.skill),
+                entry.uses,
+                stats.skill_use_percent(&entry.skill)
+            )
+        })
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+/// Drops the `skill.` namespace for width. Presentation only -- the JSON report
+/// keeps the full id, because that is the one a content file can be grepped for.
+fn short_skill(id: &str) -> &str {
+    id.strip_prefix("skill.").unwrap_or(id)
 }
 
 fn verdict(matchup: &MatchupReport) -> &'static str {
@@ -359,6 +423,7 @@ fn truncate(value: &str, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rpg_core::Team;
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| value.to_string()).collect()
@@ -409,5 +474,36 @@ mod tests {
         assert!(parse_args_from(args(&["--sweep"]))
             .unwrap_err()
             .contains("--sweep"));
+    }
+
+    /// The breakdown is read to decide what to change next, so its order and its
+    /// shares are part of the tool, not decoration. An idle combatant must be
+    /// distinguishable from one that only ever punched.
+    #[test]
+    fn a_breakdown_line_ranks_by_use_and_marks_an_idle_combatant() {
+        let mut jotaro = CombatantStats::new("pc.jotaro", "Jotaro", Team::Party);
+        for skill in [
+            "skill.tempo_halt",
+            "skill.rush_barrage",
+            "skill.tempo_halt",
+            "skill.strike",
+        ] {
+            jotaro.actions += 1;
+            jotaro.record_skill_use(skill);
+        }
+
+        assert_eq!(
+            skill_breakdown(&jotaro),
+            "tempo_halt 2 (50%), rush_barrage 1 (25%), strike 1 (25%)"
+        );
+        assert_eq!(short_skill("skill.strike"), "strike");
+        assert_eq!(
+            short_skill("strike"),
+            "strike",
+            "an id without the namespace must survive unchanged"
+        );
+
+        let idle = CombatantStats::new("npc.spectator", "Spectator", Team::Foe);
+        assert_eq!(skill_breakdown(&idle), "-");
     }
 }
