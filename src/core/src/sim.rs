@@ -197,6 +197,16 @@ pub fn run_batch(db: &Database, matchups: &[Matchup]) -> Result<BatchReport, Dat
 /// Status damage is counted into `damage_received` *and* kept separately. A
 /// character dying to bleed and a character dying to a boss are the same number
 /// in an aggregate and completely different balance problems.
+///
+/// Accuracy rolls are counted per *target*, not per action: an attack against
+/// three foes performs three checks, each producing either a [`Event::Damaged`]
+/// or a [`Event::Missed`]. Counting both is what makes `miss_percent` a share of
+/// something rather than a ratio of two different units.
+///
+/// [`Event::StatusDamaged`] is deliberately excluded from that count. A status
+/// tick rolls nothing and has no attacker, which is exactly why it is a separate
+/// variant; folding it in would deflate every miss rate by the amount of bleed
+/// in the fight.
 fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
     for event in events {
         match event {
@@ -208,6 +218,7 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
             } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.damage_dealt += i64::from(*amount);
+                    entry.attack_rolls += 1;
                 }
                 if let Some(entry) = stats.get_mut(*target) {
                     entry.damage_received += i64::from(*amount);
@@ -232,6 +243,7 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
             Event::Missed { actor, .. } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.misses += 1;
+                    entry.attack_rolls += 1;
                 }
             }
             Event::Downed { target } => {
@@ -401,6 +413,41 @@ mod tests {
             "the hero cannot survive this matchup, on any seed"
         );
         assert_eq!(hero.survived, 0, "no seed may leave the hero standing");
+    }
+
+    /// Every skill in this fixture hits one target with perfect accuracy, so
+    /// rolls, actions and landed hits must all agree. That equality is the
+    /// reason the old `misses / actions` formula went unnoticed for two
+    /// releases, and pinning it here means the next area skill breaks a test
+    /// instead of a report.
+    #[test]
+    fn an_accuracy_roll_is_counted_for_every_target_of_every_attack() {
+        let report = run_matchup(&db(), &matchup("m.titan", "titan", wide_band()))
+            .expect("matchup must run");
+
+        for stats in &report.combatants {
+            assert!(
+                stats.attack_rolls > 0,
+                "{} attacked in this matchup and must have rolled",
+                stats.name
+            );
+            assert_eq!(
+                stats.attack_rolls, stats.actions,
+                "{} only used single-target skills, so rolls must equal actions",
+                stats.name
+            );
+            assert_eq!(
+                stats.misses, 0,
+                "{} has 100 accuracy and cannot miss",
+                stats.name
+            );
+            assert_eq!(stats.miss_percent(), 0);
+        }
+
+        assert!(
+            report.miscounted_combatants().is_empty(),
+            "no combatant may report more misses than rolls"
+        );
     }
 
     #[test]

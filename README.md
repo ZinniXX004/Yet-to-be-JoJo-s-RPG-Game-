@@ -43,11 +43,15 @@ with Godot 4 doing nothing but showing you what happened.**
 > way — unattended, the party won that same fight 92% of the time, and two of
 > three encounters sat outside their intended range.
 >
-> `0.4.0` closes the hole those measurements were taken through: the AI can
-> choose only six of eleven skills, so every win rate published so far measures
-> a subset of the game. Rules first, then a wider seed list, then new content —
-> in that order, because changing the rules invalidates every number measured
-> before it. Plan in [ROADMAP.md](docs/ROADMAP.md), reporting rules in
+> `0.4.0` closes the hole those measurements were taken through: the AI scores
+> a skill by damage alone, so three of eleven are unreachable —
+> `skill.guard_stance` and `skill.rage_focus` deal none and are filtered out,
+> and `skill.tempo_halt` is always beaten by a stronger option on every
+> combatant that owns it. Nothing in the game has ever guarded, buffed or
+> denied tempo, so every win rate published so far measures a subset of the
+> game. Rules first, then a wider seed list, then new content — in that order,
+> because changing the rules invalidates every number measured before it. Plan
+> in [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in
 > [BALANCE-LOG.md](docs/BALANCE-LOG.md).
 
