@@ -12,9 +12,9 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-M3 planning and the process work that has to exist before content lands. No
-gameplay change yet: nothing in this section touches `src/` or `data/`, so every
-win rate published in `0.3.0` still holds.
+M3 in progress. Process work plus the first of four rules fixes. `data/` is
+untouched, so every win rate published in `0.3.0` still holds — the accounting
+fix below changes a reported column, not a battle.
 
 ### Added
 
@@ -51,6 +51,18 @@ win rate published in `0.3.0` still holds.
   advisory-db fetch aborting with a schannel error, and `git push` timing out on
   the LFS `locks/verify` endpoint. Both are retried, not worked around.
   Suppressing either one hides a real failure the next time it happens.
+
+### Fixed
+
+- **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
+  per target and an action once per skill use, so the two only agree for
+  single-target skills — which is every skill the AI can currently reach, which
+  is why the column looked plausible for two releases. An area attack missing
+  three foes would have reported 300%. `CombatantStats` now counts
+  `attack_rolls` and owns `miss_percent()`, so the binary can no longer invent
+  its own definition of the column, and the report warns loudly if misses ever
+  exceed rolls. No RNG draw changed, so every `0.3.0` win rate reproduces
+  digit for digit.
 
 ## [0.3.0] - 2026-07-29
 
