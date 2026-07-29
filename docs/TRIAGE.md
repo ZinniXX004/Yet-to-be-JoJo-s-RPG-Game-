@@ -25,28 +25,32 @@ the other is the fastest way to a wrong fix.
 
 ## 2. Labels
 
-Create these once in *Issues → Labels*; the issue forms apply them
-automatically.
+Create these once in *Issues → Labels*, or run
+[`tools/setup_labels.ps1`](../tools/setup_labels.ps1) (§7); the issue forms
+apply them automatically.
 
-| Label | Use |
-| --- | --- |
-| `type: bug` | Behaviour contradicts documented intent |
-| `type: balance` | Measured win rate, or an encounter that is not the fight it claims to be |
-| `type: task` | Planned milestone work |
-| `type: docs` | Documentation only |
-| `area: core` | `rpg-core`: rules, scheduler, resolution, AI, RNG |
-| `area: bridge` | `rpg-bridge`: the FFI boundary |
-| `area: godot` | `src/game/`: scenes, GDScript, presentation |
-| `area: content` | `data/*.json` |
-| `area: ci` | Workflows, gates, tooling |
-| `sev: blocker` | `main` is broken, or a release cannot be cut |
-| `sev: major` | A feature is unusable; no acceptable workaround |
-| `sev: minor` | Wrong but survivable |
-| `needs: repro` | Cannot be acted on until a seed is supplied |
-| `wontfix` | Closed deliberately, with the reason written in the issue |
+| Label | Colour | Use |
+| --- | --- | --- |
+| `type: bug` | `d73a4a` | Behaviour contradicts documented intent |
+| `type: balance` | `0e8a16` | Measured win rate, or an encounter that is not the fight it claims to be |
+| `type: task` | `1d76db` | Planned milestone work |
+| `type: docs` | `0075ca` | Documentation only |
+| `area: core` | `5319e7` | `rpg-core`: rules, scheduler, resolution, AI, RNG |
+| `area: bridge` | `8250df` | `rpg-bridge`: the FFI boundary |
+| `area: godot` | `478cbf` | `src/game/`: scenes, GDScript, presentation |
+| `area: content` | `006b75` | `data/*.json` |
+| `area: ci` | `444444` | Workflows, gates, tooling |
+| `sev: blocker` | `b60205` | `main` is broken, or a release cannot be cut |
+| `sev: major` | `d93f0b` | A feature is unusable; no acceptable workaround |
+| `sev: minor` | `fbca04` | Wrong but survivable |
+| `needs: repro` | `e4e669` | Cannot be acted on until a seed is supplied |
+| `wontfix` | `ffffff` | Closed deliberately, with the reason written in the issue |
 
 Severity is about consequence, not annoyance. A cosmetic label that says
 `Defeat` on a win is `sev: major`, because the player cannot tell what happened.
+
+Every issue should end triage with **one `type:`, one `area:`, and — for a
+defect — one `sev:`**. Anything else is a queue that cannot be filtered.
 
 ---
 
@@ -127,3 +131,130 @@ not a finding.
 - **A question about how something works** belongs in a discussion or a
   documentation issue. If the answer is not in `docs/`, that absence is the
   defect.
+
+---
+
+## 7. Creating the labels
+
+Fourteen labels typed by hand is fourteen chances to mistype one, and a
+mistyped label fails silently: the form still opens the issue, the label is
+simply absent, and nothing anywhere reports it. Prefer the script:
+
+```powershell
+cd C:\Users\Jeremia\Yet-to-be-JoJo-s-RPG-Game-
+.\tools\setup_labels.ps1 -WhatIf   # prints what it would do, changes nothing
+.\tools\setup_labels.ps1           # applies the table in section 2
+gh label list --repo ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-
+```
+
+It needs the GitHub CLI, once:
+
+```powershell
+winget install --id GitHub.cli
+# restart the shell so gh lands on PATH, then:
+gh auth login
+```
+
+The script is idempotent -- it uses `gh label create --force`, so running it
+again repairs a label whose colour or description was edited by hand, and adds
+nothing twice. It never deletes anything, so GitHub's seven default labels
+(`bug`, `enhancement`, `question`, and so on) survive. **Delete those by hand.**
+Leaving them means two labels mean "bug", which is how a triage query starts
+missing issues.
+
+If you would rather not install the CLI, *Issues → Labels → New label* takes
+the three columns of the section 2 table directly. It is the same result, more
+slowly.
+
+---
+
+## 8. How the issue forms actually behave
+
+Four things about `.github/ISSUE_TEMPLATE/` are not obvious, and three of them
+look like bugs the first time you meet them.
+
+**They only take effect from the default branch.** The forms live on
+`development` right now, so *New issue* will still show a blank box until
+`0.4.0` is merged into `main`. Nothing is broken in the meantime; the feature
+simply is not live yet. The same applies to `pull_request_template.md`.
+
+**A form is a questionnaire, not a wrapper.** Each `id` in the YAML becomes a
+`### heading` in the issue body, with the answer underneath. That is why the
+fields are worth arguing about: a field that exists gets answered, and a field
+that does not exist gets left out, every time. `validations: required: true`
+means GitHub refuses to open the issue until the box is filled — which is the
+entire mechanism forcing a seed into every defect report.
+
+**Labels in the `labels:` list are applied on submission.** `bug_report.yml`
+applies `type: bug` **and** `needs: repro`, deliberately: a report starts
+unproven, and you remove `needs: repro` once you have reproduced it yourself.
+The area and severity are not in the list, because only triage can decide them
+honestly — the reporter says where they noticed the problem, which is often not
+where it lives.
+
+**`config.yml` disables blank issues.** Every report therefore arrives in one of
+the three shapes above. The contact links route setup problems to
+`DEVELOPMENT.md` and open questions to Discussions, so the tracker stays a list
+of things that can be closed.
+
+To change a form, edit the YAML and open a PR like any other change. The forms
+are not link-checked (lychee reads Markdown only) and not spellchecked as prose,
+so a broken relative path inside a form will not fail CI — check those by hand.
+
+---
+
+## 9. The `0.4.0` backlog
+
+The milestone is eleven issues. Create a GitHub milestone named `0.4.0` first,
+then file them in this order and assign each to it. The order is not
+preference: **steps 1 to 3 change the rules, which voids every win rate measured
+before them**, so anything that measures must come after them, and anything that
+authors content must come after the measurement is trustworthy again.
+
+| # | Title | Form | Labels beyond `type:` | Depends on |
+| --- | --- | --- | --- | --- |
+| 1 | `task: report miss% per action, not per target` | Task | `area: core` | — |
+| 2 | `task: make every skill reachable by the AI` | Task | `area: core` | 1 |
+| 3 | `task: apply elemental resistance in damage resolution` | Task | `area: core` | 2 |
+| 4 | `task: give Event::Healed an actor and report healing done` | Task | `area: core` | 3 |
+| 5 | `task: re-measure all three bands after the rules changes` | Task | `area: content` | 3, 4 |
+| 6 | `task: widen the seed list to 24 in an isolated commit` | Task | `area: content` | 5 |
+| 7 | `task: re-sweep the response curve under the new rules` | Task | `area: content` | 6 |
+| 8 | `task: third playable character, authored in data/ only` | Task | `area: content` | 7 |
+| 9 | `task: three more enemies, each in a declared encounter` | Task | `area: content` | 7 |
+| 10 | `task: second boss fight with its own band` | Task | `area: content` | 8, 9 |
+| 11 | `task: floating damage numbers, status icons, legible tempo readout` | Task | `area: godot` | — |
+
+Why item 1 comes before the work it seems unrelated to: `miss%` currently counts
+one miss per target and one action per skill, so the moment area attacks become
+reachable in item 2, every miss rate in every report becomes wrong. Fixing the
+accounting after the fact means re-reading a milestone's worth of reports that
+quietly lied.
+
+Item 11 is independent of all of it. It touches no rule and no number, so it can
+be worked at any point, and it is the only item on the list that CI cannot
+verify — it closes on a recorded playthrough with a clean console, the way M1
+did.
+
+### What each of these owes before it closes
+
+- **Items 1 to 4** owe a unit test that fails without the change. A rules change
+  with no test is a rules change nobody can defend in six months.
+- **Items 5 to 10** owe a [BALANCE-LOG.md](BALANCE-LOG.md) entry with the
+  prediction written **before** the run, and a passing `balance_bounds`. If a
+  band has to move, the entry argues why the old band was wrong — not why the
+  new number is inconvenient.
+- **Item 11** owes a playthrough: the console output, and what you saw.
+
+### Issues that will arrive on their own
+
+The risk register in [ROADMAP.md](ROADMAP.md) lists what is expected to break,
+each with the symptom it will produce. Two are near-certain and should be filed
+as they happen rather than pre-emptively:
+
+- `balance_bounds` failing on encounters nobody touched, right after items 2
+  and 3. That is `type: balance`, not `type: bug`; the gate is correct and the
+  content is stale.
+- `BALANCE-CURVE.md` ceasing to reproduce. Same class. Mark the old table as
+  describing pre-`0.4.0` rules rather than deleting it — a retracted
+  measurement is still evidence, and this project has already retracted one.
