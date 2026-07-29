@@ -30,9 +30,15 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > the decisions taken and the order in which the RNG is drawn. Every number
 > recorded above that entry is historical. Do not compare it to anything below.
 
+> **Second comparability boundary.** The `0.4.0` scored-choice change (issue #9,
+> the last entry in this file) alters which skill `ai::choose` selects. Every
+> number recorded *above* that entry describes rules in which three skills could
+> never be chosen. Do not compare across it either.
+
 ## Current status
 
-After Change G, commit `e3d4a85`:
+After Change G, commit `e3d4a85`, and unchanged by the `miss%` accounting fix in
+`0.4.0` (issue #8), which moved one reported column and no win rate:
 
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
@@ -513,6 +519,13 @@ The AI is the reason, not the data. Fixing it means giving the profiles a reason
 to buff, guard and use area damage -- an M3 item, recorded here so it is not
 rediscovered a third time.
 
+> **Partially retracted.** The second bullet is true only of a combatant who owns
+> both skills, which is Dio. Kakyoin owns `blade_volley` and not
+> `concussive_slam`, so it was his highest-power option and was chosen in every
+> ambush and boss run recorded here. That is the defect corrected in issue #8:
+> because it strikes every enemy, his accuracy rolls outnumbered his actions and
+> his reported `miss%` was inflated. See the #8 note below.
+
 **Prediction:** `matchup.assassin_ambush` lands at **55-85%**, inside its 45..90
 band, with an explicit warning that a miss would more likely land below the band
 than above it.
@@ -780,6 +793,105 @@ not mistaken for solved:
 
 ---
 
+## Issue #8 -- `miss%` counted per action instead of per accuracy roll
+
+Commits `2808a26` (`report.rs`), `387d02a` (`sim.rs`), `cec68f7` (CLI legend).
+**A reporting fix, not a rules change: no win rate moved and every battle is
+bit-identical.**
+
+**What was wrong.** `Event::Missed` is emitted once per target, `Event::ActionUsed`
+once per action. An `all_enemies` skill against two foes therefore produced two
+accuracy rolls and one action, and `misses / actions` could exceed the skill's
+real miss rate without bound. `CombatantStats` gained `attack_rolls`, and `miss%`
+is now `misses / attack_rolls`.
+
+**The prediction that was wrong, and it was recorded before the run.** The
+prediction was that no shipped number would move, on the reasoning that "every
+skill the AI can actually reach is single-target". False, and checkably so:
+`skill.blade_volley` is Kakyoin's stand skill, he does not own
+`concussive_slam`, and 110 power is his highest option, so he had been using an
+area attack in every run recorded in this file.
+
+| Combatant | Encounter | Released `0.3.0` | Corrected | Cause |
+| --- | --- | --- | --- | --- |
+| Kakyoin | `assassin_ambush` | **20%** | **11%** | Two rolls per `blade_volley` |
+| Kakyoin | `dio_boss` | 9% | 9% | Same skill, rounding absorbs it |
+| Everyone else | all | unchanged | unchanged | Single-target only |
+
+**The released `0.3.0` report is wrong in that one column, and it stays on the
+record** rather than being edited to match. The `rolls` column now printed beside
+`miss%` is the diagnostic: whenever `rolls` exceeds `actions`, an area skill is
+in use, which is exactly the signal that was missing.
+
+---
+
+## Issue #9 -- the AI scores utility, not only damage
+
+Commits `1602dc5` (the offensive choice becomes an explicit score) and `38b775a`
+(non-damaging effects are priced in the same unit). **A rules change. The
+comparability boundary at the top of this file applies from here.**
+
+**What was wrong.** `ai::best_offensive` ranked candidates by summed damage
+power. Two facts followed from that, neither of them decided by anyone:
+
+- a skill with no `Damage` or `Drain` effect scored zero and was filtered out, so
+  `skill.guard_stance` and `skill.rage_focus` could not be chosen by any profile;
+- power was read per target, so `skill.blade_volley` at 110 against two foes was
+  ranked below `skill.concussive_slam` at 140 against one, and
+  `skill.tempo_halt` was 60 points of damage with its entire purpose discarded.
+
+Eight of eleven skills were reachable. Every win rate in `0.3.0` measures a game
+played with eight.
+
+**The unit.** Every effect is now priced in **damage-equivalent points**: `def_up`
+is the damage it prevents (`potency / 2` per incoming hit, because the model
+subtracts `def / 2`), a tempo lock is the enemy actions it denies valued at the
+actor's own best hit, `bleed` is its own total, `stun` is the action it costs, and
+a `chance` below 100 scales the price. A self-buff is priced over `duration - 1`,
+because the turn spent casting is not a turn spent benefiting. Healing scores
+zero here: the support triage branch already owns that decision and runs first.
+
+**The design question that had to be answered first: should the AI guard instead
+of attacking?** No -- it should price both and let the arithmetic decide. A rule
+of the form "guard when HP is low" produces an enemy that stops trying to win,
+and it cannot be predicted by a player from the data. With the shipped numbers
+the arithmetic says:
+
+| Skill | Score | Against | Verdict |
+| --- | --- | --- | --- |
+| `guard_stance` | 60, or **120** below 40% HP | `strike` 100 | Refused while healthy, taken while dying, still refused if `rush_barrage` is affordable |
+| `rage_focus` | 40% x 2 turns = **0.8 hits** | any attack, 1.0 hits | Refused, correctly. The numbers are wrong, not the scorer |
+| `tempo_halt` | 180 damage + **210** denied = 390 | `blade_volley` 330 | **Taken.** Dio finally uses his signature skill |
+| `blade_volley` | 110 x 2 or 3 targets | `rush_barrage` 195 | **Taken by Dio**, who now prefers area damage to a single big hit |
+| `emerald_snare` | 75 + 79 slow = **154** | `strike` 100 | Taken by Kakyoin below 24 SP |
+| `concussive_slam` | 140 + 56 stun = **196** | `blood_drain` 120 | Unchanged for the Iron Brawler |
+| `sun_flare` | 150 + 45 bleed = **195** | `rage_focus` 120 | Unchanged for the Flame Assassin |
+
+**Prediction, written before the run.** In order of confidence:
+
+1. `matchup.thug_solo` stays at 100%. The thug is a `Trickster`, which does not
+   use the scorer, and Jotaro's `rush_barrage` still outscores everything he owns.
+2. `matchup.dio_boss` **falls out of the 35..75 band**, most likely to 8-33%. Dio
+   gains a party-wide tempo lock and an area attack he never used, against a
+   party whose only new option is a guard worth 120 points.
+3. `matchup.assassin_ambush` moves less, 42-67%: the Brawler's choice is
+   unchanged and the Assassin's is unchanged, so only Kakyoin's snare and
+   Jotaro's desperation guard differ.
+4. `rage_focus` remains unused, so the milestone's "zero unreachable skills"
+   criterion is **not** met by this change alone. It is met for `guard_stance`
+   and `tempo_halt`; the third needs a number in `data/skills.json`, under M3
+   step 5, in its own commit with its own entry.
+
+**If prediction 2 lands, `balance_bounds` fails and that is the expected
+outcome, not a regression.** The band is re-declared with evidence under issue
+#12, in a separate commit, after the number is known. Widening a band in the same
+commit as the change that broke it is how a harness becomes decoration.
+
+**Result: not yet measured.** This entry is deliberately committed before the
+run, so the numbers cannot be edited into agreement with the prediction.
+
+---
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
@@ -787,27 +899,34 @@ Recorded here so a number is not over-read:
 - **Healing is not attributed.** `Event::Healed` carries a target and no source,
   so the report cannot show healing done. Josuke's contribution has to be
   inferred from his SP spend. Fixing this means adding an actor to the event,
-  which is a code change, not a tuning change.
-- **`miss%` is inflated for area skills.** A miss is counted per target while an
-  action is counted once, so a combatant using an `all_enemies` skill can show a
-  miss rate above its true accuracy. Kakyoin's 13-21% is mostly this.
+  which is a code change, not a tuning change. Tracked as issue #11.
+- **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.** This bullet
+  shipped in `0.3.0` describing the defect as a possibility -- "Kakyoin's 13-21%
+  is mostly this" -- when it was already live and had already corrupted a shipped
+  number. `miss%` is now `misses / attack_rolls` and the `rolls` column beside it
+  makes area usage visible. The released `0.3.0` figure of 20% for Kakyoin in the
+  ambush is wrong; the measurement is 11%.
 - **Twelve seeds is a small sample.** The resolution is 8.3 percentage points:
   one seed flipping moves a reported win rate by that much, so 67% and 75% are
   not distinguishable results. A win rate near a band edge should not be treated
   as decisively inside or outside it. Widen the seed list in a commit of its own,
-  never in the same commit as a content change.
+  never in the same commit as a content change. Tracked as issue #13.
 - **A rules change resets the series.** RNG draw order is part of the rules, so
   after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the same seed no longer
   reproduces the same battle. Cross-boundary comparison is meaningless even when
   the numbers look adjacent.
-- **The harness plays worse than a player.** Auto-battle picks the
-  highest-nominal-power affordable skill and never sets up. An AI-vs-AI win rate
+- **The harness plays worse than a player.** Auto-battle scores each affordable
+  skill once and never sets up a combination across turns. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience, and a band should be read with that in mind.
-- **Only five of eleven skills are ever used.** Auto-battle reaches
-  `skill.strike`, `skill.restore`, `skill.blood_drain`, `skill.sun_flare` and
-  `skill.concussive_slam` at most; buffs and area damage are unreachable. Every
-  number in this document is therefore a measurement of a subset of the content.
+- **~~Only five of eleven skills are ever used.~~ Eight were reachable before
+  issue #9, and ten after it.** The `0.3.0` bullet undercounted by three:
+  `skill.emerald_snare` and `skill.blade_volley` are reachable through Kakyoin,
+  who owns neither of the skills that would dominate them, and
+  `skill.blood_drain` through Dio and the Iron Brawler. The three genuinely
+  unreachable ones were `guard_stance`, `rage_focus` and `tempo_halt`; #9 reaches
+  the first and third, and `rage_focus` remains unreachable because its own
+  numbers make declining it correct.
 - **A "turn" in the report is one action, not one round.** Reading it as a round
   inflates every per-turn estimate by the number of combatants, and that error
   contributed directly to the failed Change E sizing.
@@ -815,4 +934,5 @@ Recorded here so a number is not over-read:
   current rules, not a constant.** It was measured on one encounter with one
   party, and any edit to `resolve.rs`, `ai.rs`, the roster or the skill list
   invalidates it. Re-run the sweep before sizing an encounter against it, and
-  replace the table rather than appending to it.
+  replace the table rather than appending to it. Issue #9 invalidates it now;
+  the re-sweep is issue #14.
