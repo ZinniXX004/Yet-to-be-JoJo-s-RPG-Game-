@@ -73,7 +73,19 @@ pub struct CombatantStats {
     pub battles: u32,
     pub survived: u32,
     pub times_downed: u32,
+    /// Skills used. One per turn spent acting, regardless of how many
+    /// combatants the skill touched.
     pub actions: u32,
+    /// Accuracy checks made. One per *target*, so a single area skill against
+    /// three foes contributes three.
+    ///
+    /// Separate from `actions` because these two numbers answer different
+    /// questions -- "how often did this combatant get to act" versus "how often
+    /// did it try to hit something" -- and conflating them is what made
+    /// `miss_percent` wrong before `0.4.0`.
+    #[serde(default)]
+    pub attack_rolls: u32,
+    /// Accuracy checks that failed. Always a subset of `attack_rolls`.
     pub misses: u32,
     pub damage_dealt: i64,
     pub damage_received: i64,
@@ -92,6 +104,7 @@ impl CombatantStats {
             survived: 0,
             times_downed: 0,
             actions: 0,
+            attack_rolls: 0,
             misses: 0,
             damage_dealt: 0,
             damage_received: 0,
@@ -113,6 +126,21 @@ impl CombatantStats {
 
     pub fn survival_percent(&self) -> i32 {
         percent(self.survived, self.battles)
+    }
+
+    /// Share of accuracy checks that failed, in whole percent.
+    ///
+    /// Divided by `attack_rolls` rather than by `actions`, and it must stay that
+    /// way: an area skill rolls once per target, so dividing by actions cannot
+    /// be bounded by 100 and stops describing anything once the AI can reach
+    /// `all_enemies` skills.
+    ///
+    /// A combatant that never attacked -- a healer, or an enemy that only ever
+    /// buffs -- reports 0% rather than dividing by zero. That is a deliberate
+    /// reading of "missed nothing", and it is why the column is worth reading
+    /// next to `dealt/b` instead of on its own.
+    pub fn miss_percent(&self) -> i32 {
+        percent(self.misses, self.attack_rolls)
     }
 }
 
@@ -151,6 +179,20 @@ impl MatchupReport {
         self.combatants
             .iter()
             .filter(|stats| stats.damage_dealt == 0)
+            .collect()
+    }
+
+    /// Combatants whose miss count exceeds the rolls they made, which is
+    /// arithmetically impossible and therefore an accounting defect rather than
+    /// a balance finding.
+    ///
+    /// Cheap to check and worth checking: the accounting this method guards was
+    /// wrong for two releases without producing a single visibly wrong table,
+    /// because no reachable skill hit more than one target.
+    pub fn miscounted_combatants(&self) -> Vec<&CombatantStats> {
+        self.combatants
+            .iter()
+            .filter(|stats| stats.misses > stats.attack_rolls)
             .collect()
     }
 }
@@ -200,6 +242,10 @@ fn divide_rounded(value: i64, divisor: i64) -> i64 {
 mod tests {
     use super::*;
 
+    fn stats() -> CombatantStats {
+        CombatantStats::new("pc.test", "Test", Team::Party)
+    }
+
     #[test]
     fn percentages_round_half_up_and_survive_an_empty_run() {
         assert_eq!(percent(1, 3), 33);
@@ -239,5 +285,90 @@ mod tests {
             max_percent: 100,
         };
         assert!(sane.issues().is_empty());
+    }
+
+    /// The defect this field exists to fix: one area skill, three targets, two
+    /// of them missed. Dividing by `actions` would report 200%.
+    #[test]
+    fn a_miss_rate_is_a_share_of_rolls_not_of_actions() {
+        let mut area = stats();
+        area.actions = 1;
+        area.attack_rolls = 3;
+        area.misses = 2;
+        assert_eq!(area.miss_percent(), 67);
+
+        let mut single = stats();
+        single.actions = 4;
+        single.attack_rolls = 4;
+        single.misses = 1;
+        assert_eq!(
+            single.miss_percent(),
+            25,
+            "single-target accounting must be unchanged"
+        );
+    }
+
+    #[test]
+    fn a_combatant_that_never_attacked_reports_no_miss_rate() {
+        let mut healer = stats();
+        healer.actions = 12;
+        assert_eq!(healer.attack_rolls, 0);
+        assert_eq!(
+            healer.miss_percent(),
+            0,
+            "a support character must not divide by zero rolls"
+        );
+    }
+
+    #[test]
+    fn more_misses_than_rolls_is_reported_as_an_accounting_defect() {
+        let mut broken = stats();
+        broken.attack_rolls = 2;
+        broken.misses = 5;
+
+        let report = MatchupReport {
+            id: "matchup.test".to_string(),
+            name: "Test".to_string(),
+            battles: 1,
+            wins: 1,
+            losses: 0,
+            stalemates: 0,
+            win_rate_percent: 100,
+            median_turns: 3,
+            shortest_turns: 3,
+            longest_turns: 3,
+            band: WinRateBand {
+                min_percent: 0,
+                max_percent: 100,
+            },
+            combatants: vec![broken],
+        };
+
+        assert_eq!(report.miscounted_combatants().len(), 1);
+    }
+
+    /// A report written before `attack_rolls` existed must still load.
+    #[test]
+    fn a_report_from_an_older_release_still_deserializes() {
+        let json = r#"{
+            "id": "pc.jotaro",
+            "name": "Jotaro",
+            "team": "party",
+            "battles": 12,
+            "survived": 8,
+            "times_downed": 4,
+            "actions": 70,
+            "misses": 6,
+            "damage_dealt": 985,
+            "damage_received": 339,
+            "status_damage_received": 0,
+            "sp_spent": 120
+        }"#;
+
+        let stats: CombatantStats =
+            serde_json::from_str(json).expect("a 0.3.0 report must still load");
+        assert_eq!(stats.actions, 70);
+        assert_eq!(stats.attack_rolls, 0);
+        assert_eq!(stats.miss_percent(), 0);
     }
 }
