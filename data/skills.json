@@ -88,8 +88,8 @@
   {
     "id": "skill.blade_volley",
     "name": "Blade Volley",
-    "description": "Scatters throwing blades across the enemy line.",
-    "sp_cost": 24,
+    "description": "Scatters throwing blades across the enemy line. Thrown by the handful, into a moment that is not moving.",
+    "sp_cost": 40,
     "target": "all_enemies",
     "accuracy": 88,
     "tempo_cost": 1300,
