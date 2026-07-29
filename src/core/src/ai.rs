@@ -1,13 +1,19 @@
 //! Enemy and auto-battle decision making.
 //!
-//! The AI is intentionally shallow: three readable profiles, no search, no
-//! scoring heuristics. Two reasons. First, in a party-scale turn-based game the
-//! *legibility* of enemy behavior matters more than its strength; a player must
-//! be able to predict and counter it. Second, the AI draws from the battle RNG,
-//! so it stays deterministic and replayable, which is worth more than cleverness.
+//! The AI is intentionally shallow: three readable profiles, no search, and one
+//! explicit score per candidate action rather than a decision tree. Two
+//! reasons. First, in a party-scale turn-based game the *legibility* of enemy
+//! behavior matters more than its strength; a player must be able to predict
+//! and counter it. Second, the AI draws from the battle RNG, so it stays
+//! deterministic and replayable, which is worth more than cleverness.
 //!
 //! Because it is deterministic, thousands of AI-vs-AI battles can be run as a
 //! balance harness (roadmap M2).
+//!
+//! Scoring lives in one place on purpose. Every profile below decides *when* to
+//! consider a class of action; only [`score_offensive`] decides *which* action
+//! wins. Adding a consideration means changing a score, never adding a branch
+//! per skill id.
 
 use crate::data::{AiProfile, Database, Effect, Id, SkillDef};
 use crate::state::BattleState;
@@ -164,11 +170,174 @@ fn affordable(
         .map(|def| def.id.clone())
 }
 
+/// How good an attack this skill is, or `None` if it is not an attack the actor
+/// could make at all.
+///
+/// Splitting "is it a candidate" from "how good is it" is the point of this
+/// function: an unaffordable skill and a worthless one are different facts, and
+/// only the first is a hard exclusion. A zero-power skill is excluded here
+/// because there is no offensive number to compare; a defensive skill is not an
+/// attack that scored badly.
+fn score_offensive(def: &SkillDef, sp: i32) -> Option<i32> {
+    if def.sp_cost > sp || !def.target.is_hostile() {
+        return None;
+    }
+    let power = total_power(def);
+    if power <= 0 {
+        return None;
+    }
+    Some(power)
+}
+
+/// Highest scoring candidate in the actor's skill list, or `None` when nothing
+/// scores.
+///
+/// Ties resolve to the *last* candidate in declaration order. That is not a
+/// preference, it is preservation: `Iterator::max_by_key` returns the last
+/// maximum, and this reduction replaced one. Changing it would move win rates
+/// for a reason unrelated to any design decision.
+fn best_scored(db: &Database, skills: &[Id], score: impl Fn(&SkillDef) -> Option<i32>) -> Option<Id> {
+    let mut best: Option<(i32, Id)> = None;
+    for def in skills.iter().filter_map(|id| db.skill(id)) {
+        let Some(points) = score(def) else {
+            continue;
+        };
+        let wins = match &best {
+            Some((leader, _)) => points >= *leader,
+            None => true,
+        };
+        if wins {
+            best = Some((points, def.id.clone()));
+        }
+    }
+    best.map(|(_, id)| id)
+}
+
 fn best_offensive(db: &Database, skills: &[Id], sp: i32) -> Option<Id> {
-    skills
-        .iter()
-        .filter_map(|id| db.skill(id))
-        .filter(|def| def.sp_cost <= sp && def.target.is_hostile() && total_power(def) > 0)
-        .max_by_key(|def| total_power(def))
-        .map(|def| def.id.clone())
+    best_scored(db, skills, |def| score_offensive(def, sp))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{Element, StatusKind, TargetKind};
+    use crate::state::TEMPO_THRESHOLD;
+
+    fn skill(id: &str, target: TargetKind, sp_cost: i32, effects: Vec<Effect>) -> SkillDef {
+        SkillDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            sp_cost,
+            target,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects,
+        }
+    }
+
+    fn damage(power: i32) -> Effect {
+        Effect::Damage {
+            power,
+            element: Element::Physical,
+            variance: 0,
+        }
+    }
+
+    /// A database of skills alone: no combatant references them, so nothing has
+    /// to be invented to keep validation happy.
+    fn database(skills: Vec<SkillDef>) -> Database {
+        Database::new(Vec::new(), skills, Vec::new()).expect("test content should validate")
+    }
+
+    fn ids(skills: &[SkillDef]) -> Vec<Id> {
+        skills.iter().map(|def| def.id.clone()).collect()
+    }
+
+    #[test]
+    fn a_skill_the_actor_cannot_pay_for_is_not_a_candidate() {
+        let expensive = skill("expensive", TargetKind::OneEnemy, 30, vec![damage(200)]);
+        assert_eq!(score_offensive(&expensive, 29), None);
+        assert_eq!(score_offensive(&expensive, 30), Some(200));
+    }
+
+    #[test]
+    fn a_skill_that_deals_no_damage_is_not_an_offensive_candidate() {
+        let guard = skill(
+            "guard",
+            TargetKind::SelfOnly,
+            0,
+            vec![Effect::Status {
+                status: StatusKind::DefUp,
+                potency: 60,
+                duration: 2,
+                chance: 100,
+            }],
+        );
+        assert_eq!(score_offensive(&guard, 100), None);
+    }
+
+    #[test]
+    fn a_skill_aimed_at_an_ally_is_never_scored_as_an_attack() {
+        let heal = skill(
+            "heal",
+            TargetKind::OneAlly,
+            10,
+            vec![Effect::Heal { power: 140 }],
+        );
+        assert_eq!(score_offensive(&heal, 100), None);
+    }
+
+    #[test]
+    fn an_area_attack_is_a_candidate_like_any_other() {
+        // Recorded because the opposite was believed and published: the filter
+        // has never looked at how many targets a skill hits.
+        let volley = skill("volley", TargetKind::AllEnemies, 24, vec![damage(110)]);
+        assert_eq!(score_offensive(&volley, 24), Some(110));
+    }
+
+    #[test]
+    fn the_strongest_affordable_attack_wins() {
+        let skills = vec![
+            skill("weak", TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill("strong", TargetKind::OneEnemy, 18, vec![damage(195)]),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(best_offensive(&db, &list, 18).as_deref(), Some("strong"));
+        assert_eq!(best_offensive(&db, &list, 17).as_deref(), Some("weak"));
+    }
+
+    #[test]
+    fn a_tie_resolves_to_the_last_declared_skill() {
+        let skills = vec![
+            skill("first", TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill("second", TargetKind::OneEnemy, 0, vec![damage(100)]),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(best_offensive(&db, &list, 0).as_deref(), Some("second"));
+    }
+
+    #[test]
+    fn an_actor_with_nothing_affordable_scores_nothing() {
+        let skills = vec![skill("costly", TargetKind::OneEnemy, 45, vec![damage(60)])];
+        let list = ids(&skills);
+        let db = database(skills);
+        assert_eq!(best_offensive(&db, &list, 10), None);
+    }
+
+    #[test]
+    fn drain_counts_towards_offensive_score() {
+        let drain = skill(
+            "drain",
+            TargetKind::OneEnemy,
+            12,
+            vec![Effect::Drain {
+                power: 120,
+                element: Element::Physical,
+            }],
+        );
+        assert_eq!(score_offensive(&drain, 12), Some(120));
+    }
 }
