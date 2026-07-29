@@ -145,10 +145,13 @@ authored purely in `data/`, with every encounter declaring a win-rate band that
 the harness measures and CI enforces.
 
 One addition to the original criterion, and it is not negotiable: **no skill may
-be unreachable.** `0.3.0` shipped eleven skills of which the AI can choose six,
-so every win rate in that release measures a subset of the game. Adding content
-on top of an AI that cannot use half of it would multiply the blind spot instead
-of closing it.
+be unreachable.** `0.3.0` shipped eleven skills of which the AI could choose
+eight. The three it could never choose are named, because a count invites
+re-counting and a name can be checked: `skill.guard_stance` and `skill.rage_focus`
+deal no damage at all, and `skill.tempo_halt` deals 60 to every enemy but is
+dominated by a 140-power single-target slam in the same list. Adding content on
+top of an AI that cannot use part of it would multiply the blind spot instead of
+closing it.
 
 ### Order of work, and why this order
 
@@ -159,12 +162,13 @@ incomparable -- the same seed no longer produces the same battle. Authoring
 content before the rules settle means measuring it twice and trusting neither
 number.
 
-1. **Make every skill reachable.** `ai::best_offensive` ranks candidates by total
-   damage, so buffs, guards and area attacks are filtered out before the choice
-   is made. Replace it with a scored choice that can value a buff, a heal, an
-   area attack against two or more living targets, and a guard at low HP.
-   Expect the three existing win rates to move; re-measure and argue any band
-   change in [BALANCE-LOG.md](BALANCE-LOG.md) rather than widening bands to fit.
+1. **Make every skill reachable.** `ai::best_offensive` ranked candidates by total
+   damage, so a skill with no damage effect could not be a candidate at all, and
+   an area attack was worth the same as a single-target one. Replace it with a
+   scored choice that can value a buff, an area attack against two or more living
+   targets, a tempo lock, and a guard at low HP. Expect the three existing win
+   rates to move; re-measure and argue any band change in
+   [BALANCE-LOG.md](BALANCE-LOG.md) rather than widening bands to fit.
 2. **Apply elemental resistances in damage resolution.** The schema and the
    events already carry an element; `resolve.rs` ignores it. This is the last
    rules change of the milestone, so it lands immediately after step 1 and the
@@ -206,7 +210,7 @@ was.
 
 | Path | Change |
 | --- | --- |
-| `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, heals, guards and area attacks; keep every draw on the battle RNG |
+| `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, guards, tempo locks and area attacks; keep every draw on the battle RNG |
 | `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs |
 | `src/core/src/event.rs` | `Event::Healed` gains an `actor` field |
 | `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target |
@@ -227,9 +231,10 @@ rather than rediscovered.
 | --- | --- | --- |
 | **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
 | **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | Expected, not a regression. Re-measure, then argue each band in the log. Widening a band to make a build green is how the harness becomes decoration |
-| **`miss%` becomes badly wrong** once area skills are reachable | Miss rates above 50% on characters that rarely miss | Fix the accounting in `report.rs` *before* step 1 ships, or every report in the milestone is misleading |
+| **`miss%` was already wrong**, not about to become wrong | Miss rates inflated on anyone holding an area skill | **Resolved before step 1, in #8.** This row originally predicted the defect would appear "once area skills are reachable". It had already appeared: `skill.blade_volley` is Kakyoin's highest-power option and was chosen throughout `0.3.0`, so his released 20% was two accuracy rolls counted as one action. He measures 11% once rolls are counted per roll. The released `0.3.0` report is wrong in that one column and stays on the record |
 | **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Treat as a content defect first: an encounter that cannot end is unbalanced, not merely slow. Raise the limit only with evidence |
 | **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | The new validator warning catches it. An unused skill is unmeasured content, which is the exact problem M3 exists to remove |
+| **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | Read the arithmetic before touching the scorer. `skill.rage_focus` returns 0.8 of a hit for the price of one, so declining it is correct behaviour on wrong numbers. The fix is in `data/skills.json`, under step 5, with a log entry |
 | **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
 | **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | Keep every seed well below 2^53, or pass it across the boundary as a string |
 
