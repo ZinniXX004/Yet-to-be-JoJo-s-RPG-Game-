@@ -60,6 +60,17 @@ impl WinRateBand {
     }
 }
 
+/// How many times one combatant used one skill across a whole batch.
+///
+/// A list rather than a map, and ordered by first use rather than by name: the
+/// JSON artefact and the printed table must be byte-identical between two runs
+/// and two machines, and hash iteration order is neither.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillUse {
+    pub skill: Id,
+    pub uses: u32,
+}
+
 /// Per-combatant totals accumulated across every battle in a matchup.
 ///
 /// Aggregate win rate hides the two failure modes that matter most: a party
@@ -87,6 +98,18 @@ pub struct CombatantStats {
     pub attack_rolls: u32,
     /// Accuracy checks that failed. Always a subset of `attack_rolls`.
     pub misses: u32,
+    /// `actions`, broken down by which skill produced them, in first-use order.
+    ///
+    /// Exists because no other column can answer *what a combatant did*. Damage
+    /// dealt, rolls and SP spent are all consistent with several completely
+    /// different repertoires, so every behavioural claim about the AI was an
+    /// inference until this field existed -- and the two most recent inferences
+    /// were both wrong.
+    ///
+    /// The sum over skills must equal `actions`; see
+    /// [`MatchupReport::unattributed_combatants`].
+    #[serde(default)]
+    pub skill_uses: Vec<SkillUse>,
     pub damage_dealt: i64,
     pub damage_received: i64,
     /// Part of `damage_received` that came from statuses rather than attacks.
@@ -106,6 +129,7 @@ impl CombatantStats {
             actions: 0,
             attack_rolls: 0,
             misses: 0,
+            skill_uses: Vec::new(),
             damage_dealt: 0,
             damage_received: 0,
             status_damage_received: 0,
@@ -141,6 +165,55 @@ impl CombatantStats {
     /// next to `dealt/b` instead of on its own.
     pub fn miss_percent(&self) -> i32 {
         percent(self.misses, self.attack_rolls)
+    }
+
+    /// Credits one action to one skill id.
+    ///
+    /// Called once per [`crate::event::Event::ActionUsed`], from the same arm
+    /// that increments `actions`, so the two can only disagree if the event
+    /// stream itself does.
+    pub fn record_skill_use(&mut self, skill: &str) {
+        if let Some(entry) = self
+            .skill_uses
+            .iter_mut()
+            .find(|entry| entry.skill == skill)
+        {
+            entry.uses += 1;
+            return;
+        }
+        self.skill_uses.push(SkillUse {
+            skill: skill.to_string(),
+            uses: 1,
+        });
+    }
+
+    /// Actions accounted for by the breakdown. Equals `actions` unless the
+    /// accounting drifted.
+    pub fn counted_skill_uses(&self) -> u32 {
+        self.skill_uses.iter().map(|entry| entry.uses).sum()
+    }
+
+    /// The breakdown, most used first, ties broken by skill id.
+    ///
+    /// Sorted for reading; the stored order stays first-use so the serialized
+    /// artefact does not reshuffle when a count changes by one.
+    pub fn skill_uses_ranked(&self) -> Vec<&SkillUse> {
+        let mut ranked: Vec<&SkillUse> = self.skill_uses.iter().collect();
+        ranked.sort_by(|a, b| b.uses.cmp(&a.uses).then_with(|| a.skill.cmp(&b.skill)));
+        ranked
+    }
+
+    /// Share of this combatant's own actions spent on one skill, in whole
+    /// percent. Relative to `actions`, so the shares of all its skills sum to
+    /// 100 whenever the accounting is intact.
+    pub fn skill_use_percent(&self, skill: &str) -> i32 {
+        let uses = self
+            .skill_uses
+            .iter()
+            .find(|entry| entry.skill == skill)
+            .map(|entry| entry.uses)
+            .unwrap_or(0);
+        percent(uses, self.actions)
     }
 }
 
@@ -195,6 +268,19 @@ impl MatchupReport {
             .filter(|stats| stats.misses > stats.attack_rolls)
             .collect()
     }
+
+    /// Combatants whose per-skill breakdown does not sum to their action count.
+    ///
+    /// Exact equality, not a tolerance: one action emits exactly one
+    /// `ActionUsed`, so any difference means the breakdown is describing a
+    /// different set of turns than the totals are. A behavioural claim read off
+    /// a breakdown that does not add up is worth less than no claim at all.
+    pub fn unattributed_combatants(&self) -> Vec<&CombatantStats> {
+        self.combatants
+            .iter()
+            .filter(|stats| stats.counted_skill_uses() != stats.actions)
+            .collect()
+    }
 }
 
 /// Every matchup in one run.
@@ -244,6 +330,26 @@ mod tests {
 
     fn stats() -> CombatantStats {
         CombatantStats::new("pc.test", "Test", Team::Party)
+    }
+
+    fn report(combatants: Vec<CombatantStats>) -> MatchupReport {
+        MatchupReport {
+            id: "matchup.test".to_string(),
+            name: "Test".to_string(),
+            battles: 1,
+            wins: 1,
+            losses: 0,
+            stalemates: 0,
+            win_rate_percent: 100,
+            median_turns: 3,
+            shortest_turns: 3,
+            longest_turns: 3,
+            band: WinRateBand {
+                min_percent: 0,
+                max_percent: 100,
+            },
+            combatants,
+        }
     }
 
     #[test]
@@ -326,28 +432,61 @@ mod tests {
         broken.attack_rolls = 2;
         broken.misses = 5;
 
-        let report = MatchupReport {
-            id: "matchup.test".to_string(),
-            name: "Test".to_string(),
-            battles: 1,
-            wins: 1,
-            losses: 0,
-            stalemates: 0,
-            win_rate_percent: 100,
-            median_turns: 3,
-            shortest_turns: 3,
-            longest_turns: 3,
-            band: WinRateBand {
-                min_percent: 0,
-                max_percent: 100,
-            },
-            combatants: vec![broken],
-        };
-
-        assert_eq!(report.miscounted_combatants().len(), 1);
+        assert_eq!(report(vec![broken]).miscounted_combatants().len(), 1);
     }
 
-    /// A report written before `attack_rolls` existed must still load.
+    /// The breakdown must be readable as "what did this combatant spend its
+    /// turns on", which means shares of its own actions and a stable order.
+    #[test]
+    fn a_breakdown_ranks_by_use_and_reports_shares_of_the_actors_own_actions() {
+        let mut jotaro = stats();
+        for skill in ["skill.rush_barrage", "skill.strike", "skill.rush_barrage"] {
+            jotaro.actions += 1;
+            jotaro.record_skill_use(skill);
+        }
+        jotaro.actions += 1;
+        jotaro.record_skill_use("skill.tempo_halt");
+
+        let ranked = jotaro.skill_uses_ranked();
+        assert_eq!(ranked[0].skill, "skill.rush_barrage");
+        assert_eq!(ranked[0].uses, 2);
+        // A tie on uses resolves by id, so the order cannot depend on which
+        // seed happened to run first.
+        assert_eq!(ranked[1].skill, "skill.strike");
+        assert_eq!(ranked[2].skill, "skill.tempo_halt");
+
+        assert_eq!(jotaro.counted_skill_uses(), 4);
+        assert_eq!(jotaro.skill_use_percent("skill.rush_barrage"), 50);
+        assert_eq!(jotaro.skill_use_percent("skill.strike"), 25);
+        assert_eq!(
+            jotaro.skill_use_percent("skill.guard_stance"),
+            0,
+            "a skill the combatant never used is 0%, not an error"
+        );
+    }
+
+    /// A breakdown that does not sum to the action count describes a different
+    /// set of turns than the totals do, so it must be reported rather than
+    /// read.
+    #[test]
+    fn a_breakdown_that_does_not_add_up_is_an_accounting_defect() {
+        let mut honest = stats();
+        honest.actions = 2;
+        honest.record_skill_use("skill.strike");
+        honest.record_skill_use("skill.strike");
+
+        let mut drifted = stats();
+        drifted.actions = 9;
+        drifted.record_skill_use("skill.strike");
+
+        let report = report(vec![honest, drifted]);
+        let unattributed = report.unattributed_combatants();
+        assert_eq!(unattributed.len(), 1);
+        assert_eq!(unattributed[0].actions, 9);
+    }
+
+    /// A report written before `attack_rolls` and `skill_uses` existed must
+    /// still load.
     #[test]
     fn a_report_from_an_older_release_still_deserializes() {
         let json = r#"{
@@ -370,5 +509,12 @@ mod tests {
         assert_eq!(stats.actions, 70);
         assert_eq!(stats.attack_rolls, 0);
         assert_eq!(stats.miss_percent(), 0);
+        assert!(
+            stats.skill_uses.is_empty(),
+            "an older report has no breakdown, and must not invent one"
+        );
+        // And it must be reported as unattributed rather than quietly read as
+        // "this combatant used no skills".
+        assert_eq!(report(vec![stats]).unattributed_combatants().len(), 1);
     }
 }

@@ -18,7 +18,7 @@
     "name": "Hierophant Green",
     "description": "Long range control and area denial.",
     "bonus": { "sp": 25, "atk": 8, "def": 6, "spd": 18, "will": 22 },
-    "skills": ["skill.emerald_snare", "skill.blade_volley"]
+    "skills": ["skill.emerald_snare", "skill.emerald_splash"]
   },
   {
     "id": "stand.magicians_red",

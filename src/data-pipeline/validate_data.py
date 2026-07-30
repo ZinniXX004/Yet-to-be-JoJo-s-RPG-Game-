@@ -21,6 +21,10 @@ deliberately absurd and are never shipped; see `tools/probe/README.md`.
 Usage:
     python3 src/data-pipeline/validate_data.py [data_dir]
 
+With no argument the content directory is located relative to this file, so the
+command works from any working directory. Pass an explicit path to validate
+something else, which is how `tools/probe/` is checked by hand.
+
 Exit codes:
     0 = valid (warnings may still be printed)
     1 = validation errors found
@@ -56,6 +60,25 @@ STAT_KEYS = {"hp", "sp", "atk", "def", "spd", "will"}
 # the point below which a single seed flipping moves the reported win rate by
 # more than 12 points, which is wider than most declared bands are forgiving.
 MIN_USEFUL_SEEDS = 8
+
+# This file lives at <repo>/src/data-pipeline/, so the content directory is two
+# levels up. Resolving it from __file__ rather than from the process working
+# directory is the difference between a validator that runs from anywhere and
+# one that only runs from the repository root.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def default_data_dir() -> Path:
+    """The content directory to validate when no path is given.
+
+    Prefers the copy that belongs to this checkout. The cwd-relative fallback
+    exists so that a script copied out of the tree still behaves the way it
+    always did instead of failing on a path the caller never typed.
+    """
+    candidate = REPO_ROOT / "data"
+    if candidate.is_dir():
+        return candidate
+    return Path("data")
 
 
 class Report:
@@ -382,7 +405,7 @@ def validate_matchups(rows: list[dict[str, Any]], team_of: dict[str, str],
 
 
 def main(argv: list[str]) -> int:
-    data_dir = Path(argv[1]) if len(argv) > 1 else Path("data")
+    data_dir = Path(argv[1]) if len(argv) > 1 else default_data_dir()
     if not data_dir.is_dir():
         print(f"error: '{data_dir}' is not a directory", file=sys.stderr)
         return 2

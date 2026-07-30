@@ -12,10 +12,16 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-M3 in progress. Process work plus the first of four rules fixes. `data/` is
-untouched and no RNG draw moved, so every *win rate* published in `0.3.0` still
-reproduces digit for digit. One *reported column* did not survive the audit: see
-the accounting fix below.
+M3 in progress: process work, the accounting fix, and the rules fix the whole
+milestone was ordered around. The AI no longer picks the biggest affordable
+attack; it scores every option in one unit and pays for SP at what that SP would
+have bought instead. A turn now returns a little SP to whoever took it, which is
+the first time SP is a renewable resource in this project.
+
+**Every win rate published in `0.3.0` is void.** Three of the four changes below
+touch `ai.rs`, `battle.rs` or `state.rs`, so the same seed no longer produces the
+same battle. The numbers are not worse or better than the old ones; they are not
+comparable to them. The re-measured series is at the end of this section.
 
 ### Added
 
@@ -49,14 +55,57 @@ the accounting fix below.
   print 0%. It is also the diagnostic for #9 — a combatant whose rolls exceed
   its actions is using an area skill, which is exactly what the AI was believed
   never to do.
+- **Per-skill action accounting** (`actions by skill` under every harness
+  table). Win rates say who won; they cannot say what anyone did. Every action
+  is now attributed to the skill that produced it, the shares are shares of that
+  combatant's own turns, and the report raises an accounting defect if the
+  attributed uses do not add up to the recorded actions. This shipped *before*
+  the AI was changed, so the two runs on either side of the change are
+  comparable action by action rather than only in outcome. It immediately
+  disproved a prediction of its own: `skill.tempo_halt` was 8% of Jotaro's boss
+  turns while being 71% of his SP, and a share of turns is not a share of SP.
+- **SP recovery** (`state::SP_REGEN_PER_TURN`, `Combatant::recover_sp`). A
+  combatant gets 4 SP back on its own turn, capped at the pool it started with.
+  It is charged per turn rather than per tick, so the engine has exactly one
+  notion of "a turn" — the same one status durations use — and a turn lost to
+  stun still recovers, because the cost was paid in tempo either way. The amount
+  is flat rather than a share of the pool, which is deliberately anti-boss: 4 is
+  5% of Jotaro's 80 and 2% of Dio's 200.
+- **`skill.emerald_splash`** (22 SP, all enemies, 105 psychic): Hierophant
+  Green's own scatter attack, so Kakyoin has a second option that is his rather
+  than borrowed.
 
 ### Changed
 
+- **The AI scores actions instead of ranking damage** (#9). `ai::best_offensive`
+  chose the highest-power affordable skill that dealt damage to an enemy, which
+  made three skills unreachable by construction and made one dominant by
+  accident. `score_action` now converts every effect into one unit — the damage
+  a plain attack from this actor would deal — so a guard, a buff, a bleed and a
+  tempo lock can be compared with a barrage without any of them being special
+  cased. Healing is still handled by the support profile, not by the score.
+- **SP is priced at its best other use** (#9, same file). A score that ignores
+  cost spends a whole pool on the first expensive thing it can reach. Each
+  candidate is now judged net of what the same SP would buy from the actor's own
+  remaining options, so a skill has to beat not just the basic attack but the
+  alternative that the SP is being taken away from. This is what makes Dio open
+  with `tempo_halt` and fall back to knives once halting is no longer
+  affordable, rather than emptying the pool on whichever came first.
+- `stand.hierophant_green` now carries `skill.emerald_snare` and
+  `skill.emerald_splash`. It previously reached `skill.blade_volley`, which is
+  Dio's thrown steel and belongs to no version of Hierophant Green.
+- `skill.blade_volley` 24 SP → 36 SP. At 24 it dominated every one of Dio's
+  other options; at 40 it was priced out of the fight entirely and went unused
+  across twelve boss battles, which traded a balance defect for dead content. 36
+  is the only price at which Dio halts first at a full pool and throws knives
+  once halting is unaffordable, and it is only reachable at all because the pool
+  now refills past it.
 - `README.md` now states `0.3.0` as released and `0.4.0` as in progress, and
-  names the three skills the AI can never choose — `skill.guard_stance`,
-  `skill.rage_focus` and `skill.tempo_halt` — so every published win rate is
-  read as measuring a subset of the content. Adds a contributing section and a
-  link to the triage document.
+  names the skills the AI can never choose, so every published win rate is read
+  as measuring a subset of the content. Adds a contributing section and a link
+  to the triage document. **That list is now two skills, not three:**
+  `skill.tempo_halt` became Dio's opening move and `skill.blade_volley` became
+  reachable once it was repriced.
 - [docs/RELEASING.md](docs/RELEASING.md) records the two failures that occurred
   during the `0.3.0` release and were not caused by this repository: the
   advisory-db fetch aborting with a schannel error, and `git push` timing out on
@@ -66,6 +115,20 @@ the accounting fix below.
   explanation of how each form field becomes issue text, and the `0.4.0`
   backlog as filed.
 
+Re-measured after all of the above, twelve seeds per encounter:
+
+| Encounter | Win rate | Declared band | Was, before #9 |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 100% |
+| `matchup.assassin_ambush` | 67% | 45..90 | 67% |
+| `matchup.dio_boss` | 42% | 35..75 | 50% |
+
+The first two figures are coincidences of the same width, not evidence that
+nothing changed: the ambush moved to 50% and back to 67% over the four
+intermediate runs, and the boss passed through 8% and 0% before landing at 42%.
+The thug fight is genuinely untouched, because it ends in three turns and no SP
+budget binds in three turns.
+
 ### Fixed
 
 - **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
@@ -73,14 +136,15 @@ the accounting fix below.
   single-target skills. `CombatantStats` now counts `attack_rolls` and owns
   `miss_percent()`, so the binary can no longer invent its own definition of the
   column, and the report warns loudly if misses ever exceed rolls. No RNG draw
-  changed, so every `0.3.0` win rate reproduces digit for digit.
+  changed in that commit, so it was verifiable against the `0.3.0` battles
+  before the rules moved.
 
   **The old column was already wrong on shipped content, not merely at risk.**
   This fix was written as a defence against a future area skill, on the belief
   that the AI could not reach one. Reading `ai::best_offensive` disproved that:
-  it filters on affordability, hostility and non-zero power, and nothing else,
-  so `skill.blade_volley` — power 110, `all_enemies` — is Kakyoin's highest
-  scoring option and is chosen whenever he can pay for it. `0.3.0` therefore
+  it filtered on affordability, hostility and non-zero power, and nothing else,
+  so `skill.blade_volley` — power 110, `all_enemies` — was Kakyoin's highest
+  scoring option and was chosen whenever he could pay for it. `0.3.0` therefore
   reported Kakyoin at 20% miss against a true 11% in `matchup.assassin_ambush`.
   The arithmetic closes exactly: eight misses over roughly forty actions reads
   as 20%, and the same eight misses over seventy-two accuracy rolls is 11%. The
@@ -88,10 +152,46 @@ the accounting fix below.
   way, to a figure *higher* than the old formula gave, because every `restore`
   was an action that made no roll and quietly inflated the old denominator.
 
-  Three skills are unreachable, not five: `skill.guard_stance` and
-  `skill.rage_focus` deal no damage and are filtered out, and `skill.tempo_halt`
-  is always dominated by a stronger option on every combatant that owns it. The
-  cause recorded in #9 is corrected there.
+- **Effects denominated in HP were compared against effects denominated in
+  power** (#9). The first draft of the score compared a guard's prevented damage
+  directly against a skill's power number, which are different units; a guard
+  worth two hits scored as if it were worth a fifth of one. Both sides now pass
+  through `as_power_units`, and `Situation` carries the actor's attack so the
+  conversion is possible at all.
+
+- **SP never came back** (#9). Nothing in the engine restored SP: a pool was a
+  one-off budget for the whole battle. In a 52-turn boss fight that meant Jotaro
+  spent 45 on one halt, 18 on one barrage, and then threw punches for forty
+  turns, and it made the party 353 HP short of Dio's 1520 no matter how well it
+  chose. Recovery closes that gap without touching a single stat: Jotaro's
+  damage per battle went from 1132 to 1413 and the boss fight from 0% to 42%.
+
+### Known limitations
+
+Carried forward from `0.3.0` except where noted:
+
+- **Two skills are still unreachable.** `skill.guard_stance` at potency 60 and
+  `skill.rage_focus` at potency 40 for 10 SP are both correctly declined — the
+  score says they are worth less than hitting something, and two tests pin that
+  conclusion at the numbers the game currently ships. This is now a content
+  problem with a measurement behind it, not an AI defect, and M3's "zero
+  unreachable skills" criterion is not met until those numbers change.
+- **A tempo lock is still priced as a removal, not a deferral.** Locked tempo is
+  delayed, not deleted, so the score overvalues `skill.tempo_halt` by however
+  much of that tempo is eventually paid back. It mattered little when the skill
+  was never used; Dio now uses it 44 times per batch.
+- **Recovery is silent.** No event is emitted when SP returns, so a Godot HUD
+  cannot show it yet. Adding a variant means touching every exhaustive match in
+  the bridge, which is its own change.
+- **Twelve seeds resolve to 8.3 percentage points.** One battle changing hands
+  moves a reported figure by more than most of the changes in this milestone.
+- **The harness plays the score, not a person.** It never sets up, never retreats
+  and never saves SP for a phase change, so a reported win rate is a floor for a
+  competent player rather than a forecast of their experience.
+- **Healing is not attributed.** `Event::Healed` carries a target and no source,
+  so healing done still has to be inferred from SP spent.
+- Elemental resistances are still carried in events but not applied in damage,
+  which now includes `skill.emerald_splash`'s psychic damage.
 
 ## [0.3.0] - 2026-07-29
 

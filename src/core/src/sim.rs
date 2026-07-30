@@ -13,6 +13,10 @@
 //! 2. **No rules.** The harness never knows what a skill does. If it ever needs
 //!    to, the logic is in the wrong layer.
 //!
+//! Rule 2 is why the per-skill breakdown counts *ids* and nothing else. Naming
+//! which skills are offensive, or which ones a designer considers a mistake, is
+//! a judgement; counting what was used is a measurement.
+//!
 //! The seed list is fixed rather than sampled. Comparability between two commits
 //! matters more than statistical purity: a win rate that moves must move because
 //! the content changed, not because the sample did. Widen the list deliberately,
@@ -207,6 +211,11 @@ pub fn run_batch(db: &Database, matchups: &[Matchup]) -> Result<BatchReport, Dat
 /// tick rolls nothing and has no attacker, which is exactly why it is a separate
 /// variant; folding it in would deflate every miss rate by the amount of bleed
 /// in the fight.
+///
+/// [`Event::ActionUsed`] increments the action count *and* credits the skill id
+/// it carries, in the same arm and from the same event. Deriving one of those
+/// two numbers anywhere else would allow them to disagree, which is precisely
+/// the class of defect that made `miss_percent` wrong for two releases.
 fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
     for event in events {
         match event {
@@ -235,9 +244,10 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
                     entry.sp_spent += i64::from(*amount);
                 }
             }
-            Event::ActionUsed { actor, .. } => {
+            Event::ActionUsed { actor, skill, .. } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.actions += 1;
+                    entry.record_skill_use(skill);
                 }
             }
             Event::Missed { actor, .. } => {
@@ -447,6 +457,44 @@ mod tests {
         assert!(
             report.miscounted_combatants().is_empty(),
             "no combatant may report more misses than rolls"
+        );
+    }
+
+    /// The breakdown must account for every turn, or a behavioural claim read
+    /// off it is describing a different set of turns than the totals are.
+    ///
+    /// Asserts the invariant, not the repertoire: which id a plain attack is
+    /// recorded under is a fact to read off a report, not an expectation to
+    /// bake into a test before anyone has read one.
+    #[test]
+    fn every_action_is_attributed_to_the_skill_that_produced_it() {
+        let report = run_matchup(&db(), &matchup("m.titan", "titan", wide_band()))
+            .expect("matchup must run");
+
+        for stats in &report.combatants {
+            assert!(stats.actions > 0, "{} acted in this matchup", stats.name);
+            assert_eq!(
+                stats.counted_skill_uses(),
+                stats.actions,
+                "{}: the breakdown {:?} must account for every action",
+                stats.name,
+                stats.skill_uses
+            );
+            let shares: i32 = stats
+                .skill_uses
+                .iter()
+                .map(|entry| stats.skill_use_percent(&entry.skill))
+                .sum();
+            assert_eq!(
+                shares, 100,
+                "{}: shares of one combatant's own actions must total 100",
+                stats.name
+            );
+        }
+
+        assert!(
+            report.unattributed_combatants().is_empty(),
+            "every action must be attributed to a skill id"
         );
     }
 

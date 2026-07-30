@@ -13,6 +13,15 @@ use crate::rng::Rng;
 /// skill pushes the actor further back in the order than a 600-cost one.
 pub const TEMPO_THRESHOLD: u32 = 1000;
 
+/// SP returned to a combatant at the end of each of its own turns.
+///
+/// A flat amount rather than a share of the pool, and that asymmetry is
+/// deliberate: recovery is the fighter's own effort, not a dividend on power.
+/// Four points is 5% of an 80 SP party member's reserve and 2% of a 200 SP
+/// boss's, so the longer a fight runs the more it favours the side with the
+/// smaller pool -- which is the side that had already spent everything.
+pub const SP_REGEN_PER_TURN: i32 = 4;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
     pub kind: StatusKind,
@@ -49,6 +58,21 @@ impl Combatant {
 
     pub fn status(&self, kind: StatusKind) -> Option<&Status> {
         self.statuses.iter().find(|status| status.kind == kind)
+    }
+
+    /// Returns SP to this combatant and reports how much was actually recovered,
+    /// so a caller can log or account for it rather than inferring it.
+    ///
+    /// Never exceeds `max_sp`, and the dead recover nothing: a downed combatant
+    /// that quietly refilled would come back with a full kit if a revive is ever
+    /// added.
+    pub fn recover_sp(&mut self, amount: i32) -> i32 {
+        if !self.alive() || amount <= 0 {
+            return 0;
+        }
+        let recovered = amount.min(self.max_sp - self.sp).max(0);
+        self.sp += recovered;
+        recovered
     }
 
     /// Net percentage modifier from opposing buff/debuff pairs. Stacking is
