@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 1 is
-**twenty-four predictions, fifteen of them wrong**. The scorecards are kept per
+the fact is a rationalisation, and the running record through `0.4.0` step 2 is
+**thirty-one predictions, twenty-one of them wrong**. The scorecards are kept per
 entry so the rate is visible rather than asserted. That is the argument for the
 harness, not against it -- the same wrong guesses shipped as content, unmeasured,
 would have been indistinguishable from design.
@@ -51,19 +51,26 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > pool. Re-declaring the three bands against the new economy is issue #12 and it
 > is mandatory, not optional.
 
+> **Comparability boundary 5 -- elemental resistances now modify damage.** Issue
+> #10 adds resistance lookups to `resolve::compute_damage`. Any figure measured
+> before `feat/element-resistance` was built on a flat damage model where every
+> element hit for the same amount regardless of target. Do not compare across
+> this boundary. The `thug_solo` control remained bit-identical because no
+> combatant in that fight carries a resistance table and no skill in it deals a
+> typed element, which is why the Street Thug is the explicit control row.
+
 ## Current status
 
-After issue #9, commit `7f72a4f`, re-measured in full:
+After issue #10, commit `f6ba445`, re-measured in full:
 
 | Matchup | Win rate | Band | Status |
 | --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 85..100 | ok |
-| `matchup.assassin_ambush` | 67% | 45..90 | ok |
+| `matchup.thug_solo` | 100% | 85..100 | ok -- bit-identical control |
+| `matchup.assassin_ambush` | 50% | 45..90 | ok |
 | `matchup.dio_boss` | 42% | 35..75 | ok, but only 7 points above the floor |
 
-All three encounters are inside their declared bands, so the harness remains a
-blocking CI job (commit `45c671e`). Read the third row with the twelve-seed
-resolution in mind: one seed is worth **8.3 points**, so a 7-point margin is
+All three encounters are inside their declared bands. The third row carries the
+same caveat as always: one seed is worth **8.3 points**, so a 7-point margin is
 less than one battle. `matchup.dio_boss` is *not* comfortably in band; it is
 inside it by less than the instrument can resolve.
 
@@ -113,6 +120,14 @@ stat into damage past the point where a combatant runs out of SP.
 > Measured consequence in `matchup.dio_boss`: Dio's `sp/b` went 191 -> **252**
 > from a pool of 200. Any sizing done with this model before `7f72a4f`
 > understates long-fight output.
+
+> **Amended by issue #10.** The formula above now includes a resistance modifier:
+> `max(damage * (100 − resist) / 100, 1)`. The model underestimates damage
+> against a resistant target and overestimates it against a vulnerable one by the
+> resistance percentage. For the ambush, the Iron Brawler's `physical: 25` cuts
+> every physical hit by 25%; the model predicts as if resistance were zero.
+> Calibrate against a post-#10 run before using the model to size a change that
+> targets a resistant or vulnerable enemy.
 
 The two things it makes obvious, both of which the Change E prediction missed:
 
@@ -960,198 +975,4 @@ added in `4a5f76f` is what made it visible in one glance.
 ### Finding 2 -- SP never came back, in any battle, ever
 
 Searched after the `1ba5ef2` run, in which the boss fight measured 0% with the
-party **353 HP short** of a win on the median seed. No code path anywhere in
-`state.rs`, `battle.rs` or `resolve.rs` added SP to a combatant. Every fight in
-the entire history of this project was fought on the starting pool.
-
-That is not a balance problem; it is a missing mechanic, and it silently rewrote
-every earlier finding in this file. "Enemy output is SP-bounded" (Change E) was
-real, but the bound was an artefact.
-
-`SP_REGEN_PER_TURN = 4`, applied in `end_turn` to the actor who just acted, after
-its tempo cost and before statuses tick. Chosen flat rather than proportional:
-a percentage of `max_sp` would hand Dio's 200-point pool five times the recovery
-of Jotaro's 80 and make every future skill price a function of the actor's pool.
-Two tests pin the semantics --
-`a_turn_returns_sp_to_the_actor_who_took_it_and_to_nobody_else` and
-`recovery_never_pushes_a_pool_above_where_it_started`. A stunned combatant still
-recovers: it spent its turn.
-
-Measured effect in `matchup.dio_boss`, `sp/b`, `1ba5ef2` -> `7f72a4f`:
-
-| Combatant | SP pool | Before | After |
-| --- | --- | --- | --- |
-| Jotaro | 80 | 70 | **115** |
-| Josuke | ~155 | 82 | **127** |
-| Kakyoin | 145 | 112 | **121** |
-| Dio | **200** | 191 | **252** |
-
-Dio now spends more SP in one battle than he owns. So does Jotaro, by 44%. The
-SP economy is the change; the win rate is a consequence of it.
-
-### Finding 3 -- repricing `blade_volley` to 40 SP deleted the skill
-
-Recorded as an error of mine, not as a design step. The user's requirement was
-that Dio keeps `blade_volley` on canon grounds -- it is the knives he throws into
-stopped time -- so the skill could not be removed from `stand.the_world`. The
-response was to make it expensive: 24 -> **40** SP. Measured result at
-`1ba5ef2`: **zero uses**, and the boss fight still at 0%.
-
-The arithmetic that should have been done first, at `baseline` 140 and three
-enemies:
-
-| Volley cost | Gross score | SP rate vs `tempo_halt` | Net of SP, full pool | Outcome |
-| --- | --- | --- | --- | --- |
-| 24 SP | 330 | 9 vs halt's 6 | dominant | 66 uses (53%) -- crowds out the halt |
-| 34-36 SP | 330 | 6 vs 6 | 114 vs halt's 120 | contested; chosen once the halt is unaffordable |
-| 40 SP | 330 | 5 vs 6 | 90 vs `strike`'s 100 | **never chosen at any pool level** |
-
-At 40 SP the skill loses to a free attack even before the halt is considered.
-**36 SP** is what shipped, and it is reachable *only because SP now regenerates*:
-measured **7 uses, 3% of Dio's turns**, all of them after his pool had refilled
-past a point where the halt was unaffordable and the volley was not. A skill that
-is reachable for one specific reason is fragile; if #12 changes the boss's pool
-or #15 changes the halt's cost, this number must be re-measured.
-
-### The final measurement -- commit `7f72a4f`
-
-64 tests pass, including `balance_bounds` 5 of 5, and all three encounters are in
-band. `matchup.thug_solo` is **bit-identical to the pre-#9 baseline** in every
-column, which is the strongest available evidence that the rules change reached
-only fights long enough for an SP budget to bind.
-
-`matchup.dio_boss` -- 5 won, 7 lost, turns 51 median / 43 / 65:
-
-| Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jotaro | 1413 | 996 | 115 | 155 | 8% | 33% |
-| Josuke | 379 | 895 | 127 | 88 | 7% | 42% |
-| Kakyoin | 209 | 937 | 121 | 117 | 12% | 8% |
-| Dio | 2486 | 1360 | 252 | 308 | 4% | 58% |
-| Flame Assassin | 305 | 640 | 41 | 45 | 9% | 0% |
-
-Actions by skill: Jotaro `strike` 78 (50%), `rush_barrage` 77 (50%); Josuke
-`strike` 71 (49%), `restore` 58 (40%), `concussive_slam` 17 (12%); Kakyoin
-`emerald_snare` 56 (63%), `emerald_splash` 28 (31%), `strike` 5 (6%); Dio
-`strike` 104 (50%), `tempo_halt` 44 (21%), `blood_drain` 32 (16%),
-`concussive_slam` 19 (9%), `blade_volley` 7 (3%); Flame Assassin `sun_flare` 31
-(69%), `strike` 14 (31%).
-
-`matchup.assassin_ambush` -- 8 won, 4 lost, turns 19 / 14 / 24:
-
-| Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jotaro | 976 | 367 | 76 | 83 | 8% | 67% |
-| Kakyoin | 295 | 516 | 73 | 76 | 7% | 8% |
-| Flame Assassin | 330 | 631 | 42 | 47 | 9% | 17% |
-| Iron Brawler | 547 | 639 | 65 | 53 | 13% | 33% |
-
-Four things this table says that no earlier run could:
-
-1. **Jotaro's boss output rose 1132 -> 1413** across the SP fix while his skill
-   split settled at exactly 50/50 between `rush_barrage` and `strike`. Before
-   regeneration he had four barrages per battle; now he has as many as the fight
-   is long.
-2. **Josuke became a survivor.** `restore` uses 32 -> 58 and `alive%` 0% -> 42%.
-   The healer was previously priced out of healing by his own SP pool.
-3. **Kakyoin is now the roster's weak point** -- 209 dealt, 8% alive, the highest
-   `miss%` in the game at 12%. The Hierophant swap gave him a better area skill
-   and did not make him durable. Carried into M3 as an open content finding.
-4. **`Flame Assassin` in the boss fight is digit-for-digit identical to the
-   `1ba5ef2` run** -- 305/640/41/45/9%/0%, `sun_flare` 31, `strike` 14 -- while
-   every other row moved and the median fight length went 52 -> 51 turns. Under a
-   rules change that alters RNG draw order this should be impossible. It is
-   **not** claimed as a bug here, because it has not been diagnosed: the next
-   step is two `--json` runs diffed against each other. Recorded so it is not
-   forgotten, and so nobody reads it as evidence of stability.
-
-### The scorecard for the last run
-
-Four of five sub-predictions correct: Dio's SP spend would exceed his pool
-(252 > 200, correct); the boss fight would return to band (42%, correct);
-`blade_volley` would become reachable without further repricing (7 uses,
-correct); Josuke's `restore` count would rise (32 -> 58, correct). The one that
-failed: `thug_solo` was predicted to show a higher `sp/b` and fewer `strike`
-uses, and it is bit-identical. **A three-turn fight never makes an SP budget
-bind**, so regeneration cannot reach it. That is the cleanest single sentence
-about what this change does and does not touch.
-
-### What this entry does not authorise
-
-- **The bands are not re-declared here.** All three pre-date SP regeneration and
-  two of them pre-date the scorer. `matchup.dio_boss` at 42% sits 7 points above
-  a 35 floor on an instrument whose resolution is 8.3 points per seed, which is
-  another way of saying the margin is not measurable. Re-declaring with evidence
-  is issue #12; widening a band in the same commit as the change that stressed it
-  is how a harness becomes decoration.
-- **The curve is void for the fifth time.** [`BALANCE-CURVE.md`](BALANCE-CURVE.md)
-  was measured before the unit fix, the SP pricing, the content repricing and
-  regeneration. Re-sweep is issue #14; the file is not to be cited until then.
-- **"Zero unreachable skills" is not met.** Twelve skills, **ten reachable, two
-  not**: `guard_stance` and `rage_focus`, both because their own numbers make
-  declining them correct. Issues #15 and #16, one entity per commit.
-
----
-
-## Known limitations of the harness itself
-
-Recorded here so a number is not over-read:
-
-- **Healing is not attributed.** `Event::Healed` carries a target and no source,
-  so the report cannot show healing done. Josuke's contribution has to be
-  inferred from his SP spend, which is now also inflated by regeneration. Fixing
-  this means adding an actor to the event, which is a code change, not a tuning
-  change. Tracked as issue #11.
-- **SP recovery is silent.** `recover_sp` deliberately emits no event, so the
-  Godot HUD cannot show a player where their SP came from, and the report cannot
-  separate "spent from the pool" from "spent from regeneration". `sp/b` above a
-  combatant's `max_sp` is the only visible signal. An event for it belongs with
-  #11.
-- **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.** This bullet
-  shipped in `0.3.0` describing the defect as a possibility -- "Kakyoin's 13-21%
-  is mostly this" -- when it was already live and had already corrupted a shipped
-  number. `miss%` is now `misses / attack_rolls` and the `rolls` column beside it
-  makes area usage visible. The released `0.3.0` figure of 20% for Kakyoin in the
-  ambush is wrong; the measurement is 11%.
-- **Twelve seeds is a small sample.** The resolution is 8.3 percentage points:
-  one seed flipping moves a reported win rate by that much, so 67% and 75% are
-  not distinguishable results. This is no longer a theoretical concern --
-  `matchup.dio_boss` now passes by 7 points, less than one seed. Widen the seed
-  list in a commit of its own, never in the same commit as a content change.
-  Tracked as issue #13.
-- **A rules change resets the series.** RNG draw order is part of the rules, so
-  after any edit to `ai.rs`, `resolve.rs`, `state.rs` or `battle.rs` the same
-  seed no longer reproduces the same battle. Cross-boundary comparison is
-  meaningless even when the numbers look adjacent. Issue #9 crossed this boundary
-  six times; only the runs listed in its table are comparable to each other.
-- **One row survived a boundary it should not have.** See finding 4 of the final
-  measurement: `Flame Assassin` in `dio_boss` is identical across `1ba5ef2` and
-  `7f72a4f`. Until that is explained, treat "bit-identical" as evidence only when
-  a *whole matchup* reproduces, never a single row.
-- **The harness plays worse than a player.** Auto-battle scores each affordable
-  skill once and never sets up a combination across turns. It also cannot see
-  that SP will return next turn: `best_other_rate` compares against the current
-  pool only. An AI-vs-AI win rate is therefore a floor for a competent player,
-  not an estimate of their experience.
-- **~~Only five of eleven skills are ever used.~~ Ten of twelve are used as of
-  `7f72a4f`.** The `0.3.0` bullet undercounted by three and the issue #9
-  prediction miscounted the remainder. The measured history: eight reachable
-  before #9, and ten after it, out of twelve after `skill.emerald_splash` was
-  added. The two that remain are `guard_stance` and `rage_focus`, and both are
-  declined correctly by a scorer that is working -- they are content defects
-  (#15, #16), not AI defects.
-- **`skill.tempo_halt` is still mispriced, in the other direction.** The scorer
-  values a tempo lock as the enemy actions it *denies*, but a lock defers actions
-  rather than removing them: the enemy still acts once the lock expires, unless
-  the fight ends first. Dio used it 44 times, 21% of his turns, so this
-  over-valuation is live and material. Not fixed in #9 because fixing it needs a
-  measurement of how often a locked enemy dies before acting.
-- **A "turn" in the report is one action, not one round.** Reading it as a round
-  inflates every per-turn estimate by the number of combatants, and that error
-  contributed directly to the failed Change E sizing.
-- **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
-  current rules, not a constant.** It was measured on one encounter with one
-  party, and any edit to `resolve.rs`, `ai.rs`, `state.rs`, `battle.rs`, the
-  roster or the skill list invalidates it. Issue #9 invalidated it four separate
-  times; the re-sweep is issue #14. Replace the table rather than appending to
-  it.
+party **353 HP short** of a win on the median seed. No code path
