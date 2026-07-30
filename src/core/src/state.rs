@@ -6,7 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::data::{AiProfile, CombatantDef, DataError, Database, Id, Stats, StatusKind, Team};
+use crate::data::{
+    AiProfile, CombatantDef, DataError, Database, Element, Id, Resistances, Stats, StatusKind, Team,
+};
 use crate::rng::Rng;
 
 /// Tempo required to act. Acting subtracts the action's cost, so a 1500-cost
@@ -45,6 +47,10 @@ pub struct Combatant {
     pub tempo: u32,
     pub tempo_lock: u32,
     pub ai: AiProfile,
+    /// Copied from the definition at instantiation. Older saves that predate
+    /// resistances deserialize into an empty table, which reads as neutral.
+    #[serde(default)]
+    pub resist: Resistances,
 }
 
 impl Combatant {
@@ -58,6 +64,16 @@ impl Combatant {
 
     pub fn status(&self, kind: StatusKind) -> Option<&Status> {
         self.statuses.iter().find(|status| status.kind == kind)
+    }
+
+    /// Resistance to `element` in percent: positive removes damage, negative
+    /// adds it, zero when the table says nothing.
+    ///
+    /// An accessor rather than a public map read, matching [`Combatant::atk`]
+    /// and friends: when a status that alters resistance is added, it is added
+    /// here and every call site inherits it.
+    pub fn resistance(&self, element: Element) -> i32 {
+        self.resist.get(&element).copied().unwrap_or(0)
     }
 
     /// Returns SP to this combatant and reports how much was actually recovered,
@@ -223,5 +239,6 @@ fn instantiate(db: &Database, def: &CombatantDef, team: Team) -> Combatant {
         tempo: 0,
         tempo_lock: 0,
         ai: def.ai,
+        resist: def.resist.clone(),
     }
 }
