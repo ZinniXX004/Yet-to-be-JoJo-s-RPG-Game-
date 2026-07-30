@@ -13,6 +13,10 @@
 //! own index to satisfy the type produced a log claiming a character attacked
 //! itself, and a UI that faithfully animates events would have shown exactly
 //! that.
+//!
+//! That rule is symmetric, and the healing side follows it too:
+//! [`Event::Healed`] always names a real healer, and regeneration -- which has
+//! none -- is [`Event::StatusHealed`].
 
 use serde::{Deserialize, Serialize};
 
@@ -71,8 +75,32 @@ pub enum Event {
         status: StatusKind,
         amount: i32,
     },
+    /// One combatant restored another's HP through an action.
+    ///
+    /// `actor` is always a real healer, so a report can credit healing done the
+    /// same way it credits damage dealt, and an animator can bind this to the
+    /// caster with no special cases. A self-heal -- `blood_drain`, or a heal
+    /// aimed at oneself -- sets `actor` and `target` to the same index, which
+    /// is a fact about the action, not an accounting problem: it is one heal,
+    /// performed by one combatant, and it must be counted once.
+    ///
+    /// Healing with no healer is [`Event::StatusHealed`].
     Healed {
+        actor: usize,
         target: usize,
+        amount: i32,
+    },
+    /// HP restored by a status the target is carrying, such as regeneration.
+    ///
+    /// The mirror of [`Event::StatusDamaged`], and it exists for the same
+    /// reason. A regen tick has no actor: whoever applied the status may be
+    /// dead, and the recovery is caused by the condition rather than by anyone
+    /// acting. Naming the carrier as its own healer would put a heal in the log
+    /// that nobody performed, and credit it to a combatant who spent no turn on
+    /// it.
+    StatusHealed {
+        target: usize,
+        status: StatusKind,
         amount: i32,
     },
     StatusApplied {
