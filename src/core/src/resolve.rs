@@ -204,7 +204,12 @@ fn apply_effect(
             // amount, so overkill does not become a healing exploit.
             let recovered = heal(st, actor, dealt / 2);
             if recovered > 0 {
+                // A self-heal: the drainer is both the healer and the healed.
+                // Both fields name the same index deliberately -- it is one
+                // heal performed by one combatant, and a report must credit it
+                // once, not once per field.
                 log.push(Event::Healed {
+                    actor,
                     target: actor,
                     amount: recovered,
                 });
@@ -218,6 +223,7 @@ fn apply_effect(
             let healed = heal(st, target, amount);
             if healed > 0 {
                 log.push(Event::Healed {
+                    actor,
                     target,
                     amount: healed,
                 });
@@ -398,6 +404,10 @@ pub(crate) fn status_damage(
 
 /// Restores HP and returns the amount actually restored. Healing never revives:
 /// resurrection must be an explicit effect, not an accident of ordering.
+///
+/// Emits nothing. The caller knows whether the recovery came from an action or
+/// from a status, and those are two different events; deciding that here would
+/// mean this function had to guess.
 pub(crate) fn heal(st: &mut BattleState, target: usize, amount: i32) -> i32 {
     let combatant = &mut st.combatants[target];
     if !combatant.alive() || amount <= 0 {
@@ -528,5 +538,116 @@ mod tests {
     fn resistance_applies_only_to_the_element_that_was_used() {
         let neutral = hit("skill.jab", Resistances::new());
         assert_eq!(hit("skill.jab", table(Element::Fire, 75)), neutral);
+    }
+
+    /// A support skill and a drain both name a healer, and the drain names the
+    /// same combatant twice on purpose. The report layer relies on that: it
+    /// credits `actor`, so a self-heal must arrive as one event with one actor
+    /// rather than as something a reader has to de-duplicate.
+    #[test]
+    fn a_heal_names_the_combatant_that_performed_it() {
+        fn mender(id: &str, team: Team, skills: &[&str]) -> CombatantDef {
+            let mut def = fighter(id, team, Resistances::new(), skills);
+            def.stats.will = 0;
+            def
+        }
+
+        let restore = SkillDef {
+            id: "skill.mend".to_string(),
+            name: "Mend".to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneAlly,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Heal { power: 50 }],
+        };
+        let siphon = SkillDef {
+            id: "skill.siphon".to_string(),
+            name: "Siphon".to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneEnemy,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Drain {
+                power: 100,
+                element: Element::Physical,
+            }],
+        };
+
+        let db = Database::new(
+            Vec::new(),
+            vec![restore, siphon],
+            vec![
+                mender("pc.healer", Team::Party, &["skill.mend", "skill.siphon"]),
+                mender("pc.ally", Team::Party, &["skill.mend"]),
+                mender("npc.victim", Team::Foe, &["skill.mend"]),
+            ],
+        )
+        .expect("the test content is valid");
+
+        let party = vec!["pc.healer".to_string(), "pc.ally".to_string()];
+        let foes = vec!["npc.victim".to_string()];
+        let mut st =
+            BattleState::build(&db, &party, &foes, 7).expect("the test battle instantiates");
+
+        // Wound the ally and the healer, so both heals have room to land.
+        st.combatants[0].hp = 500;
+        st.combatants[1].hp = 500;
+
+        let mut log: Vec<Event> = Vec::new();
+        resolve_command(
+            &db,
+            &mut st,
+            0,
+            &Command::Skill {
+                skill: "skill.mend".to_string(),
+                target: 1,
+            },
+            &mut log,
+        )
+        .expect("mending a wounded ally is legal");
+
+        let mended = log
+            .iter()
+            .find_map(|event| match event {
+                Event::Healed {
+                    actor,
+                    target,
+                    amount,
+                } => Some((*actor, *target, *amount)),
+                _ => None,
+            })
+            .expect("a heal on a wounded ally must land");
+        assert_eq!(mended.0, 0, "the caster is the healer");
+        assert_eq!(mended.1, 1, "the ally is the one healed");
+        assert!(mended.2 > 0);
+
+        let mut log: Vec<Event> = Vec::new();
+        resolve_command(
+            &db,
+            &mut st,
+            0,
+            &Command::Skill {
+                skill: "skill.siphon".to_string(),
+                target: 2,
+            },
+            &mut log,
+        )
+        .expect("draining a living foe is legal");
+
+        let drained = log
+            .iter()
+            .find_map(|event| match event {
+                Event::Healed { actor, target, .. } => Some((*actor, *target)),
+                _ => None,
+            })
+            .expect("a drain against a healthy foe recovers something");
+        assert_eq!(
+            drained,
+            (0, 0),
+            "a self-heal names the same combatant as healer and healed"
+        );
     }
 }
