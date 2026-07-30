@@ -201,7 +201,8 @@ number.
 3. **Attribute healing.** `Event::Healed` has a target and no actor, so healing
    done cannot be reported and support characters are invisible in the report.
    Adding the actor is a one-field change that makes a whole class of content
-   measurable, and it must precede any support-focused character.
+   measurable, and it must precede any support-focused character. **Delivered;
+   see the result below.**
 4. **Widen the seed list, in a commit that changes nothing else.** Twelve seeds
    resolve to 8.3 percentage points, which is coarser than several of the
    decisions taken in `0.3.0` and coarser than the margin by which the boss
@@ -295,13 +296,71 @@ All five correct. The reason is mechanical: the fixture fixes do not touch any
 production code path, so the only thing the second run was testing was whether
 the compile error was the sole failure. It was.
 
+### Step 3 as measured
+
+| Rules at | `thug_solo` | `assassin_ambush` | `dio_boss` |
+| --- | --- | --- | --- |
+| Step 2 final (`f6ba445`) | 100% | 50% | 42% |
+| **Step 3 -- healing attributed** | **100%** | **50%** | **42%** |
+
+**Every column in all three tables is unchanged**, not only the win rates:
+`dealt/b`, `taken/b`, `sp/b`, `rolls`, `miss%` and `alive%` reproduce digit for
+digit across fifteen combatant rows, and every `actions by skill` line is
+identical. That was the stated pass condition rather than a hoped-for outcome.
+No RNG is drawn by adding a field to an event, so any movement at all would have
+meant the change reached somewhere it had no business reaching, and the run
+would have been a failure regardless of which direction the number went.
+
+This is the first step of the milestone that opens **no new comparability
+boundary**. `BALANCE-LOG.md` has five; step 3 adds none.
+
+What the new column showed on its first run is the whole point of the step:
+
+1. **Josuke restores 1044 HP per battle while dealing 358.** The healer's real
+   output is close to three times its damage, and against 2740 HP of incoming
+   damage per battle it undoes 38% of everything the enemy does. Under the old
+   report Josuke was the party's weakest-looking member; it was second only to
+   Jotaro in contribution and the table could not say so.
+2. **Dio self-heals 183 per battle through `blood_drain`.** Sustain that never
+   appeared anywhere, on a boss whose printed pool is 1520. Roughly 12% of its
+   effective durability was invisible, which means every previous estimate of
+   how much damage the party needs to win the boss fight was low.
+3. **The Iron Brawler heals 6 per battle** from three `blood_drain` uses across
+   the whole batch -- negligible, and worth recording precisely because it is
+   negligible. A column that only ever printed large numbers would be a column
+   nobody checked.
+4. **`0.3.0`'s estimate was close and low.** The `skill.restore` nerf was argued
+   against "roughly 950 HP per battle", inferred from SP spent. Measured
+   directly, it is 1044 -- the inference was sound, and 9% short.
+
+Prediction scorecard for the step 3 gate:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | 72 tests (59 lib + 5 bin + 5 bounds + 3 det.) | exactly 72 | correct |
+| 2 | All three win rates and every table figure unchanged | unchanged, digit for digit | correct |
+| 3 | Josuke's `heal/b` non-zero | 1044 | correct |
+| 4 | Dio's `heal/b` non-zero via `blood_drain` | 183 | correct |
+| 5 | No new inert warning | none | correct |
+
+Five of five. That is a weaker result than it looks: predicting that a change
+which draws no RNG will move no number is close to predicting arithmetic. The
+predictions worth having in this step were the two structural ones made *before*
+any code -- that regeneration could not be given an honest actor and needed its
+own variant, and that the Godot bridge reads fields by name so only a new
+*variant* could break it. Both held, and both were checked against the source
+rather than guessed.
+
+Running total across the milestone: **thirty-six predictions, twenty-one wrong.**
+
 ### Checklist
 
 - [x] AI can choose buffs, guards and area attacks; zero unreachable skills
       *(scored choice delivered; two skills still declined on their own numbers,
       which step 5 fixes)*
 - [x] Elemental resistances applied in `resolve.rs` and covered by a unit test
-- [ ] `Event::Healed` carries an actor; `CombatantStats` reports healing done
+- [x] `Event::Healed` carries an actor; `CombatantStats` reports healing done
+      *(and `Event::StatusHealed` added, which the plan did not contain)*
 - [ ] Seed list widened to 24 in an isolated commit, bands re-measured
 - [ ] Third playable character, authored in `data/` only
 - [ ] Six enemies total, each exercised by at least one declared encounter
@@ -320,14 +379,15 @@ was. The `Delivered` column is filled in as each lands.
 | --- | --- | --- |
 | `src/core/src/ai.rs` | Replace `best_offensive` with a scored choice covering buffs, guards, tempo locks and area attacks; keep every draw on the battle RNG | Yes, plus an SP price the plan did not contain |
 | `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs | Yes, plus three unit tests |
-| `src/core/src/event.rs` | `Event::Healed` gains an `actor` field | Step 3 |
-| `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target | `miss%` yes (#8), plus per-skill action accounting the plan did not contain; healing done in step 3 |
+| `src/core/src/event.rs` | `Event::Healed` gains an `actor` field | Yes, **plus `Event::StatusHealed`**, which the plan did not contain and which the actor field made unavoidable |
+| `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target | Yes to both, plus per-skill action accounting the plan did not contain, plus an `inert_combatants` correction the plan did not foresee |
 | `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Steps 4 and 5 |
 | `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Partly: `skill.emerald_splash` added and `skill.blade_volley` repriced (step 1); resistance tables for four combatants (step 2) |
-| `src/core/src/state.rs`, `src/core/src/battle.rs` | *Not planned.* SP recovery per turn, without which step 1 makes the boss fight unwinnable | Yes |
+| `src/core/src/state.rs`, `src/core/src/battle.rs` | *Not planned.* SP recovery per turn, without which step 1 makes the boss fight unwinnable | Yes; `battle.rs` also carried the regeneration fix in step 3 |
 | `src/core/src/data.rs` | *Not planned.* `Resistances` type, `MAX_RESISTANCE`, `MIN_RESISTANCE`, `CombatantDef.resist` | Yes (step 2) |
+| `src/core/src/sim.rs` | *Not planned.* Credit healing to the healer in `accumulate`, and deliberately credit `StatusHealed` to nobody | Yes (step 3) |
 | `src/data-pipeline/validate_data.py` | Warn on a skill no combatant can use, mirroring the existing orphan-combatant warning | Not yet; cwd-relative default path was fixed instead; resistance validation added in step 2 |
-| `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix | Step 6 |
+| `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix | Step 6, but step 3 landed here early: `status_healed` needed a case or every regen tick would have printed raw JSON |
 | `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces | Pending; the curve is now invalidated by five separate changes |
 | `docs/BALANCE-LOG.md` | One entry per change, prediction written before the run | Yes, with a scorecard per run |
 
@@ -340,11 +400,13 @@ rather than rediscovered.
 | Risk | Symptom you will see | Response |
 | --- | --- | --- |
 | **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | **Fired.** Five changes invalidate it, not one. Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
-| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in a row during step 1**. Not a regression. Step 2 did not fire this risk: all three bands held |
+| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in a row during step 1**. Not a regression. Steps 2 and 3 did not fire this risk: all three bands held |
 | **`miss%` was already wrong**, not about to become wrong | Miss rates inflated on anyone holding an area skill | **Resolved before step 1, in #8.** Released `0.3.0` Kakyoin at 20% was two accuracy rolls counted as one action; true rate is 11% |
-| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and closer than it was: boss fight runs 51 turns median against a 500-turn limit |
+| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and closer than it was: boss fight runs 54 turns median against a 500-turn limit |
 | **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | **Fired, by my own hand.** `skill.blade_volley` at 40 SP went unused across twelve boss battles |
 | **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | **Fired, as predicted.** `skill.rage_focus` returns 0.8 of a hit for the price of one; declining it is correct on wrong numbers. Fix is in `data/skills.json`, step 5 |
+| **Adding a field to `Event` breaks every exhaustive match** | Compile errors across the crate and the bridge | **Fired and contained in step 3.** The field was the easy half; the new *variant* was the risk this row did not name. See the row below |
+| **A new `Event` variant is silently unhandled by the presentation layer** | Nothing fails to compile; the Godot log prints raw JSON where a sentence should be | **Fired in step 3 and caught before merge**, by reading `battle_view.gd` rather than trusting that a compiling bridge means a correct one. GDScript matches on a string and reads fields by name, so it cannot fail loudly. A note now sits in that file's header stating the rule |
 | **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
 | **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | Keep every seed well below 2^53, or pass it across the boundary as a string |
 
@@ -363,7 +425,13 @@ Issue handling, labels and the reproduction a balance report must contain are in
   the decision waits for them rather than being taken twice.
 - **Kakyoin is the weakest link in both encounters he appears in.** 201 damage
   per battle in the boss fight against Jotaro's 1466, and 8% survival in both.
+  Step 3 removed the last excuse for this reading: Kakyoin's `heal/b` is 0, so
+  unlike Josuke there is no hidden contribution the table was failing to show.
   Step 5 has to answer this with numbers, not with another skill.
+- **The SP economy is now the loudest unexplained number.** Dio spends 250 SP
+  per battle against Jotaro's 118 and Kakyoin's 140, on a pool of 200 that
+  refills at 4 per turn. Filed as its own issue rather than folded into step 5,
+  because it is a rules question and step 5 is content.
 
 ### Explicitly not in `0.4.0`
 
