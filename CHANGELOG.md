@@ -16,7 +16,9 @@ M3 in progress: process work, the accounting fix, and the rules fix the whole
 milestone was ordered around. The AI no longer picks the biggest affordable
 attack; it scores every option in one unit and pays for SP at what that SP would
 have bought instead. A turn now returns a little SP to whoever took it, which is
-the first time SP is a renewable resource in this project.
+the first time SP is a renewable resource in this project. Elemental resistances
+now modify damage: the data schema already carried the field; `resolve.rs` just
+never read it.
 
 **Every win rate published in `0.3.0` is void.** Three of the four changes below
 touch `ai.rs`, `battle.rs` or `state.rs`, so the same seed no longer produces the
@@ -74,6 +76,12 @@ comparable to them. The re-measured series is at the end of this section.
 - **`skill.emerald_splash`** (22 SP, all enemies, 105 psychic): Hierophant
   Green's own scatter attack, so Kakyoin has a second option that is his rather
   than borrowed.
+- **Per-element resistance tables** on `CombatantDef` (#10). `data.rs` gains a
+  `resist: HashMap<Element, i32>` field with `MAX_RESISTANCE = 100` and
+  `MIN_RESISTANCE = -100`; `state::Combatant` mirrors it with `#[serde(default)]`
+  and a `resistance(element)` accessor; `data/combatants.json` carries initial
+  tables for four combatants; and the Python validator checks that every declared
+  element is dealt by at least one skill and that every value falls within bounds.
 
 ### Changed
 
@@ -100,6 +108,15 @@ comparable to them. The re-measured series is at the end of this section.
   is the only price at which Dio halts first at a full pool and throws knives
   once halting is unaffordable, and it is only reachable at all because the pool
   now refills past it.
+- **Elemental resistances are applied in damage resolution** (#10).
+  `resolve::compute_damage` now reads the target's resistance table: a positive
+  value cuts damage by that percentage (floored at 1), a negative value amplifies
+  it — `max(damage * (100 − resist) / 100, 1)`. Three unit tests cover the
+  modifier, the immunity edge case, and element isolation. The initial tables
+  in `data/combatants.json`: Jotaro (`temporal: 50`), Dio (`temporal: 50,
+  psychic: 20`), Flame Assassin (`fire: 75`), Iron Brawler (`physical: 25,
+  psychic: -25`). Street Thug carries no table, which is the intentional control:
+  the `matchup.thug_solo` report must remain bit-identical.
 - `README.md` now states `0.3.0` as released and `0.4.0` as in progress, and
   names the skills the AI can never choose, so every published win rate is read
   as measuring a subset of the content. Adds a contributing section and a link
@@ -115,19 +132,30 @@ comparable to them. The re-measured series is at the end of this section.
   explanation of how each form field becomes issue text, and the `0.4.0`
   backlog as filed.
 
-Re-measured after all of the above, twelve seeds per encounter:
+Re-measured after all of the above (steps 1 and 2), twelve seeds per encounter:
 
-| Encounter | Win rate | Declared band | Was, before #9 |
-| --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 85..100 | 100% |
-| `matchup.assassin_ambush` | 67% | 45..90 | 67% |
-| `matchup.dio_boss` | 42% | 35..75 | 50% |
+| Encounter | Win rate | Declared band | Before #9 | Before #10 |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 100% | 100% |
+| `matchup.assassin_ambush` | 50% | 45..90 | 67% | 67% |
+| `matchup.dio_boss` | 42% | 35..75 | 50% | 42% |
 
-The first two figures are coincidences of the same width, not evidence that
-nothing changed: the ambush moved to 50% and back to 67% over the four
-intermediate runs, and the boss passed through 8% and 0% before landing at 42%.
-The thug fight is genuinely untouched, because it ends in three turns and no SP
-budget binds in three turns.
+The `matchup.thug_solo` control is **bit-identical** in every column before and
+after resistances: no combatant in a three-turn fight carries a table, so the
+report is a direct check that the schema change touched nothing it should not.
+
+The ambush fell 67 → 50 when resistances landed. The Iron Brawler carries
+`physical: 25` and `psychic: -25`, but the AI scorer does not read resistance
+tables when pricing effects, so Kakyoin does not prefer psychic skills against
+the Brawler's vulnerability and Jotaro does not discount his physical hits
+against the Brawler's resistance. The band still holds at 50%. See
+`docs/BALANCE-LOG.md` for the full entry and prediction scorecard.
+
+The #9 figures in the "Before #10" column are coincidences of the same width,
+not evidence that nothing changed: the ambush moved to 50% and back to 67% over
+the four intermediate runs, and the boss passed through 8% and 0% before landing
+at 42%. The thug fight is genuinely untouched, because it ends in three turns
+and no SP budget binds in three turns.
 
 ### Fixed
 
@@ -190,8 +218,12 @@ Carried forward from `0.3.0` except where noted:
   competent player rather than a forecast of their experience.
 - **Healing is not attributed.** `Event::Healed` carries a target and no source,
   so healing done still has to be inferred from SP spent.
-- Elemental resistances are still carried in events but not applied in damage,
-  which now includes `skill.emerald_splash`'s psychic damage.
+- **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
+  its `power` field without consulting the target's resistance table, so the AI
+  does not prefer psychic skills against the Iron Brawler's psychic vulnerability
+  and does not avoid physical skills against its physical resistance. The measured
+  consequence: `matchup.assassin_ambush` fell 67 → 50 after step 2; the band
+  still holds. Tracked as a follow-up issue in milestone `0.4.0`.
 
 ## [0.3.0] - 2026-07-29
 
@@ -315,7 +347,7 @@ Recorded so a win rate in this file is not read as more than it is:
 - **The Iron Brawler hits at an effective 157 against Dio's 160**, which is
   mechanically correct and fictionally awkward for a random-encounter enemy. The
   alternative was nerfing a skill shared with the boss fight.
-- Elemental resistances are still carried in events but not applied in damage.
+- Elemental resistances are carried in events but not yet applied in damage.
 
 ## [0.2.0] - 2026-07-28
 
