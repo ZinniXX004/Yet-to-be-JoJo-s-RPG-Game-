@@ -11,7 +11,7 @@
 //! balance harness (roadmap M2).
 //!
 //! Scoring lives in one place on purpose. Every profile below decides *when* to
-//! consider a class of action; only [`score_action`] decides *which* action
+//! consider a class of action; only `score_action` decides *which* action
 //! wins. Adding a consideration means changing a score, never adding a branch
 //! per skill id.
 //!
@@ -34,7 +34,7 @@
 //!
 //! Effects whose value is a number of *actions* rather than an amount of HP --
 //! a tempo lock, a stun, an attack or speed buff -- are priced against
-//! [`Situation::baseline`], which is already a power value, so they need no
+//! `Situation::baseline`, which is already a power value, so they need no
 //! conversion.
 //!
 //! # The price of SP
