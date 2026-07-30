@@ -12,8 +12,9 @@ Checks performed:
   4. Cross-file references resolve (stand -> skills, combatant -> stand/skills,
      matchup -> combatants).
   5. IDs are unique and follow the `namespace.name` convention.
-  6. Soft balance warnings (unreachable skills, zero-cost nukes, encounters
-     whose declaration cannot produce a meaningful measurement).
+  6. Soft balance warnings (unreachable skills, resistances to elements nothing
+     deals, zero-cost nukes, encounters whose declaration cannot produce a
+     meaningful measurement).
 
 Only `data/` is validated. `tools/probe/` holds files of the same shape that are
 deliberately absurd and are never shipped; see `tools/probe/README.md`.
@@ -55,6 +56,12 @@ STATUSES = {
 }
 EFFECT_KINDS = {"damage", "heal", "drain", "status", "tempo_lock"}
 STAT_KEYS = {"hp", "sp", "atk", "def", "spd", "will"}
+
+# Mirrors MIN_RESISTANCE and MAX_RESISTANCE in src/core/src/data.rs. The core
+# clamps to the same interval, so a value outside it is not dangerous -- it is
+# simply a number that does not mean what its author thinks it means.
+MIN_RESISTANCE = -100
+MAX_RESISTANCE = 100
 
 # Twelve seeds give a resolution of 8.3 percentage points per battle. Eight is
 # the point below which a single seed flipping moves the reported win rate by
@@ -175,8 +182,42 @@ def check_stats(block: Any, where: str, report: Report) -> None:
     check_int(block, "sp", f"{where}.stats", report, required=False, low=0)
 
 
-def validate_skills(rows: list[dict[str, Any]], report: Report) -> set[str]:
+def check_resistances(row: dict[str, Any], where: str, report: Report,
+                      elements_dealt: set[str]) -> None:
+    """Validates one combatant's optional `resist` table.
+
+    An unknown key is an error rather than a warning on purpose: serde ignores
+    it, so a misspelled element produces a combatant that silently has no
+    resistance at all, which is indistinguishable in the harness from a
+    resistance that is too weak to matter.
+    """
+    if "resist" not in row:
+        return
+    block = row["resist"]
+    if not isinstance(block, dict):
+        report.error(where, "'resist' must be an object")
+        return
+
+    unknown = sorted(set(block) - ELEMENTS)
+    if unknown:
+        report.error(where, f"unknown resist elements: {unknown}")
+
+    for element in sorted(set(block) & ELEMENTS):
+        check_int(block, element, f"{where}.resist", report, required=True,
+                  low=MIN_RESISTANCE, high=MAX_RESISTANCE)
+        if element not in elements_dealt:
+            report.warn(
+                where,
+                f"resistance to '{element}' cannot be measured: no skill"
+                " deals that element",
+            )
+
+
+def validate_skills(rows: list[dict[str, Any]],
+                    report: Report) -> tuple[set[str], set[str]]:
+    """Returns the skill ids and the set of elements the skills actually deal."""
     ids = check_ids(rows, "skills.json", report)
+    elements_dealt: set[str] = set()
     for index, row in enumerate(rows):
         where = f"skills.json[{index}] ({row.get('id', '?')})"
         if not isinstance(row.get("name"), str):
@@ -206,6 +247,8 @@ def validate_skills(rows: list[dict[str, Any]], report: Report) -> set[str]:
                 check_enum(effect, "element", ELEMENTS, e_where, report)
                 check_int(effect, "variance", e_where, report, required=False,
                           low=0, high=99)
+                if effect.get("element") in ELEMENTS:
+                    elements_dealt.add(effect["element"])
                 total_power += int(effect.get("power") or 0)
             elif kind == "heal":
                 check_int(effect, "power", e_where, report, required=True, low=1)
@@ -223,7 +266,7 @@ def validate_skills(rows: list[dict[str, Any]], report: Report) -> set[str]:
         if int(row.get("sp_cost") or 0) == 0 and total_power > 130:
             report.warn(where, f"free skill with total power {total_power}"
                                " dominates the basic attack")
-    return ids
+    return ids, elements_dealt
 
 
 def validate_stands(rows: list[dict[str, Any]], skill_ids: set[str],
@@ -254,7 +297,7 @@ def validate_stands(rows: list[dict[str, Any]], skill_ids: set[str],
 
 
 def validate_combatants(rows: list[dict[str, Any]], stand_ids: set[str],
-                        skill_ids: set[str],
+                        skill_ids: set[str], elements_dealt: set[str],
                         report: Report) -> tuple[dict[str, str], set[str]]:
     """Returns the combatant id -> team map and the set of skills granted."""
     check_ids(rows, "combatants.json", report)
@@ -272,6 +315,7 @@ def validate_combatants(rows: list[dict[str, Any]], stand_ids: set[str],
         if isinstance(row.get("id"), str) and row.get("team") in TEAMS:
             team_of[row["id"]] = row["team"]
         check_stats(row.get("stats"), where, report)
+        check_resistances(row, where, report, elements_dealt)
 
         stand = row.get("stand")
         if stand is not None and stand not in stand_ids:
@@ -416,10 +460,10 @@ def main(argv: list[str]) -> int:
     combatants = load_list(data_dir / "combatants.json", report)
     matchups = load_list(data_dir / "matchups.json", report)
 
-    skill_ids = validate_skills(skills, report)
+    skill_ids, elements_dealt = validate_skills(skills, report)
     stand_ids, from_stands = validate_stands(stands, skill_ids, report)
     team_of, from_combatants = validate_combatants(
-        combatants, stand_ids, skill_ids, report
+        combatants, stand_ids, skill_ids, elements_dealt, report
     )
     validate_matchups(matchups, team_of, report)
 
