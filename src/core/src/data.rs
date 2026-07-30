@@ -57,7 +57,9 @@ impl Stats {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// `Hash` is derived because an element is a key in a resistance table; see
+/// [`Resistances`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Element {
     Physical,
@@ -67,6 +69,24 @@ pub enum Element {
     Psychic,
     Temporal,
 }
+
+/// Per-element damage modifiers, in percent of the incoming hit.
+///
+/// Positive removes damage, negative adds it, and an absent key means zero.
+/// Absence rather than a required full table is deliberate: most combatants
+/// care about one or two elements, and a table that has to list all six is a
+/// table people copy-paste wrongly.
+pub type Resistances = HashMap<Element, i32>;
+
+/// Bounds enforced on every entry of a [`Resistances`] table.
+///
+/// The upper bound is total immunity to the element's *modifier*, not to the
+/// hit: the damage floor in [`crate::resolve`] still applies, so 100 cannot
+/// stall a fight the way a true immunity would. The lower bound caps a
+/// vulnerability at double damage, which is already the largest multiplier any
+/// other system in the game can produce.
+pub const MAX_RESISTANCE: i32 = 100;
+pub const MIN_RESISTANCE: i32 = -100;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -189,6 +209,21 @@ pub struct CombatantDef {
     pub skills: Vec<Id>,
     #[serde(default)]
     pub ai: AiProfile,
+    /// Resistance lives on the combatant, not on the stand, because it is a
+    /// property of the body being hit. A stand grants skills and stat bonuses;
+    /// it does not make its user fireproof.
+    #[serde(default)]
+    pub resist: Resistances,
+}
+
+impl CombatantDef {
+    /// Resistance to `element` in percent, zero when the table says nothing.
+    ///
+    /// Reading through an accessor rather than the map keeps "absent means
+    /// neutral" in one place; the resolver never sees an `Option`.
+    pub fn resistance(&self, element: Element) -> i32 {
+        self.resist.get(&element).copied().unwrap_or(0)
+    }
 }
 
 #[derive(Debug)]
@@ -354,6 +389,22 @@ impl Database {
             }
             if self.skills_for(def).is_empty() {
                 issues.push(format!("combatant '{}' has no usable skills", def.id));
+            }
+            // Sorted so that a combatant with two bad entries reports them in a
+            // stable order; `issues` as a whole is sorted later, but these two
+            // lines would otherwise differ per run through the HashMap.
+            let mut out_of_range: Vec<String> = def
+                .resist
+                .iter()
+                .filter(|(_, percent)| !(MIN_RESISTANCE..=MAX_RESISTANCE).contains(percent))
+                .map(|(element, percent)| format!("{element:?} at {percent}"))
+                .collect();
+            out_of_range.sort();
+            for entry in out_of_range {
+                issues.push(format!(
+                    "combatant '{}' has a resistance outside {MIN_RESISTANCE}..={MAX_RESISTANCE}: {entry}",
+                    def.id
+                ));
             }
         }
     }

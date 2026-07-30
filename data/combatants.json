@@ -6,7 +6,8 @@
     "stats": { "hp": 620, "sp": 80, "atk": 95, "def": 70, "spd": 72, "will": 88 },
     "stand": "stand.star_platinum",
     "skills": ["skill.strike", "skill.guard_stance"],
-    "ai": "aggressive"
+    "ai": "aggressive",
+    "resist": { "temporal": 50 }
   },
   {
     "id": "pc.josuke",
@@ -33,7 +34,8 @@
     "stats": { "hp": 1400, "sp": 160, "atk": 130, "def": 82, "spd": 70, "will": 96 },
     "stand": "stand.the_world",
     "skills": ["skill.strike", "skill.blood_drain"],
-    "ai": "aggressive"
+    "ai": "aggressive",
+    "resist": { "temporal": 50, "psychic": 20 }
   },
   {
     "id": "npc.flame_assassin",
@@ -42,7 +44,8 @@
     "stats": { "hp": 640, "sp": 70, "atk": 76, "def": 52, "spd": 80, "will": 64 },
     "stand": "stand.magicians_red",
     "skills": ["skill.strike"],
-    "ai": "aggressive"
+    "ai": "aggressive",
+    "resist": { "fire": 75 }
   },
   {
     "id": "npc.iron_brawler",
@@ -51,7 +54,8 @@
     "stats": { "hp": 620, "sp": 80, "atk": 135, "def": 48, "spd": 62, "will": 58 },
     "stand": "stand.iron_hymn",
     "skills": ["skill.strike", "skill.blood_drain"],
-    "ai": "aggressive"
+    "ai": "aggressive",
+    "resist": { "physical": 25, "psychic": -25 }
   },
   {
     "id": "npc.thug",

@@ -283,7 +283,7 @@ fn median(sorted: &[u64]) -> u64 {
 mod tests {
     use super::*;
     use crate::data::{
-        AiProfile, CombatantDef, Effect, Element, SkillDef, Stats, TargetKind, Team,
+        AiProfile, CombatantDef, Effect, Element, Resistances, SkillDef, Stats, TargetKind, Team,
     };
     use crate::state::TEMPO_THRESHOLD;
 
@@ -322,6 +322,11 @@ mod tests {
             stand: None,
             skills: vec![STRIKE.to_string()],
             ai: AiProfile::Aggressive,
+            // Empty on purpose. The assertions below pin that damage dealt
+            // equals damage received and that a hopeless matchup reports zero;
+            // a resistance here would change those figures without changing
+            // anything the tests claim to measure.
+            resist: Resistances::new(),
         }
     }
 
