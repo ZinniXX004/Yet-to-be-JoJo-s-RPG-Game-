@@ -9,11 +9,11 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 2 is
-**thirty-one predictions, twenty-one of them wrong**. The scorecards are kept per
-entry so the rate is visible rather than asserted. That is the argument for the
-harness, not against it -- the same wrong guesses shipped as content, unmeasured,
-would have been indistinguishable from design.
+the fact is a rationalisation, and the running record through `0.4.0` step 4 is
+**forty-five predictions, twenty-eight of them wrong**. The scorecards are kept
+per entry so the rate is visible rather than asserted. That is the argument for
+the harness, not against it -- the same wrong guesses shipped as content,
+unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -25,14 +25,22 @@ cargo run -q -p rpg-core --bin balance
 over the fixed seed list in [`data/matchups.json`](../data/matchups.json).
 Seeds are fixed precisely so two rows of this table can be compared.
 
+> **How to read a win rate in this file.** Every figure recorded here is an
+> estimate from a finite sample, and until issue #12 this file consistently
+> understated how coarse that estimate was. See
+> [the #12 entry](#issue-12----the-seed-list-widens-and-the-instrument-turns-out-to-have-been-misread)
+> before comparing any two numbers. In short: readings taken at twelve seeds
+> carry roughly **+/-14 points** of standard error, not 8.3, and most of the
+> differences argued over in the entries below are inside that.
+
 > **Comparability boundary 1.** Change C alters `ai::choose`, which changes both
 > the decisions taken and the order in which the RNG is drawn. Every number
 > recorded above that entry is historical. Do not compare it to anything below.
 
-> **Comparability boundary 2.** The `0.4.0` scored-choice change (issue #9, the
-> last entry in this file) alters which skill `ai::choose` selects. Every number
-> recorded *above* that entry describes rules in which three skills could never
-> be chosen. Do not compare across it either.
+> **Comparability boundary 2.** The `0.4.0` scored-choice change (issue #9)
+> alters which skill `ai::choose` selects. Every number recorded *above* that
+> entry describes rules in which three skills could never be chosen. Do not
+> compare across it either.
 
 > **Comparability boundary 3 -- what the earlier bands were really measuring.**
 > Issue #9 established that the pre-`0.4.0` AI did not merely ignore three
@@ -48,8 +56,7 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > project. `SP_REGEN_PER_TURN = 4` is new in `state.rs`. Every band, every ratio
 > and the whole curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) were measured in
 > an engine where a combatant's lifetime output was hard-capped by its starting
-> pool. Re-declaring the three bands against the new economy is issue #12 and it
-> is mandatory, not optional.
+> pool.
 
 > **Comparability boundary 5 -- elemental resistances now modify damage.** Issue
 > #10 adds resistance lookups to `resolve::compute_damage`. Any figure measured
@@ -59,20 +66,28 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > combatant in that fight carries a resistance table and no skill in it deals a
 > typed element, which is why the Street Thug is the explicit control row.
 
+> **There is no boundary 6, and issues #11 and #12 are the reason it matters
+> that there is not.** #11 changed reporting only; #12 changed the sample size
+> only. Neither touched a rule, so every figure in this file remains an estimate
+> of the same underlying quantity as before. What changed at #12 is how
+> *precisely* those quantities are known, which is not the same thing as the
+> quantities having moved. A boundary marks "these numbers describe a different
+> game"; a wider sample marks "these numbers describe the same game, better".
+
 ## Current status
 
-After issue #10, commit `f6ba445`, re-measured in full:
+After issue #12, commit `1f5aaed`, re-measured over **300 seeds**:
 
-| Matchup | Win rate | Band | Status |
-| --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 85..100 | ok -- bit-identical control |
-| `matchup.assassin_ambush` | 50% | 45..90 | ok |
-| `matchup.dio_boss` | 42% | 35..75 | ok, but only 7 points above the floor |
+| Matchup | Win rate | 95% interval | Band | Status |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | -- | 85..100 | ok |
+| `matchup.assassin_ambush` | 53% | 47..59 | 45..90 | ok |
+| `matchup.dio_boss` | 47% | 41..53 | 35..75 | ok |
 
-All three encounters are inside their declared bands. The third row carries the
-same caveat as always: one seed is worth **8.3 points**, so a 7-point margin is
-less than one battle. `matchup.dio_boss` is *not* comfortably in band; it is
-inside it by less than the instrument can resolve.
+All three encounters are inside their declared bands, and for the first time in
+this project **the intervals are inside the bands too**, rather than merely the
+point estimates. `matchup.dio_boss` is no longer the marginal row it was
+reported to be at twelve seeds; that appearance was an artefact of the sample.
 
 ## The throughput model
 
@@ -124,20 +139,23 @@ stat into damage past the point where a combatant runs out of SP.
 > **Amended by issue #10.** The formula above now includes a resistance modifier:
 > `max(damage * (100 - resist) / 100, 1)`. The model underestimates damage
 > against a resistant target and overestimates it against a vulnerable one by the
-> resistance percentage. For the ambush, the Iron Brawler's `physical: 25` cuts
-> every physical hit by 25%; the model predicts as if resistance were zero.
-> Calibrate against a post-#10 run before using the model to size a change that
-> targets a resistant or vulnerable enemy.
+> resistance percentage. Calibrate against a post-#10 run before using the model
+> to size a change that targets a resistant or vulnerable enemy.
+
+> **Amended by issue #12.** Every calibration above was fitted against a
+> twelve-seed run, so each "measured" figure it was checked against carries about
+> 14 points of sampling error on win rate and a smaller but real error on the
+> per-battle averages. The agreements of 5-9% quoted above are therefore better
+> than the data could actually support -- they are partly luck. The model is
+> still the right way to size a change; the confidence it earned from those
+> checks was overstated.
 
 The two things it makes obvious, both of which the Change E prediction missed:
 
 - **A slow foe is a cheap foe.** The Brawler's 72 speed buys it 20% of the
   actions in the fight, so its 73 damage per action becomes 285 per battle.
   Speed multiplies damage as directly as attack does.
-- **A foe's output is capped by its SP, not by the clock.** The Assassin has 70
-  SP and `sun_flare` costs 16, so it has at most four expensive turns in it. Its
-  per-battle damage has been 353, 332 and 308 across fights of 13, 19 and 18
-  turns -- effectively a constant, independent of how long it lives. *(True until
+- **A foe's output is capped by its SP, not by the clock.** *(True until
   `7f72a4f`; see the amendment above.)*
 
 ---
@@ -191,6 +209,15 @@ First measurement of the shipped `0.2.0` content. No changes yet.
    950 HP returned per battle -- an entire extra party member, and more than half
    of what the enemy side deals.
 
+   > **Superseded by issue #11, which measured it directly rather than inferring
+   > it from SP.** The estimate above was arrived at by dividing SP spent by the
+   > skill's cost, because nothing in the report could attribute a heal to a
+   > healer. Measured: **1044 HP per battle** at twelve seeds, **1088** at three
+   > hundred. The inference was sound in method and roughly 9% low. The original
+   > figure stays on the record because the point of this file is what was
+   > believed when a decision was taken -- the `skill.restore` nerf in Change B
+   > was argued against 950, not against 1088.
+
 ---
 
 ## Change A -- Flame Assassin hp 480 -> 640
@@ -199,8 +226,7 @@ Commit `4f21d1f`.
 
 **Motivation:** finding 3. The Assassin is priced as a threat and behaves as a
 speed bump, because the party's focus-fire rule targets the lowest HP pool and
-480 is below Kakyoin's 520. Raising it above the party's squishiest member lets
-the Assassin act for the number of turns its damage output was designed around.
+480 is below Kakyoin's 520.
 
 **Prediction:** `matchup.assassin_ambush` drops out of 100%. `matchup.dio_boss`
 drops by less.
@@ -245,6 +271,15 @@ Commit `b13e8f9`.
 
 **Conclusion: healing magnitude is a third-order lever in this encounter, and
 targeting is the first-order one.**
+
+> **Revisited after issue #11.** This conclusion was drawn from a single
+> unchanged win rate at twelve seeds, where the standard error is around 14
+> points -- so "no movement whatsoever" means only that the change did not move
+> the number by more than the noise floor. Issue #11 measured what the skill
+> actually does: 1088 HP per battle, offsetting 38% of everything the enemy side
+> deals in the boss fight. A lever that large being invisible in the win rate is
+> a statement about the encounter's shape, not about the lever. Whether 140 is
+> the right potency is issue #24.
 
 ---
 
@@ -417,6 +452,15 @@ Six changes were spent moving a ratio along the flat part of a curve nobody had
 plotted. **Measure the response curve before sizing the first change, not after
 the sixth.**
 
+> **Revisited after issue #12, and the lesson is now larger than it was.** Each
+> of the five curve points is a twelve-seed reading with roughly 14 points of
+> standard error. The two middle points, 67% and 67%, and the neighbouring 42%,
+> are not reliably distinguishable from one another. The curve's *shape* -- flat
+> at low ratio, collapsing near parity -- survives, because the endpoints are 100%
+> and 8% and no amount of sampling error bridges that. Its *resolution* does not.
+> The six wasted changes were partly chasing a flat curve and partly chasing
+> noise, and at the time there was no way to tell those two apart.
+
 ---
 
 ## Issue #8 -- `miss%` counted per action instead of per accuracy roll
@@ -472,6 +516,14 @@ with no damage effect scored zero. Power was read per target, not per encounter.
 | `1ba5ef2` | `emerald_splash`, Hierophant swap, volley 24 -> 40 SP | 100% | 50% | **0%** |
 | `7f72a4f` | SP recovers 4/turn, volley **36** SP | 100% | **67%** | **42%** |
 
+> **Read this table with issue #12 in hand.** Every cell is a twelve-battle
+> reading. The ambush moving 33 -> 58 -> 50 -> 67 looks like a response curve and
+> is largely inside one standard error end to end. The *boss* column is the
+> trustworthy one: 50 -> 8 -> 0 -> 42 spans far more than noise, and the SP-regen
+> row in particular moved a genuinely large distance. Findings 1 and 2 below rest
+> on the boss column and on direct inspection of the code, not on the ambush
+> column, so they stand.
+
 ### Finding 1 -- the choice function was never the binding constraint
 
 Dio's SP pool of 200 was exhausted by turn twenty of a fifty-one-turn fight.
@@ -524,9 +576,7 @@ fragile.
 
 ### What this entry does not authorise
 
-- **The bands are not re-declared here.** `matchup.dio_boss` at 42% sits 7 points
-  above a 35 floor on a 8.3-point instrument. Re-declaring with evidence is
-  issue #12.
+- **The bands are not re-declared here.** Re-declaring with evidence is issue #12.
 - **The curve is void for the fifth time.** Re-sweep is issue #14.
 - **"Zero unreachable skills" is not met.** Twelve skills, ten reachable, two not:
   `guard_stance` and `rage_focus`. Issues #15 and #16.
@@ -562,7 +612,7 @@ damage = max(damage * (100 - resist) / 100, 1)
 Positive resist cuts damage, floored at 1 -- a 100% resistant element deals 1,
 not 0, which prevents an accidental heal-on-hit. Negative resist amplifies.
 Three unit tests cover the modifier, the immunity edge case, and element
-isolation (fire resistance does not change a physical hit).
+isolation.
 
 **The initial tables** in `data/combatants.json`:
 - `pc.jotaro`: `{ "temporal": 50 }` -- Star Platinum's time-stop affinity
@@ -572,17 +622,11 @@ isolation (fire resistance does not change a physical hit).
   psychic exposure
 - All others carry empty tables (intentional control: `thug_solo` must not move)
 
-**The validator** now checks: every declared resistance element must be dealt by
-at least one skill (warns if not), and every value must fall within -100..100
-(errors if not).
-
 **Schema defect, owned here.** Adding `resist` to `CombatantDef` broke every
 struct literal that initialises it without sweeping all files. Both failures
 (`battle.rs:359`, `sim.rs:310`) were inside `#[cfg(test)]`, so
 `cargo run --bin balance` compiled and produced a full report while
-`cargo clippy --all-targets` and `cargo test` could not build. That is why
-there are two gate runs: the first confirmed the design; the second confirmed the
-fix.
+`cargo clippy --all-targets` and `cargo test` could not build.
 
 ### The two runs, in order
 
@@ -592,11 +636,7 @@ fix.
 | `5644ee7` | resistance schema + tables + validator (gate broken) | 100% | 50% | 42% |
 | `f6ba445` | fixture fixes (gate green) | 100% | 50% | 42% |
 
-The second run is **digit-for-digit identical** to the first. That is expected:
-the fixture fixes add `Resistances::new()` to two test-only struct literals and
-change nothing that any production code path reaches.
-
-### Scorecard for the first run (five sub-predictions)
+### Scorecard for the first run
 
 | # | Prediction | Measured | Verdict |
 | --- | --- | --- | --- |
@@ -606,14 +646,8 @@ change nothing that any production code path reaches.
 | 4 | `balance_bounds` FAILED, bands break | all three in band | **wrong** |
 | 5 | ambush rises from 67%, boss falls from 42% | ambush fell to 50%, boss held | **wrong** |
 
-Two of five. Predictions 3 and 4 share the same cause: the fixture defect.
-Prediction 5 was wrong about direction for a reason (finding 1 below).
-
-### Scorecard for the second run (five sub-predictions)
-
-All five correct. The reason is mechanical: the fixture fixes do not touch any
-production code path, so the only thing the second gate was testing was whether
-the compile error was the sole failure. It was.
+Two of five. The second run scored five of five, mechanically: the fixture fixes
+touch no production code path.
 
 ### Finding 1 -- the ambush fell because the AI is resistance-blind
 
@@ -624,84 +658,286 @@ psychic skills by 25%. The net was a **17-point drop**, 67% -> 50%.
 That drop is not symmetric. Jotaro's physical barrage was blunted without any
 compensating routing toward the Brawler's psychic vulnerability, because
 `score_action` prices `Effect::Damage` from its `power` field without calling
-`target.resistance(element)`. The scorer sees the same expected value for a
-physical hit and a psychic hit regardless of who the target is.
+`target.resistance(element)`. Filed as issue #22.
 
-Filing this as a follow-up issue in milestone `0.4.0`; it is a scorer defect,
-not a content defect, and it does not belong in the same commit as the resistance
-data.
+> **Amended by issue #12.** The 17-point drop was a twelve-seed reading and sits
+> close to one standard error, so its *magnitude* is not established. The
+> mechanism is, because it was found by reading `score_action` rather than by
+> reading the win rate. The scorer genuinely does not consult resistance tables.
+> What cannot be claimed from that run is that resistance-blindness costs the
+> party seventeen points; only that it costs them something.
 
 ### Finding 2 -- `thug_solo` is the control, and it held
 
 Street Thug carries no resistance table. No skill in `matchup.thug_solo` deals a
 typed element that any combatant there resists. The report is **bit-identical**
-to the pre-#10 run in every column -- `300/15/27/23/4%/100%` -- which is the
-strongest available evidence that the resistance formula reached only combatants
-and elements it was supposed to reach.
+to the pre-#10 run in every column, which is the strongest available evidence
+that the resistance formula reached only combatants and elements it was supposed
+to reach. Note that bit-identity is a far stronger signal than an unchanged win
+rate, and it is not affected by sample size: two runs either produce the same
+event stream or they do not.
 
 ### Finding 3 -- the boss win rate held at 42%, but every row moved
 
 Dio deals `temporal` damage; Jotaro resists temporal at 50%. Jotaro's `dealt/b`
-rose 1413 -> **1466** while Dio's fell 2486 -> **2392**. The net of those
-movements is close to zero in win-rate terms. The instrument's 8.3-point
-resolution explains the rest: a shift smaller than one seed cannot be observed.
+rose 1413 -> **1466** while Dio's fell 2486 -> **2392**.
 
 The Flame Assassin's row changed by exactly one `dealt/b` point (305 -> 304)
 despite carrying `fire: 75` and receiving no fire damage in this fight. This
-anomaly was first noted in the #9 entry; it is still undiagnosed, and the
-pre-resistance baseline is no longer reproducible.
+anomaly was first noted in the #9 entry and is still undiagnosed.
 
-### `matchup.assassin_ambush` -- full post-resistance table
+---
 
-12 battles: 6 won, 6 lost, turns 19 / 17 / 24:
+## Issue #11 -- healing is attributed to the combatant that performed it
 
-| Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jotaro | 924 | 429 | 79 | 88 | 8% | 50% |
-| Kakyoin | 328 | 516 | 71 | 75 | 7% | 8% |
-| Flame Assassin | 343 | 631 | 42 | 47 | 6% | 17% |
-| Iron Brawler | 596 | 620 | 72 | 61 | 16% | 50% |
+Commits: `a7bfadc` (`event.rs`), `c9d9b45` (`resolve.rs`), `ea74551`
+(`battle.rs`), `d49ab4c` (`report.rs`), `883eddb` (`sim.rs`), `4b74979`
+(`bin/balance.rs`), `e15b05a` (`battle_view.gd`). **A reporting change, not a
+rules change. No comparability boundary.**
 
-Actions by skill: Jotaro `rush_barrage 53 (60%), strike 35 (40%)`; Kakyoin
-`emerald_splash 33 (79%), emerald_snare 9 (21%)`; Assassin `sun_flare 32 (68%),
-strike 15 (32%)`; Brawler `concussive_slam 38 (62%), strike 20 (33%),
-blood_drain 3 (5%)`.
+**What was wrong.** `Event::Healed` carried a target and no source, so no report
+could say who did the healing. The party's dedicated healer appeared in every
+published table as a row of zeroes in the only column that measured
+contribution.
 
-Iron Brawler `miss%` 16% is the highest recorded for any combatant.
-`concussive_slam` at accuracy 85 accounting for 62% of turns is the mechanical
-cause.
+**The decision it forced.** Three sites emit `Healed`, and one of them has no
+actor to name: regeneration ticks belong to a status, not to a combatant.
+Filling `actor` with the carrier's own index would have produced a log claiming
+a character healed itself through an action it never took -- exactly the defect
+`Event::StatusDamaged` was added in `0.1.0` to fix, with the sign flipped. So
+`Healed` gained an actor and regeneration moved to a new `Event::StatusHealed`.
 
-### `matchup.dio_boss` -- full post-resistance table
+**Result: every pre-existing figure is bit-identical.** No RNG is drawn by adding
+a field to an event, so the pass condition was that nothing moves, and nothing
+did -- `dealt/b`, `taken/b`, `sp/b`, `rolls`, `miss%` and `alive%` reproduce digit
+for digit across all fifteen combatant rows, and every `actions by skill` line is
+identical.
 
-12 battles: 5 won, 7 lost, turns 54 / 45 / 74:
+### Scorecard
 
-| Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jotaro | 1466 | 714 | 118 | 170 | 9% | 42% |
-| Josuke | 358 | 962 | 122 | 80 | 9% | 17% |
-| Kakyoin | 201 | 1064 | 140 | 137 | 12% | 8% |
-| Dio | 2392 | 1385 | 250 | 315 | 3% | 58% |
-| Flame Assassin | 304 | 640 | 41 | 45 | 9% | 0% |
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | 72 tests (59 lib + 5 bin + 5 bounds + 3 det.) | exactly 72 | correct |
+| 2 | Every existing figure unchanged | unchanged, digit for digit | correct |
+| 3 | Josuke's `heal/b` non-zero | 1044 | correct |
+| 4 | Dio's `heal/b` non-zero via `blood_drain` | 183 | correct |
+| 5 | No new inert warning | none | correct |
 
-Actions by skill: Jotaro `strike 91 (54%), rush_barrage 79 (46%)`; Josuke
-`strike 58 (45%), restore 49 (38%), concussive_slam 22 (17%)`; Kakyoin
-`emerald_snare 71 (65%), emerald_splash 28 (26%), strike 10 (9%)`; Dio
-`strike 112 (53%), tempo_halt 46 (22%), blood_drain 32 (15%),
-concussive_slam 15 (7%), blade_volley 6 (3%)`; Assassin `sun_flare 31 (69%),
-strike 14 (31%)`.
+**An earlier prediction, made before the code and superseded before the run, is
+recorded here because only recording the corrected one would be dishonest:** it
+stated that `heal/b` would read **0 for every combatant**, on the reasoning that
+"the shipped roster has no reachable healing skill and `blood_drain` is not in
+any current matchup". Both halves were false. `skill.restore` is 39% of Josuke's
+boss turns and `blood_drain` is used in both the ambush and the boss fight. It
+was corrected by reading `data/skills.json` rather than by running anything.
+
+### What the column showed on its first run
+
+1. **Josuke restores 1044 HP per battle while dealing 358.** Against roughly 2740
+   HP of incoming damage per battle, the healer undoes 38% of everything the
+   enemy side does. It looked like the party's weakest member and was second only
+   to Jotaro in contribution.
+2. **Dio self-heals 183 per battle** through `blood_drain` -- around 12% of its
+   effective durability, on a boss whose printed pool is 1520.
+3. **The Iron Brawler heals 6 per battle**, from three uses in a whole batch.
+   Recorded precisely because it is negligible: a column that only ever printed
+   large numbers would be a column nobody checked.
+4. **The `0.3.0` estimate was sound and 9% low.** See the annotation on baseline
+   finding 5.
+
+### Also fixed
+
+`MatchupReport::inert_combatants` tested `damage_dealt == 0`, which would have
+accused a dedicated healer of sitting out a fight it was carrying. It now
+requires zero damage **and** zero healing.
+
+---
+
+## Issue #12 -- the seed list widens, and the instrument turns out to have been misread
+
+Commits `08a40c4` (12 -> 24 seeds) and `1f5aaed` (24 -> 300 seeds). **Data only.
+No code, no rules, no content. No comparability boundary** -- see the note at the
+top of this file on why a wider sample is not a boundary.
+
+This entry is the most consequential in the file, and not for the reason the
+issue anticipated. The issue expected to re-declare bands against changed rules.
+What actually happened is that the project discovered it had been misreading its
+own instrument since the harness was built.
+
+### The error
+
+Every document here -- this file, `ROADMAP.md`, half a dozen commit messages --
+has described twelve seeds as "resolving to 8.3 percentage points". That is
+**granularity**: 1/12, the distance between two adjacent possible readings. It is
+not the measurement error, and the two were used interchangeably.
+
+The sampling error of a proportion is `sqrt(p(1-p)/n)`:
+
+| Seeds | Standard error at p~0.5 | 95% interval width |
+| --- | --- | --- |
+| 12 | **+/-14.4 points** | +/-28 |
+| 24 | +/-10.2 | +/-20 |
+| 300 | **+/-2.9** | +/-5.7 |
+
+So the true uncertainty at twelve seeds was roughly **three times** the figure
+this file kept quoting. Every entry above that argues about a ten- or
+fifteen-point movement is arguing inside the noise floor.
+
+### The two runs
+
+| Seeds | thug | ambush | boss | Gate |
+| --- | --- | --- | --- | --- |
+| 12 (`f6ba445`) | 100% | 50% | 42% | green |
+| **24** (`08a40c4`) | 100% | **42%** | **29%** | **RED, two out of band** |
+| **300** (`1f5aaed`) | 100% | **53%** | **47%** | green |
+
+### The mistake I made in between, recorded because it is the whole lesson
+
+The 24-seed run put two encounters out of band. Because the twelve original seeds
+were kept as a subset, the twelve added ones could be isolated: they gave the
+ambush 4 wins from 12 and the boss 2 from 12. I concluded from this that **the
+original twelve seeds had been a lucky sample** and that every band in the
+project had been fitted against an optimistic instrument.
+
+That conclusion was wrong, and it was wrong by exactly the error it was
+diagnosing. At 300 seeds the ambush reads 53% and the boss 47% -- both *above* the
+twelve-seed readings of 50% and 42%. The twelve added seeds were an unlucky
+sample, not the original twelve a lucky one. I over-read a difference that was
+comfortably inside one standard error, in the middle of writing an argument about
+over-reading differences inside one standard error.
+
+**The practical consequence, had the harness been trusted at 24 seeds:** the next
+commit would have been a content commit buffing the party to rescue a boss fight
+reading 29%. The boss fight was never at 29%. That buff would have shipped, and
+the 300-seed run would then have shown a party that was far too strong.
+
+### Scorecard -- run 1, 24 seeds
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `thug_solo` 100%, unchanged | 100% | correct |
+| 2 | ambush 45-58% | 42% | **wrong** |
+| 3 | boss 38-50% | 29% | **wrong** |
+| 4 | Gate green but uncomfortable | red, two encounters | **wrong** |
+| 5 | Ambush likelier of the two to fail | both failed; boss failed by more | **wrong** |
+
+### Scorecard -- run 2, 300 seeds
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `thug_solo` 100% | 100% | correct |
+| 2 | ambush 38-46%, **out of band** | 53%, in band | **wrong** |
+| 3 | boss 25-33%, **out of band** | 47%, in band | **wrong** |
+| 4 | Gate stays red | green | **wrong** |
+
+One of four, and the one correct prediction was that a guaranteed win would
+remain a guaranteed win. Both scorecards are bad in the same direction: I twice
+projected the most recent reading forward as though it were the true value, which
+is the specific error a confidence interval exists to prevent.
+
+### The bands are correct, and nothing else changes
+
+Issue #12 was written expecting to re-declare bands and warning that widening a
+band because CI is red "converts the gate into decoration". The measured answer
+is that **no band needs to move**. All three encounters sit inside the bands
+declared before any of the M3 rules changes, and now the intervals sit inside
+them too. The bands were a statement of design intent, and the content meets the
+intent.
+
+This is a much better outcome than a band adjustment would have been, and it was
+only reachable by refusing to touch content while the instrument was still too
+coarse to justify touching it.
+
+### Why 300, and why a contiguous range
+
+300 seeds puts the 95% interval at about +/-5.7 points, finer than any distance
+this project has argued over. The cost is nothing: `balance_bounds` runs 900
+battles in **0.36 seconds**. Three releases of content decisions were taken on
++/-14 points of noise when removing that noise cost a third of a second and one
+edit to a JSON array.
+
+Seeds are now the contiguous range `1..=300`. SplitMix64 places the seed directly
+into state and passes it through a Murmur3-style finalizer, so sequential seeds
+produce decorrelated streams; a scattered list buys no independence and only makes
+the set harder to audit. All twelve original Fibonacci seeds are <= 233, so this
+run remains a superset of every figure measured before it.
+
+### `matchup.thug_solo` -- 300 battles, 300 won, turns 3 / 1 / 7
+
+| Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Jotaro | 300 | 15 | 0 | 24 | 656 | 10% | 100% |
+| Street Thug | 15 | 300 | 0 | 0 | 260 | 5% | 0% |
+
+Actions: Jotaro `rush_barrage 412 (63%), strike 244 (37%)`; Street Thug
+`strike 260 (100%)`.
+
+The control row is instructive about small samples in a different way. At twelve
+seeds the Street Thug's `miss%` read **0%** over ten rolls; over 260 rolls it
+reads **5%**. Nothing changed but the number of observations. The same is true of
+Jotaro's 4% -> 10% and of the longest battle, 4 turns -> 7.
+
+### `matchup.assassin_ambush` -- 300 battles, 158 won, 142 lost, turns 21 / 13 / 32
+
+| Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Jotaro | 900 | 487 | 0 | 81 | 2232 | 8% | 51% |
+| Kakyoin | 344 | 497 | 0 | 78 | 2018 | 10% | 15% |
+| Flame Assassin | 344 | 611 | 0 | 43 | 1290 | 8% | 16% |
+| Iron Brawler | 631 | 632 | 6 | 67 | 1514 | 11% | 42% |
+
+Actions: Jotaro `rush_barrage 1356 (61%), strike 876 (39%)`; Kakyoin
+`emerald_splash 843 (72%), emerald_snare 326 (28%), strike 6 (1%)`; Assassin
+`sun_flare 823 (64%), strike 467 (36%)`; Brawler `concussive_slam 899 (59%),
+strike 574 (38%), blood_drain 41 (3%)`.
+
+The Iron Brawler's `miss%` was recorded in the #10 entry as **16%**, "the highest
+recorded for any combatant", from 61 rolls. Over 1514 rolls it is **11%**, in
+line with everyone else. That superlative was noise and is retracted here.
+
+Kakyoin uses `strike` six times in 300 battles -- 1% of its turns, invisible at
+twelve seeds. Rare branches only appear when the sample is large enough to
+contain them.
+
+### `matchup.dio_boss` -- 300 battles, 141 won, 159 lost, turns 54 / 28 / 84
+
+| Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Jotaro | 1489 | 773 | 0 | 114 | 4028 | 7% | 44% |
+| Josuke | 373 | 930 | **1088** | 123 | 2014 | 7% | 34% |
+| Kakyoin | 231 | 985 | 0 | 131 | 3321 | 9% | 15% |
+| Dio | 2304 | 1453 | **162** | 249 | 7765 | 4% | 53% |
+| Flame Assassin | 369 | 639 | 0 | 46 | 1393 | 9% | 1% |
+
+Actions: Jotaro `strike 2119 (53%), rush_barrage 1909 (47%)`; Josuke
+`strike 1492 (45%), restore 1273 (39%), concussive_slam 522 (16%)`; Kakyoin
+`emerald_snare 1394 (56%), emerald_splash 847 (34%), strike 233 (9%)`; Dio
+`strike 2698 (53%), tempo_halt 1188 (23%), blood_drain 745 (15%),
+concussive_slam 341 (7%), blade_volley 139 (3%)`; Assassin `sun_flare 874 (63%),
+strike 519 (37%)`.
+
+Three things worth noting:
+
+1. **Josuke's survival was badly understated.** 17% at twelve seeds, **34%** at
+   three hundred. The healer is twice as durable as the report claimed, which
+   matters because "the healer dies early" was an assumption behind more than one
+   tuning argument.
+2. **Josuke's healing is confirmed at 1088/battle**, close to the 1044 measured at
+   twelve seeds. Per-battle averages converge much faster than win rates, because
+   each battle contributes hundreds of observations rather than one.
+3. **The Flame Assassin survives 1% of boss battles.** At twelve and twenty-four
+   seeds it read 0%, which invited the conclusion that it never survives. It
+   does, about three times in three hundred.
 
 ### What this entry does not authorise
 
-- **The bands are not re-declared here.** All three pre-date resistances.
-  `matchup.dio_boss` at 42% sits 7 points above a 35 floor on a 8.3-point
-  instrument. Re-declaring with evidence is issue #12; doing it in the same
-  commit as the change that moved the numbers is how a harness becomes
-  decoration.
-- **The curve is void for the sixth time.** [`BALANCE-CURVE.md`](BALANCE-CURVE.md)
-  was measured before the resistance modifier. Re-sweep is issue #14; the file is
-  not to be cited until then.
-- **The AI's resistance-blindness is not fixed here.** It is a scorer defect,
-  not a content defect, and belongs in a separate issue and commit.
+- **No content change.** The bands hold and the intervals hold. Any content edit
+  now needs its own justification, not this run's.
+- **The curve is still void.** [`BALANCE-CURVE.md`](BALANCE-CURVE.md) was swept
+  at twelve seeds under pre-`0.4.0` rules; it is now invalid on both counts.
+  Re-sweep is issue #14, and it must be swept at 300.
+- **The historical entries are not rewritten.** Their annotations mark what is
+  now known to be inside the noise. A retracted measurement is evidence too.
 
 ---
 
@@ -709,45 +945,47 @@ strike 14 (31%)`.
 
 Recorded here so a number is not over-read:
 
-- **Healing is not attributed.** `Event::Healed` carries a target and no source,
-  so the report cannot show healing done. Josuke's contribution has to be
-  inferred from his SP spend, which is now also inflated by regeneration. Fixing
-  this means adding an actor to the event, which is a code change, not a tuning
-  change. Tracked as issue #11.
+- **~~Healing is not attributed.~~ Fixed in issue #11.** `Event::Healed` now
+  carries an actor and `CombatantStats` reports `healing_done`. Regeneration is
+  reported as `Event::StatusHealed` and is deliberately credited to nobody.
+- **~~Twelve seeds is a small sample.~~ Fixed in issue #12**, and it was worse
+  than this list claimed. The figure quoted here for a year was 8.3 points, which
+  is granularity rather than sampling error; the true standard error at twelve
+  seeds was around 14. Now 300 seeds and about +/-2.9.
+- **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.**
+- **Confidence is not reported, only the point estimate.** `balance_bounds`
+  compares a single measured percentage against a band and says nothing about how
+  precisely that percentage is known. At 300 seeds the interval is narrow enough
+  that this rarely matters, but the gate would report a 47% reading and a 34%
+  reading with identical confidence. Reporting the interval alongside the
+  estimate would make the instrument honest about itself.
 - **SP recovery is silent.** `recover_sp` deliberately emits no event, so the
-  Godot HUD cannot show a player where their SP came from, and the report cannot
-  separate "spent from the pool" from "spent from regeneration". `sp/b` above a
+  Godot HUD cannot show a player where their SP came from. `sp/b` above a
   combatant's `max_sp` is the only visible signal.
-- **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.** `miss%` is now
-  `misses / attack_rolls` and the `rolls` column makes area usage visible. The
-  released `0.3.0` figure of 20% for Kakyoin in the ambush is wrong; the
-  measurement is 11%.
-- **Twelve seeds is a small sample.** Resolution is 8.3 percentage points. One
-  seed flipping moves a reported win rate by that much, so 67% and 75% are not
-  distinguishable results. `matchup.dio_boss` now passes by 7 points, less than
-  one seed. Tracked as issue #13.
+- **`sp/b` is derived by the CLI, not by the report.** `bin/balance.rs` computes
+  it with truncating integer division while every neighbouring column rounds half
+  up through `divide_rounded`. Cosmetic in size; tracked as issue #25.
 - **A rules change resets the series.** RNG draw order is part of the rules, so
-  after any edit to `ai.rs`, `resolve.rs`, `state.rs` or `battle.rs` the same
-  seed no longer reproduces the same battle. Issue #9 crossed this boundary six
-  times; issue #10 crossed it once.
+  after any edit to `ai.rs`, `resolve.rs`, `state.rs` or `battle.rs` the same seed
+  no longer reproduces the same battle. Issue #9 crossed this boundary six times;
+  issue #10 crossed it once; issues #11 and #12 crossed it zero times.
 - **One row survived a boundary it should not have.** `Flame Assassin` in
-  `dio_boss` has been effectively constant across two boundaries now (305 at
-  `7f72a4f`, 304 at `f6ba445`). Until that is explained, treat "bit-identical"
-  as evidence only when a *whole matchup* reproduces, never a single row.
+  `dio_boss` was effectively constant across two boundaries (305 at `7f72a4f`,
+  304 at `f6ba445`). Until that is explained, treat "bit-identical" as evidence
+  only when a *whole matchup* reproduces, never a single row.
 - **The harness plays worse than a player.** Auto-battle scores each affordable
   skill once and never sets up a combination across turns. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience.
 - **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
-  `power` without consulting the target's resistance table. The ambush fell
-  67 -> 50 as a measured consequence. Tracked as a follow-up issue in milestone
-  `0.4.0`.
+  `power` without consulting the target's resistance table. Tracked as issue #22.
 - **~~Only five of eleven skills are ever used.~~ Ten of twelve as of `7f72a4f`.**
   Two remain: `guard_stance` and `rage_focus`, both declined correctly on their
   own numbers. Content defects, issues #15 and #16.
 - **`skill.tempo_halt` is still mispriced, in the other direction.** The scorer
-  values a lock as the actions it *denies*; a lock defers, not removes. Dio used
-  it 44-46 times per batch.
+  values a lock as the actions it *denies*; a lock defers, not removes. Dio uses
+  it on 23% of its turns.
 - **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
-  current rules, not a constant.** It is now invalidated six times over. Re-sweep
-  is issue #14. Replace the table rather than appending to it.
+  current rules, not a constant.** It is invalidated six times over and was swept
+  at twelve seeds besides. Re-sweep is issue #14. Replace the table rather than
+  appending to it.

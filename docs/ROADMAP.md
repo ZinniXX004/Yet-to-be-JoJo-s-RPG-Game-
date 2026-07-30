@@ -83,6 +83,13 @@ These are the figures as released. They no longer reproduce: M3 steps 1 and 2
 changed the rules, so the same seeds now produce different battles. The
 re-measured series is below.
 
+> **Retracted in part by M3 step 4.** "Twelve fixed seeds each" was not merely a
+> small sample, it was a sample this project believed was three times more
+> precise than it was. Each figure in the table above carries roughly +/-14
+> points of standard error, not the +/-8.3 claimed throughout these documents.
+> The harness met its exit criterion; the confidence attached to its output did
+> not. See [step 4 as measured](#step-4-as-measured).
+
 The M1 suspicion was half right and half backwards: the numbers were indeed
 one-sided, but in the party's favour. Unattended, the party won the boss fight
 that the first playthrough lost -- 11 times out of 12.
@@ -161,8 +168,8 @@ count moved twice while the work was done:
 
 - `skill.tempo_halt` was called unreachable because a 140-power slam dominated
   it. That reading was wrong in a way only measurement could show: it is now
-  Dio's opening move, 44 uses per batch, and it was unreachable because the old
-  chooser ranked raw damage, not because its numbers were weak.
+  Dio's opening move, used on 23% of its turns, and it was unreachable because
+  the old chooser ranked raw damage, not because its numbers were weak.
 - `skill.blade_volley` was never unreachable at all under the old rules -- it was
   *dominant*, which is why the `miss%` defect in #8 was already live on shipped
   content. It went briefly unused at 40 SP and is reachable at 36.
@@ -203,11 +210,17 @@ number.
    Adding the actor is a one-field change that makes a whole class of content
    measurable, and it must precede any support-focused character. **Delivered;
    see the result below.**
-4. **Widen the seed list, in a commit that changes nothing else.** Twelve seeds
-   resolve to 8.3 percentage points, which is coarser than several of the
-   decisions taken in `0.3.0` and coarser than the margin by which the boss
-   fight now passes. Twenty-four seeds halve that. Do this alone, so the only
-   thing that can explain a moved number is the resolution.
+4. **Widen the seed list, in a commit that changes nothing else.**
+   ~~Twelve seeds resolve to 8.3 percentage points, which is coarser than several
+   of the decisions taken in `0.3.0` and coarser than the margin by which the
+   boss fight now passes. Twenty-four seeds halve that.~~ **The premise was
+   wrong and the target was too small.** 8.3 is `1/12`, the granularity of the
+   reading -- the distance between two adjacent possible answers. The
+   *uncertainty* is `sqrt(p(1-p)/n)`, about **14 points** at twelve seeds, so the
+   figure this document reasoned from understated the noise roughly threefold,
+   and twenty-four seeds would only have brought it to 10. Delivered at **300
+   seeds**, +/-2.9. Do this alone, so the only thing that can explain a moved
+   number is the resolution. **Delivered; see the result below.**
 5. **Then the content**, one entity per commit, each with its declared band and
    a log entry: a third playable character, three more enemies to reach six, and
    a second boss fight. `skill.guard_stance` and `skill.rage_focus` are repriced
@@ -248,9 +261,20 @@ Four things this table says that no plan predicted:
 3. **`thug_solo` never moved, through all six runs.** Not because nothing
    changed, but because a three-turn fight cannot exhaust a pool, so no SP rule
    can reach it. A figure that does not move is worth as much as one that does.
-4. **The boss now passes at 42% against a floor of 35**, a margin of 7 points
+4. ~~**The boss now passes at 42% against a floor of 35**, a margin of 7 points
    where one battle is worth 8.3. It is inside its band and it is not decisively
-   inside it, which moves step 4 up in importance.
+   inside it, which moves step 4 up in importance.~~ **Half retracted by step 4.**
+   Moving step 4 up was the right call for the wrong reason. The margin was not
+   7 points against an 8.3-point instrument; it was 7 points against a
+   +/-14-point one, so the reading was consistent with anything from 14% to 70%.
+   The boss fight was never marginal -- measured at 300 seeds it is **47%**, dead
+   centre of a 35..75 band. What was marginal was the evidence.
+
+> **The ambush column of that table cannot bear the weight put on it.** 33 -> 33
+> -> 58 -> 50 -> 67 is a 34-point spread across readings whose standard error is
+> 14 points each. The boss column is the trustworthy one, spanning 50 -> 8 -> 0
+> -> 42, and findings 1 and 2 rest on it and on direct inspection of the source.
+> They stand. The precise shape of the ambush's path does not.
 
 All figures published before the last row of that table are void, not merely
 old: three of the changes touch `ai.rs`, `battle.rs` or `state.rs`.
@@ -269,18 +293,27 @@ Three things this table says:
 1. **`thug_solo` is bit-identical in every column.** The Street Thug carries no
    resistance table and no skill in that fight deals a typed element, so the
    report is a direct falsifiability check: if anything moved here, the change
-   reached further than `resolve.rs`.
+   reached further than `resolve.rs`. Note that bit-identity is immune to sample
+   size in a way a win rate is not: two runs either produce the same event stream
+   or they do not.
 2. **The ambush fell 67 -> 50.** The Iron Brawler carries `physical: 25` (cuts
    physical damage by 25%) and `psychic: -25` (amplifies psychic damage by 25%).
    The fall happened even though Kakyoin's psychic skills *should* benefit from
    the vulnerability: the AI scorer does not read resistance tables, so it does
-   not prefer them. The 17-point drop is the cost of Jotaro's physical barrage
-   being blunted, uncompensated by any routing toward the Brawler's weakness.
-   The band still holds at 50%.
-3. **The boss is unchanged at 42%.** Every individual row moved (Dio dealt/b
+   not prefer them.
+   > **Amended by step 4.** The *mechanism* is established, because it was found
+   > by reading `score_action`, which genuinely never consults a resistance
+   > table. The *size* is not: a 17-point move between two twelve-seed readings
+   > is roughly one standard error. Resistance-blindness costs the party
+   > something; this run cannot say it costs them seventeen points.
+3. ~~**The boss is unchanged at 42%.** Every individual row moved (Dio dealt/b
    2486 -> 2392 as Jotaro's `temporal: 50` cuts halt and drain; Jotaro dealt/b
    1413 -> 1466), but the win rate sat on the same integer. The instrument's
-   8.3-point resolution is the explanation.
+   8.3-point resolution is the explanation.~~ The per-combatant movements are
+   real and reproduce at 300 seeds. The explanation offered for the unchanged
+   win rate was the wrong statistic: an unmoved integer across two twelve-seed
+   runs says only that the change was smaller than +/-14, which is not a
+   discriminating statement about anything.
 
 Prediction scorecard for the step 2 gate:
 
@@ -312,7 +345,7 @@ meant the change reached somewhere it had no business reaching, and the run
 would have been a failure regardless of which direction the number went.
 
 This is the first step of the milestone that opens **no new comparability
-boundary**. `BALANCE-LOG.md` has five; step 3 adds none.
+boundary**. `BALANCE-LOG.md` has five; steps 3 and 4 add none between them.
 
 What the new column showed on its first run is the whole point of the step:
 
@@ -320,15 +353,17 @@ What the new column showed on its first run is the whole point of the step:
    output is close to three times its damage, and against 2740 HP of incoming
    damage per battle it undoes 38% of everything the enemy does. Under the old
    report Josuke was the party's weakest-looking member; it was second only to
-   Jotaro in contribution and the table could not say so.
+   Jotaro in contribution and the table could not say so. *(1088 at 300 seeds.)*
 2. **Dio self-heals 183 per battle through `blood_drain`.** Sustain that never
    appeared anywhere, on a boss whose printed pool is 1520. Roughly 12% of its
    effective durability was invisible, which means every previous estimate of
-   how much damage the party needs to win the boss fight was low.
+   how much damage the party needs to win the boss fight was low. *(162 at 300
+   seeds.)*
 3. **The Iron Brawler heals 6 per battle** from three `blood_drain` uses across
    the whole batch -- negligible, and worth recording precisely because it is
    negligible. A column that only ever printed large numbers would be a column
-   nobody checked.
+   nobody checked. *(6 at 300 seeds, from 41 uses -- the per-battle figure was
+   right for the wrong sample.)*
 4. **`0.3.0`'s estimate was close and low.** The `skill.restore` nerf was argued
    against "roughly 950 HP per battle", inferred from SP spent. Measured
    directly, it is 1044 -- the inference was sound, and 9% short.
@@ -351,7 +386,103 @@ own variant, and that the Godot bridge reads fields by name so only a new
 *variant* could break it. Both held, and both were checked against the source
 rather than guessed.
 
-Running total across the milestone: **thirty-six predictions, twenty-one wrong.**
+### Step 4 as measured
+
+Two runs, and the second one overturns the conclusion drawn from the first.
+
+| Seeds | `thug_solo` | `assassin_ambush` | `dio_boss` | Gate |
+| --- | --- | --- | --- | --- |
+| 12 (`f6ba445`) | 100% | 50% | 42% | green |
+| **24** (`08a40c4`) | 100% | **42%** | **29%** | **RED, two out of band** |
+| **300** (`1f5aaed`) | **100%** | **53%** | **47%** | **green** |
+
+**All three encounters are in band, and for the first time so are their
+intervals**: ambush 47..59 against a 45..90 band, boss 41..53 against 35..75.
+Every previous "in band" in this document meant a point estimate landed inside
+a range. This one means the measurement does.
+
+**No band moves. No content moves.** Issue #12 was written expecting to
+re-declare bands and warning that widening a band because CI is red converts the
+gate into decoration. The measured answer is that the bands were right all along
+and the instrument was too blunt to show it.
+
+#### The mistake in the middle, which is the actual finding
+
+The 24-seed run put two encounters out of band. Because the twelve original seeds
+were retained as a subset, the twelve new ones could be isolated by subtraction:
+they gave the ambush 4 wins from 12 and the boss 2 from 12. I concluded that the
+original twelve had been a **favourable sample** and that every band in the
+project had been fitted against a biased instrument.
+
+That conclusion was wrong, and wrong by precisely the error it was diagnosing.
+At 300 seeds the ambush reads 53% and the boss 47%, both *above* the twelve-seed
+figures. The added twelve were an unlucky draw; the original twelve were fine. I
+read a difference well inside one standard error as a signal, in the middle of
+writing an argument about not reading differences inside one standard error as
+signals.
+
+**What it would have cost.** Trusting the 24-seed gate meant a content commit
+buffing the party to rescue a boss fight reading 29%. The boss fight was never at
+29%. That buff would have shipped, and the next honest measurement would have
+found a party far too strong -- with a `data/` diff in between making the cause
+hard to see.
+
+#### Scorecards
+
+Run 1, 24 seeds:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `thug_solo` 100% | 100% | correct |
+| 2 | ambush 45-58% | 42% | **wrong** |
+| 3 | boss 38-50% | 29% | **wrong** |
+| 4 | Gate green but uncomfortable | red, two encounters | **wrong** |
+| 5 | Ambush likelier to fail than the boss | both failed, boss by more | **wrong** |
+
+Run 2, 300 seeds:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `thug_solo` 100% | 100% | correct |
+| 2 | ambush 38-46%, out of band | 53%, in band | **wrong** |
+| 3 | boss 25-33%, out of band | 47%, in band | **wrong** |
+| 4 | Gate stays red | green | **wrong** |
+
+Two of nine, and both correct answers were that a guaranteed win would stay a
+guaranteed win. Both runs failed the same way: I projected the most recent
+reading forward as if it were the true value, which is exactly what a confidence
+interval exists to stop. The step whose entire subject was sampling error was
+scored worst of the four.
+
+Running total across the milestone: **forty-five predictions, twenty-eight
+wrong.**
+
+#### Three smaller things the sample size exposed
+
+1. **A superlative evaporated.** The Iron Brawler's `miss%` was recorded in the
+   step 2 entry as 16%, "the highest recorded for any combatant", from 61 rolls.
+   Over 1514 rolls it is 11%, in line with everyone else.
+2. **Josuke is twice as durable as reported.** 17% survival at twelve seeds,
+   **34%** at three hundred. "The healer dies early" sat behind more than one
+   tuning argument.
+3. **Rare branches only exist in large samples.** Kakyoin uses `strike` six times
+   in 300 ambush battles (1% of its turns) and the Flame Assassin survives 1% of
+   boss battles. Both read as exact zeroes at twelve and twenty-four seeds, and
+   an exact zero invites a structural claim that is not true.
+
+#### Why 300, and why `1..=300`
+
+300 puts the 95% interval near +/-5.7 points, finer than any distance this
+project has argued over. The cost is nothing: `balance_bounds` runs 900 battles
+in **0.36 seconds**. Three releases of content decisions were taken against
++/-14 points of noise that cost a third of a second to remove.
+
+The seeds are a contiguous range because `rng.rs` is SplitMix64: `new(seed)`
+puts the seed straight into state, and `next_u64` adds the golden-ratio constant
+before a Murmur3-style finalizer, so sequential seeds give decorrelated streams.
+A scattered list buys no independence and is harder to audit. Every original
+Fibonacci seed is <= 233, so this run is a strict superset of every figure ever
+measured here. All 300 are far below the 2^53 ceiling the risk register names.
 
 ### Checklist
 
@@ -361,7 +492,8 @@ Running total across the milestone: **thirty-six predictions, twenty-one wrong.*
 - [x] Elemental resistances applied in `resolve.rs` and covered by a unit test
 - [x] `Event::Healed` carries an actor; `CombatantStats` reports healing done
       *(and `Event::StatusHealed` added, which the plan did not contain)*
-- [ ] Seed list widened to 24 in an isolated commit, bands re-measured
+- [x] Seed list widened in an isolated commit, bands re-measured
+      *(300 seeds, not the planned 24; all three bands hold unchanged)*
 - [ ] Third playable character, authored in `data/` only
 - [ ] Six enemies total, each exercised by at least one declared encounter
 - [ ] Second boss fight with its own band
@@ -381,14 +513,14 @@ was. The `Delivered` column is filled in as each lands.
 | `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs | Yes, plus three unit tests |
 | `src/core/src/event.rs` | `Event::Healed` gains an `actor` field | Yes, **plus `Event::StatusHealed`**, which the plan did not contain and which the actor field made unavoidable |
 | `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target | Yes to both, plus per-skill action accounting the plan did not contain, plus an `inert_combatants` correction the plan did not foresee |
-| `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Steps 4 and 5 |
-| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Partly: `skill.emerald_splash` added and `skill.blade_volley` repriced (step 1); resistance tables for four combatants (step 2) |
+| `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Seeds delivered at **300**, not 24 -- the plan's target was set from the wrong statistic. Encounters remain step 5 |
+| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Partly: `skill.emerald_splash` added and `skill.blade_volley` repriced (step 1); resistance tables for four combatants (step 2). **Step 4 required no content edit** |
 | `src/core/src/state.rs`, `src/core/src/battle.rs` | *Not planned.* SP recovery per turn, without which step 1 makes the boss fight unwinnable | Yes; `battle.rs` also carried the regeneration fix in step 3 |
 | `src/core/src/data.rs` | *Not planned.* `Resistances` type, `MAX_RESISTANCE`, `MIN_RESISTANCE`, `CombatantDef.resist` | Yes (step 2) |
 | `src/core/src/sim.rs` | *Not planned.* Credit healing to the healer in `accumulate`, and deliberately credit `StatusHealed` to nobody | Yes (step 3) |
 | `src/data-pipeline/validate_data.py` | Warn on a skill no combatant can use, mirroring the existing orphan-combatant warning | Not yet; cwd-relative default path was fixed instead; resistance validation added in step 2 |
 | `src/game/battle_view.gd` | Floating numbers, status icons with durations, tempo readout fix | Step 6, but step 3 landed here early: `status_healed` needed a case or every regen tick would have printed raw JSON |
-| `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces | Pending; the curve is now invalidated by five separate changes |
+| `docs/BALANCE-CURVE.md` | Re-sweep; the current curve describes rules that step 1 replaces | Pending; the curve is now invalid on two counts -- six rules changes, and a twelve-seed sweep whose five points are not reliably distinguishable from one another |
 | `docs/BALANCE-LOG.md` | One entry per change, prediction written before the run | Yes, with a scorecard per run |
 
 ### What this is expected to break
@@ -399,39 +531,44 @@ rather than rediscovered.
 
 | Risk | Symptom you will see | Response |
 | --- | --- | --- |
-| **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | **Fired.** Five changes invalidate it, not one. Re-sweep and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
-| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in a row during step 1**. Not a regression. Steps 2 and 3 did not fire this risk: all three bands held |
+| **The curve goes stale** the instant `ai.rs` changes | `BALANCE-CURVE.md` numbers stop reproducing; a probe sweep disagrees with the document | **Fired.** Six changes invalidate it, not one, and step 4 adds a second reason: it was swept at twelve seeds. Re-sweep at 300 and mark the old table as describing pre-`0.4.0` rules. Do not delete it; a retracted measurement is evidence too |
+| **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in step 1 and once more in step 4**. Steps 2 and 3 did not fire it. Step 4's firing was a false alarm from a 24-battle sample and resolved itself at 300 |
+| **A red gate is believed without checking its precision** | Two encounters out of band, an obvious content fix, and no interval computed | **Fired in step 4 and caught before any content was touched.** A gate that compares a point estimate to a band cannot distinguish a real regression from an unlucky draw. Compute `sqrt(p(1-p)/n)` before editing `data/` in response to a red bounds test |
 | **`miss%` was already wrong**, not about to become wrong | Miss rates inflated on anyone holding an area skill | **Resolved before step 1, in #8.** Released `0.3.0` Kakyoin at 20% was two accuracy rolls counted as one action; true rate is 11% |
-| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and closer than it was: boss fight runs 54 turns median against a 500-turn limit |
+| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired. Step 4 sharpened the margin: the longest boss battle of 300 is 84 turns against a 500-turn limit, where twelve seeds had only shown 74 |
 | **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | **Fired, by my own hand.** `skill.blade_volley` at 40 SP went unused across twelve boss battles |
 | **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | **Fired, as predicted.** `skill.rage_focus` returns 0.8 of a hit for the price of one; declining it is correct on wrong numbers. Fix is in `data/skills.json`, step 5 |
-| **Adding a field to `Event` breaks every exhaustive match** | Compile errors across the crate and the bridge | **Fired and contained in step 3.** The field was the easy half; the new *variant* was the risk this row did not name. See the row below |
+| **Adding a field to `Event` breaks every exhaustive match** | Compile errors across the crate and the bridge | **Fired and contained in step 3.** The field was the easy half; the new *variant* was the risk this row did not name |
 | **A new `Event` variant is silently unhandled by the presentation layer** | Nothing fails to compile; the Godot log prints raw JSON where a sentence should be | **Fired in step 3 and caught before merge**, by reading `battle_view.gd` rather than trusting that a compiling bridge means a correct one. GDScript matches on a string and reads fields by name, so it cannot fail loudly. A note now sits in that file's header stating the rule |
 | **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
-| **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | Keep every seed well below 2^53, or pass it across the boundary as a string |
+| **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | **Not fired.** Step 4 uses `1..=300`; the previous list reached 75025. Both are far below the ceiling. Keep every seed well below 2^53, or pass it across the boundary as a string |
 
 Issue handling, labels and the reproduction a balance report must contain are in
 [TRIAGE.md](TRIAGE.md).
 
 ### Carried in from M2, still open
 
-- **The ambush is decided by one character.** Jotaro deals 76% of the party's
-  damage and his survival rate tracks the win rate exactly. The band is closed;
-  the roster imbalance behind it is not. Step 2 confirmed it: ambush fell
-  67 -> 50 because Jotaro's physical barrage was blunted without any compensating
-  routing toward the Brawler's psychic vulnerability.
+- **The ambush is decided by one character.** Jotaro deals 900 of the party's
+  1244 damage per battle (72%) and his survival rate tracks the win rate closely
+  -- 51% survival against a 53% win rate over 300 battles. The band is closed;
+  the roster imbalance behind it is not.
 - **The Iron Brawler hits at an effective 157 against Dio's 160.** The third
   playable character and the second boss both change the frame this sits in, so
   the decision waits for them rather than being taken twice.
-- **Kakyoin is the weakest link in both encounters he appears in.** 201 damage
-  per battle in the boss fight against Jotaro's 1466, and 8% survival in both.
+- **Kakyoin is the weakest link in both encounters it appears in.** 231 damage
+  per battle in the boss fight against Jotaro's 1489, and 15% survival in both.
   Step 3 removed the last excuse for this reading: Kakyoin's `heal/b` is 0, so
   unlike Josuke there is no hidden contribution the table was failing to show.
-  Step 5 has to answer this with numbers, not with another skill.
-- **The SP economy is now the loudest unexplained number.** Dio spends 250 SP
-  per battle against Jotaro's 118 and Kakyoin's 140, on a pool of 200 that
+  Step 4 removed the other excuse: these are 300-battle figures, not a small
+  sample that might be unlucky. Step 5 has to answer this with numbers, not with
+  another skill.
+- **The SP economy is now the loudest unexplained number.** Dio spends 249 SP
+  per battle against Jotaro's 114 and Kakyoin's 131, on a pool of 200 that
   refills at 4 per turn. Filed as its own issue rather than folded into step 5,
   because it is a rules question and step 5 is content.
+- **`skill.restore` at potency 140 has never been evaluated against a
+  measurement.** It was nerfed from 230 in `0.3.0` against an inferred 950 HP per
+  battle; the measured figure is 1088. Issue #24.
 
 ### Explicitly not in `0.4.0`
 
