@@ -633,7 +633,17 @@ fragile.
 - **The bands are not re-declared here.** Re-declaring with evidence is issue #12.
 - **The curve is void for the fifth time.** Re-sweep is issue #14.
 - **"Zero unreachable skills" is not met.** Twelve skills, ten reachable, two not:
-  `guard_stance` and `rage_focus`. Issues #15 and #16.
+  `guard_stance` and `rage_focus`. Tracked as issue **#29**.
+
+  > **Correction, filed with #29.** This line read "Issues #15 and #16" from the
+  > day it was written until #29 was opened. It was wrong the whole time: #15 is
+  > a third playable character and #16 is three more enemies, and neither body
+  > mentions either skill. A search across every issue in the repository for
+  > `guard_stance` or `rage_focus` returned nothing. Two skills were recorded as
+  > tracked, in two places in this file, for two milestones, with no issue behind
+  > either citation -- and the claim was carried forward verbatim into `1eadf86`
+  > without being checked. A cross-reference is a claim like any other and decays
+  > the same way the probe roster did.
 
 ---
 
@@ -1152,8 +1162,8 @@ of this curve is measuring the defect.
 - **No content change.** Nothing in `data/` moved and nothing needs to.
 - **The curve is valid only for the current rules.** It is now correct on both
   counts that invalidated it -- swept at 300 seeds, under `0.4.0` rules -- but
-  issues #15, #16, #17, #22 and #27 all touch rules or the roster, and any of
-  them voids it again.
+  issues #15, #16, #17, #22, #27 and #29 all touch rules or the roster, and any
+  of them voids it again.
 - **The probe roster is not self-maintaining.** Diff it against
   `data/combatants.json` before every sweep.
 
@@ -1179,6 +1189,11 @@ Recorded here so a number is not over-read:
   painless and makes drift invisible. Diff `tools/probe/combatants.probe.json`
   against `data/combatants.json` before every sweep, and treat a control row that
   does not reproduce shipped content in every digit as proof the sweep is void.
+- **Cross-references in this file decay the same way.** Two skills were recorded
+  as "tracked by issues #15 and #16" for two milestones while no such issue
+  existed; see the correction in the #9 entry. A citation is a claim and should
+  be checked when it is carried forward, not assumed to have been checked by
+  whoever wrote it first.
 - **Confidence is not reported, only the point estimate.** `balance_bounds`
   compares a single measured percentage against a band and says nothing about how
   precisely that percentage is known. At 300 seeds the interval is narrow enough
@@ -1212,10 +1227,14 @@ Recorded here so a number is not over-read:
   than as evidence of intended behaviour.
 - **~~Only five of eleven skills are ever used.~~ Ten of twelve as of `7f72a4f`.**
   Two remain: `guard_stance` and `rage_focus`, both declined correctly on their
-  own numbers. Content defects, issues #15 and #16.
+  own numbers -- though "correctly" has itself never been verified against
+  `score_action`, and if the scorer cannot price deferred value then every
+  duration-based buff in the game is underpriced. Tracked as issue **#29**
+  (previously miscited here as #15 and #16).
 - **`skill.tempo_halt` is still mispriced, in the other direction.** The scorer
   values a lock as the actions it *denies*; a lock defers, not removes. Dio uses
-  it on 23% of its turns.
+  it on 23% of its turns. If #29 finds a missing payoff horizon, this and #29 are
+  the same defect seen from opposite sides.
 - **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
   current rules, not a constant.** Replace the table rather than appending to it,
   and re-sweep after any change to `resolve.rs`, `ai.rs`, the party roster or the
