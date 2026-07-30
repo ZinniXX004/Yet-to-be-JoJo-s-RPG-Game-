@@ -281,10 +281,15 @@ impl Battle {
             );
         }
         if regen > 0 {
+            // The same rule, one sign over. Regeneration has no healer, so it
+            // must not be logged as `Healed` with the carrier named as its own
+            // source: that would credit healing done to a combatant that spent
+            // no turn on it, and would claim an action nobody took.
             let healed = resolve::heal(&mut self.state, actor, regen);
             if healed > 0 {
-                self.log.push(Event::Healed {
+                self.log.push(Event::StatusHealed {
                     target: actor,
+                    status: StatusKind::Regen,
                     amount: healed,
                 });
             }
@@ -506,6 +511,48 @@ mod tests {
                 }
             )),
             "no event may claim a combatant attacked itself: {events:?}"
+        );
+    }
+
+    /// The mirror of the bleed test, and it exists for the same reason. A regen
+    /// tick restores HP with nobody acting, so logging it as `Healed` would
+    /// name the carrier as its own healer -- crediting healing done to a
+    /// combatant that spent no turn on it.
+    #[test]
+    fn regeneration_is_attributed_to_the_status_not_to_its_carrier() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        assert_eq!(actor, 0, "the fast hero should be up first");
+
+        // Wounded, so the tick has room to land: healing at full HP restores
+        // nothing and would emit no event at all.
+        battle.state.combatants[actor].hp = 100;
+        battle.state.combatants[actor].apply_status(StatusKind::Regen, 9, 3);
+        battle.take_events();
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+        let events = battle.take_events();
+
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                Event::StatusHealed {
+                    target: 0,
+                    status: StatusKind::Regen,
+                    amount: 9,
+                }
+            )),
+            "regeneration must report itself as the cause: {events:?}"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, Event::Healed { .. })),
+            "no event may credit a heal nobody performed: {events:?}"
         );
     }
 }

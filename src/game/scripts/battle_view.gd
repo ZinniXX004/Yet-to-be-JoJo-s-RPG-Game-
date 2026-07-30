@@ -19,6 +19,11 @@ extends Control
 ## Number note: GDScript's JSON has no integer type, so parsed numbers arrive
 ## as floats; the Rust bridge normalizes them back to integers at the
 ## boundary. Do not re-round them here.
+##
+## Event note: every case below reads fields by *name*, never by position, so
+## a new field on an existing event cannot break this script. A new event
+## *kind* can: unrecognised kinds fall to the catch-all and dump raw JSON into
+## the log. When rpg-core gains a variant, it needs a case here.
 
 const DATA_DIR := "res://data"
 const PARTY := ["pc.jotaro", "pc.josuke", "pc.kakyoin"]
@@ -269,7 +274,24 @@ func _render_event(event: Dictionary) -> void:
 				_status_name(String(event.get("status", ""))),
 			])
 		"healed":
-			_log_line("%s recovers %d HP." % [_name(event.get("target")), int(event.get("amount", 0))])
+			# The event now names a healer, so a drain's self-heal and a heal
+			# cast on someone else can finally read as the different actions
+			# they are. Before this they were the same sentence.
+			var healer: int = int(event.get("actor", -1))
+			var healed: int = int(event.get("target", -1))
+			if healer == healed:
+				_log_line("%s recovers %d HP." % [_name(healed), int(event.get("amount", 0))])
+			else:
+				_log_line("%s restores %d HP to %s." % [
+					_name(healer), int(event.get("amount", 0)), _name(healed),
+				])
+		"status_healed":
+			# The mirror of status_damaged: recovery with no actor, so the
+			# condition is named instead of anyone acting.
+			_log_line("%s recovers %d HP from %s." % [
+				_name(event.get("target")), int(event.get("amount", 0)),
+				_status_name(String(event.get("status", ""))),
+			])
 		"status_applied":
 			var status: String = String(event.get("status", ""))
 			if BINARY_STATUSES.has(status):

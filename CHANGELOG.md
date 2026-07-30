@@ -12,18 +12,26 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-M3 in progress: process work, the accounting fix, and the rules fix the whole
-milestone was ordered around. The AI no longer picks the biggest affordable
-attack; it scores every option in one unit and pays for SP at what that SP would
-have bought instead. A turn now returns a little SP to whoever took it, which is
-the first time SP is a renewable resource in this project. Elemental resistances
-now modify damage: the data schema already carried the field; `resolve.rs` just
-never read it.
+M3 in progress: process work, the accounting fix, the rules fix the whole
+milestone was ordered around, and now the attribution fix. The AI no longer
+picks the biggest affordable attack; it scores every option in one unit and pays
+for SP at what that SP would have bought instead. A turn now returns a little SP
+to whoever took it, which is the first time SP is a renewable resource in this
+project. Elemental resistances now modify damage: the data schema already
+carried the field; `resolve.rs` just never read it. And healing is finally
+credited to whoever performed it, which turns the party's healer from a row of
+zeroes into the second-largest contributor in the boss fight.
 
-**Every win rate published in `0.3.0` is void.** Three of the four changes below
-touch `ai.rs`, `battle.rs` or `state.rs`, so the same seed no longer produces the
-same battle. The numbers are not worse or better than the old ones; they are not
-comparable to them. The re-measured series is at the end of this section.
+**Every win rate published in `0.3.0` is void.** Three of the four rules-level
+changes below touch `ai.rs`, `battle.rs` or `state.rs`, so the same seed no
+longer produces the same battle. The numbers are not worse or better than the
+old ones; they are not comparable to them. The re-measured series is at the end
+of this section.
+
+**Healing attribution (#11) is not one of those changes.** It adds a field, a
+variant and a column, and draws no RNG. Every figure measured after step 2
+survived it digit for digit, which is the evidence that it is a reporting change
+and nothing more.
 
 ### Added
 
@@ -82,6 +90,16 @@ comparable to them. The re-measured series is at the end of this section.
   and a `resistance(element)` accessor; `data/combatants.json` carries initial
   tables for four combatants; and the Python validator checks that every declared
   element is dealt by at least one skill and that every value falls within bounds.
+- **`Event::StatusHealed { target, status, amount }`** (#11): regeneration and
+  any future recovery that comes from a condition rather than from an actor.
+  This is the exact mirror of `Event::StatusDamaged`, which was added in `0.1.0`
+  for the same reason — a bleed tick logged as `Damaged` claimed a character
+  attacked itself. Regen had the identical defect on the healing side and it had
+  survived three releases unnoticed, because nothing was reading the actor.
+- **`healing_done` on `CombatantStats`**, with `healing_done_per_battle()` and a
+  `heal/b` column in the harness table beside `dealt/b`. The field is
+  `#[serde(default)]` and appended last, so a report written by an older release
+  still deserializes and reads zero — covered by an extended compatibility test.
 
 ### Changed
 
@@ -117,6 +135,18 @@ comparable to them. The re-measured series is at the end of this section.
   psychic: 20`), Flame Assassin (`fire: 75`), Iron Brawler (`physical: 25,
   psychic: -25`). Street Thug carries no table, which is the intentional control:
   the `matchup.thug_solo` report must remain bit-identical.
+- **`Event::Healed` gained an `actor` field** (#11). **This is a breaking change
+  to the event wire format**, and the only one in this milestone. Anything
+  matching exhaustively on `Event` must be recompiled, and anything reading the
+  JSON stream sees a new key on `healed` and an unfamiliar `status_healed` kind.
+  The Godot bridge survives the field addition because `battle_view.gd` reads
+  every field by name rather than by position; it needed the *variant* handled,
+  or every regeneration tick would have fallen to the catch-all and dumped raw
+  JSON into the battle log.
+- **A combatant is only reported as inert if it neither dealt damage nor healed**
+  (#11). `MatchupReport::inert_combatants` tested `damage_dealt == 0`, which
+  would have accused a dedicated healer of sitting out a fight it was carrying.
+  The harness warning was reworded to match what the predicate actually selects.
 - `README.md` now states `0.3.0` as released and `0.4.0` as in progress, and
   names the skills the AI can never choose, so every published win rate is read
   as measuring a subset of the content. Adds a contributing section and a link
@@ -132,13 +162,14 @@ comparable to them. The re-measured series is at the end of this section.
   explanation of how each form field becomes issue text, and the `0.4.0`
   backlog as filed.
 
-Re-measured after all of the above (steps 1 and 2), twelve seeds per encounter:
+Re-measured after all of the above (steps 1 through 3), twelve seeds per
+encounter:
 
-| Encounter | Win rate | Declared band | Before #9 | Before #10 |
-| --- | --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 85..100 | 100% | 100% |
-| `matchup.assassin_ambush` | 50% | 45..90 | 67% | 67% |
-| `matchup.dio_boss` | 42% | 35..75 | 50% | 42% |
+| Encounter | Win rate | Declared band | Before #9 | Before #10 | Before #11 |
+| --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 100% | 100% | 100% |
+| `matchup.assassin_ambush` | 50% | 45..90 | 67% | 67% | 50% |
+| `matchup.dio_boss` | 42% | 35..75 | 50% | 42% | 42% |
 
 The `matchup.thug_solo` control is **bit-identical** in every column before and
 after resistances: no combatant in a three-turn fight carries a table, so the
@@ -151,11 +182,24 @@ the Brawler's vulnerability and Jotaro does not discount his physical hits
 against the Brawler's resistance. The band still holds at 50%. See
 `docs/BALANCE-LOG.md` for the full entry and prediction scorecard.
 
+Step 3 moved **nothing at all** — all three encounters, and every `dealt/b`,
+`taken/b`, `sp/b`, `rolls`, `miss%` and `alive%` figure in all three tables, are
+unchanged from the step-2 run. That was the stated pass condition, and it is the
+reason #11 does not open a new comparability boundary.
+
 The #9 figures in the "Before #10" column are coincidences of the same width,
 not evidence that nothing changed: the ambush moved to 50% and back to 67% over
 the four intermediate runs, and the boss passed through 8% and 0% before landing
 at 42%. The thug fight is genuinely untouched, because it ends in three turns
 and no SP budget binds in three turns.
+
+**What the new column immediately showed.** In `matchup.dio_boss`, Josuke
+restores **1044 HP per battle** while dealing 358 — the healer's real output is
+nearly three times its damage, and against 2740 HP of incoming damage per battle
+it offsets 38% of everything the enemy does. Dio self-heals **183 per battle**
+through `blood_drain`, sustain that was previously invisible and that inflates
+its effective pool well past the 1520 printed on the sheet. Neither figure could
+be derived from anything the harness printed before.
 
 ### Fixed
 
@@ -194,6 +238,16 @@ and no SP budget binds in three turns.
   chose. Recovery closes that gap without touching a single stat: Jotaro's
   damage per battle went from 1132 to 1413 and the boss fight from 0% to 42%.
 
+- **Regeneration was logged as a self-heal** (#11). `battle::tick_statuses`
+  emitted `Event::Healed { target: carrier }` for a `Regen` tick, so the log
+  claimed a character healed itself through an action it never took. This is the
+  same defect as the `0.1.0` bleed fix, one release later and on the opposite
+  sign, and it was only found because giving `Healed` an actor left the regen
+  call site with no honest value to supply. It now emits `StatusHealed`, which
+  names the condition and no actor at all. A regression test asserts both halves:
+  that `StatusHealed` is present, and that no `Healed` event is emitted anywhere
+  in a regeneration tick.
+
 ### Known limitations
 
 Carried forward from `0.3.0` except where noted:
@@ -216,14 +270,20 @@ Carried forward from `0.3.0` except where noted:
 - **The harness plays the score, not a person.** It never sets up, never retreats
   and never saves SP for a phase change, so a reported win rate is a floor for a
   competent player rather than a forecast of their experience.
-- **Healing is not attributed.** `Event::Healed` carries a target and no source,
-  so healing done still has to be inferred from SP spent.
+- **Healing taken is still not reported.** `heal/b` counts HP a combatant
+  restored, and there is no matching column for HP a combatant received, so the
+  party's damage taken still reads as if none of it was undone. The events now
+  carry enough to compute it; nothing consumes them yet.
 - **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
   its `power` field without consulting the target's resistance table, so the AI
   does not prefer psychic skills against the Iron Brawler's psychic vulnerability
   and does not avoid physical skills against its physical resistance. The measured
   consequence: `matchup.assassin_ambush` fell 67 → 50 after step 2; the band
   still holds. Tracked as a follow-up issue in milestone `0.4.0`.
+- **The AI is also healing-blind in the same way.** `score_action` never sees
+  `heal/b`; the support profile decides when to heal by its own rule, so Josuke's
+  1044 HP per battle is a consequence of that rule rather than of any comparison
+  against what the same SP would have bought as damage.
 
 ## [0.3.0] - 2026-07-29
 
@@ -288,7 +348,9 @@ argued in [docs/BALANCE-LOG.md](docs/BALANCE-LOG.md):
   only change in the milestone that touches the rules, and it is the one that
   every earlier finding turned out to be about.
 - `skill.restore` heal power 230 -> 140. Healing returned 11.5 HP per SP and
-  roughly 950 HP per battle from a character nobody was attacking.
+  roughly 950 HP per battle from a character nobody was attacking. (Measured
+  directly for the first time in `0.4.0`: 1044 HP per battle, so the estimate
+  was low by 9%.)
 - `npc.dio` atk 100 -> 130. With targeting fixed, the boss could not win: the
   party out-healed and out-lasted it 100% of the time.
 - `npc.flame_assassin` hp 480 -> 640, so it stops dying below Kakyoin's HP pool
@@ -333,7 +395,7 @@ Recorded so a win rate in this file is not read as more than it is:
   used `skill.guard_stance` in any recorded run. Every number here therefore
   measures a subset of the content.
 - **Healing is not attributed.** `Event::Healed` carries a target and no source,
-  so healing done has to be inferred from SP spent.
+  so healing done has to be inferred from SP spent. (Fixed in `0.4.0`.)
 - **`miss%` is inflated for area skills**, which count a miss per target and an
   action once.
 - **A rules change resets the series.** RNG draw order is part of the rules, so
@@ -482,7 +544,8 @@ recorded rather than squashed away, because the reasoning is the useful part.
   character attacked itself with a blow it never made. It now emits
   `status_damaged { target, status, amount }`, with no attacker, no element
   and no crit -- none of which exist for a condition. `Damaged` consequently
-  means exactly one thing, which an animator can rely on.
+  means exactly one thing, which an animator can rely on. (The mirror defect
+  on the healing side survived until `0.4.0`; see #11.)
 - Removed a needless `mut` in `Database::skills_for` that would have failed
   CI, where warnings are errors.
 - **CI no longer denies warnings across the dependency tree.** A

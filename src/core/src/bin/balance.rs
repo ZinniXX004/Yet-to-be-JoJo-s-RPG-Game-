@@ -237,14 +237,15 @@ fn run(options: &Options) -> Result<BatchReport, String> {
 }
 
 fn print_report(report: &BatchReport) {
-    // Two units share one table: three columns are per-battle averages and one
+    // Two units share one table: four columns are per-battle averages and one
     // is a whole-batch total. Dio printing `rolls 179` beside `sp/b 179` is a
     // coincidence, and without this line it reads as a relation.
-    println!("columns: dealt/b, taken/b and sp/b are per-battle averages, while");
-    println!("rolls counts every accuracy check in the whole batch and miss% the");
-    println!("share of those rolls that failed; the actions block under each");
-    println!("table counts whole-batch skill uses, with the share of that");
-    println!("combatant's own turns in brackets");
+    println!("columns: dealt/b, taken/b, heal/b and sp/b are per-battle averages,");
+    println!("where heal/b counts HP a combatant restored through its own actions");
+    println!("and never regeneration, which has no healer; rolls counts every");
+    println!("accuracy check in the whole batch and miss% the share of those rolls");
+    println!("that failed; the actions block under each table counts whole-batch");
+    println!("skill uses, with the share of that combatant's own turns in brackets");
 
     for matchup in &report.matchups {
         print_matchup(matchup);
@@ -287,9 +288,13 @@ fn print_matchup(matchup: &MatchupReport) {
     // `rolls` is printed next to `miss%` on purpose: the percentage alone cannot
     // distinguish an accurate attacker from one that never attacked, and both
     // read as 0%.
+    //
+    // `heal/b` sits next to `dealt/b` for the same reason: those two together
+    // are the only way to tell a support character from a combatant the AI
+    // never lets act, and before this column existed they were identical rows.
     println!(
-        "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>7} {:>7} {:>7}",
-        "combatant", "team", "dealt/b", "taken/b", "sp/b", "rolls", "miss%", "alive%"
+        "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>8} {:>7} {:>7} {:>7}",
+        "combatant", "team", "dealt/b", "taken/b", "heal/b", "sp/b", "rolls", "miss%", "alive%"
     );
     for stats in &matchup.combatants {
         let team = match stats.team {
@@ -297,11 +302,12 @@ fn print_matchup(matchup: &MatchupReport) {
             rpg_core::Team::Foe => "foe",
         };
         println!(
-            "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>7} {:>6}% {:>6}%",
+            "  {:<20} {:>6} {:>8} {:>8} {:>8} {:>8} {:>7} {:>6}% {:>6}%",
             truncate(&stats.name, 20),
             team,
             stats.damage_dealt_per_battle(),
             stats.damage_received_per_battle(),
+            stats.healing_done_per_battle(),
             stats.sp_spent / i64::from(stats.battles.max(1)),
             stats.attack_rolls,
             stats.miss_percent(),
@@ -325,11 +331,16 @@ fn print_matchup(matchup: &MatchupReport) {
 
     // Called out explicitly because it is invisible in a win rate and is almost
     // always a targeting defect rather than a design choice.
+    //
+    // The wording tracks what `inert_combatants` actually selects, which is a
+    // combatant that neither dealt damage nor healed. Saying "dealt no damage"
+    // would name a wider set than the one being printed, and would read as an
+    // accusation against a support character doing its job.
     let inert = matchup.inert_combatants();
     if !inert.is_empty() {
         let names: Vec<&str> = inert.iter().map(|stats| stats.name.as_str()).collect();
         println!(
-            "  warning: dealt no damage in any battle: {}",
+            "  warning: neither dealt damage nor healed in any battle: {}",
             names.join(", ")
         );
     }

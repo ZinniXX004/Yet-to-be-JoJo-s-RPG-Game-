@@ -115,6 +115,29 @@ pub struct CombatantStats {
     /// Part of `damage_received` that came from statuses rather than attacks.
     pub status_damage_received: i64,
     pub sp_spent: i64,
+    /// HP this combatant restored, to allies or to itself, through actions it
+    /// took.
+    ///
+    /// Credited to the healer, which makes it the mirror of `damage_dealt`
+    /// rather than of `damage_received`. Without it every column in the report
+    /// measures harm, and a combatant whose entire job is keeping someone else
+    /// standing is indistinguishable from one the AI never lets act --
+    /// [`MatchupReport::inert_combatants`] would flag a working healer as a
+    /// targeting bug.
+    ///
+    /// A self-heal counts once. `blood_drain` emits a single
+    /// [`crate::event::Event::Healed`] naming the drainer as both healer and
+    /// healed, and this field follows the healer, so there is no double count
+    /// to avoid.
+    ///
+    /// Regeneration is deliberately absent: it arrives as
+    /// [`crate::event::Event::StatusHealed`], which has no actor, so there is
+    /// nobody to credit. That recovery is real but it is not anyone's
+    /// contribution.
+    ///
+    /// `serde(default)` because reports written before `0.4.0` do not carry it.
+    #[serde(default)]
+    pub healing_done: i64,
 }
 
 impl CombatantStats {
@@ -134,6 +157,7 @@ impl CombatantStats {
             damage_received: 0,
             status_damage_received: 0,
             sp_spent: 0,
+            healing_done: 0,
         }
     }
 
@@ -146,6 +170,13 @@ impl CombatantStats {
 
     pub fn damage_received_per_battle(&self) -> i64 {
         divide_rounded(self.damage_received, i64::from(self.battles))
+    }
+
+    /// Healing done per battle, rounded half up, on the same basis as
+    /// [`Self::damage_dealt_per_battle`] so the two columns can be read against
+    /// each other.
+    pub fn healing_done_per_battle(&self) -> i64 {
+        divide_rounded(self.healing_done, i64::from(self.battles))
     }
 
     pub fn survival_percent(&self) -> i32 {
@@ -246,12 +277,18 @@ impl MatchupReport {
         self.within_band() && self.stalemates == 0
     }
 
-    /// Combatants that dealt no damage at all across every battle. Almost always
-    /// a targeting bug or an unreachable enemy, not a design choice.
+    /// Combatants that contributed nothing across every battle -- no damage and
+    /// no healing. Almost always a targeting bug or an unreachable enemy, not a
+    /// design choice.
+    ///
+    /// Healing is part of the test because otherwise a working support
+    /// character reports as inert. Before `healing_done` existed there was no
+    /// number that could tell the two apart, so the check could only have been
+    /// right by accident.
     pub fn inert_combatants(&self) -> Vec<&CombatantStats> {
         self.combatants
             .iter()
-            .filter(|stats| stats.damage_dealt == 0)
+            .filter(|stats| stats.damage_dealt == 0 && stats.healing_done == 0)
             .collect()
     }
 
@@ -435,6 +472,45 @@ mod tests {
         assert_eq!(report(vec![broken]).miscounted_combatants().len(), 1);
     }
 
+    /// Healing averages on the same basis as damage, so the two columns are
+    /// comparable at a glance.
+    #[test]
+    fn healing_is_averaged_per_battle_and_rounds_half_up() {
+        let mut healer = stats();
+        healer.battles = 4;
+        healer.healing_done = 250;
+        assert_eq!(healer.healing_done_per_battle(), 63);
+
+        let unplayed = stats();
+        assert_eq!(
+            unplayed.healing_done_per_battle(),
+            0,
+            "a combatant with no battles must not divide by zero"
+        );
+    }
+
+    /// The reason the field exists. A support character deals nothing and is
+    /// still working; before healing was counted, the inert check could not
+    /// tell it apart from a combatant the AI never lets act.
+    #[test]
+    fn a_healer_that_deals_no_damage_is_not_reported_as_inert() {
+        let mut healer = stats();
+        healer.battles = 2;
+        healer.healing_done = 400;
+
+        let mut bystander = stats();
+        bystander.battles = 2;
+
+        let report = report(vec![healer, bystander]);
+        let inert = report.inert_combatants();
+        assert_eq!(
+            inert.len(),
+            1,
+            "only the combatant that contributed nothing at all is inert"
+        );
+        assert_eq!(inert[0].healing_done, 0);
+    }
+
     /// The breakdown must be readable as "what did this combatant spend its
     /// turns on", which means shares of its own actions and a stable order.
     #[test]
@@ -485,8 +561,8 @@ mod tests {
         assert_eq!(unattributed[0].actions, 9);
     }
 
-    /// A report written before `attack_rolls` and `skill_uses` existed must
-    /// still load.
+    /// A report written before `attack_rolls`, `skill_uses` and `healing_done`
+    /// existed must still load.
     #[test]
     fn a_report_from_an_older_release_still_deserializes() {
         let json = r#"{
@@ -509,6 +585,11 @@ mod tests {
         assert_eq!(stats.actions, 70);
         assert_eq!(stats.attack_rolls, 0);
         assert_eq!(stats.miss_percent(), 0);
+        assert_eq!(
+            stats.healing_done, 0,
+            "an older report has no healing column, and must default rather than fail"
+        );
+        assert_eq!(stats.healing_done_per_battle(), 0);
         assert!(
             stats.skill_uses.is_empty(),
             "an older report has no breakdown, and must not invent one"

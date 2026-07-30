@@ -216,6 +216,19 @@ pub fn run_batch(db: &Database, matchups: &[Matchup]) -> Result<BatchReport, Dat
 /// it carries, in the same arm and from the same event. Deriving one of those
 /// two numbers anywhere else would allow them to disagree, which is precisely
 /// the class of defect that made `miss_percent` wrong for two releases.
+///
+/// [`Event::Healed`] credits the healer and nobody else. There is no
+/// `healing_received` counterpart, and that is a choice rather than an
+/// omission: the report exists to attribute *contribution*, and HP arriving is
+/// not something the recipient did. It also makes the self-heal case fall out
+/// for free -- `blood_drain` emits one event whose actor and target are the
+/// same combatant, and following the actor counts it once, where crediting both
+/// fields would count it twice.
+///
+/// [`Event::StatusHealed`] is excluded for the same reason
+/// [`Event::StatusDamaged`] is excluded from the roll count: it has no actor,
+/// so there is nobody to credit. Regeneration is real recovery and it is
+/// nobody's contribution.
 fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
     for event in events {
         match event {
@@ -237,6 +250,11 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
                 if let Some(entry) = stats.get_mut(*target) {
                     entry.damage_received += i64::from(*amount);
                     entry.status_damage_received += i64::from(*amount);
+                }
+            }
+            Event::Healed { actor, amount, .. } => {
+                if let Some(entry) = stats.get_mut(*actor) {
+                    entry.healing_done += i64::from(*amount);
                 }
             }
             Event::SpConsumed { actor, amount } => {
@@ -283,7 +301,8 @@ fn median(sorted: &[u64]) -> u64 {
 mod tests {
     use super::*;
     use crate::data::{
-        AiProfile, CombatantDef, Effect, Element, Resistances, SkillDef, Stats, TargetKind, Team,
+        AiProfile, CombatantDef, Effect, Element, Resistances, SkillDef, Stats, StatusKind,
+        TargetKind, Team,
     };
     use crate::state::TEMPO_THRESHOLD;
 
@@ -428,6 +447,58 @@ mod tests {
             "the hero cannot survive this matchup, on any seed"
         );
         assert_eq!(hero.survived, 0, "no seed may leave the hero standing");
+    }
+
+    /// The healing-side mirror of
+    /// [`damage_is_attributed_to_both_sides_of_every_hit`], driven through
+    /// `accumulate` directly.
+    ///
+    /// Deliberately not run through a matchup. Whether the AI ever *chooses* to
+    /// heal is a question about `ai::choose`, and answering it here would make
+    /// this test fail for a reason that has nothing to do with attribution.
+    /// Building the event slice by hand also lets it state the self-heal case
+    /// outright, which no seed is guaranteed to produce.
+    #[test]
+    fn healing_is_credited_to_the_healer_and_a_self_heal_counts_once() {
+        let mut stats = vec![
+            CombatantStats::new("pc.medic", "Medic", Team::Party),
+            CombatantStats::new("pc.ally", "Ally", Team::Party),
+        ];
+
+        accumulate(
+            &mut stats,
+            &[
+                // A support heal: the caster is credited, the recipient is not.
+                Event::Healed {
+                    actor: 0,
+                    target: 1,
+                    amount: 30,
+                },
+                // A drain's self-heal: one event naming the same combatant
+                // twice. Following the actor counts it once; crediting both
+                // fields would count it twice.
+                Event::Healed {
+                    actor: 0,
+                    target: 0,
+                    amount: 12,
+                },
+                // Regeneration: real recovery, nobody's contribution.
+                Event::StatusHealed {
+                    target: 1,
+                    status: StatusKind::Regen,
+                    amount: 50,
+                },
+            ],
+        );
+
+        assert_eq!(
+            stats[0].healing_done, 42,
+            "the healer is credited with both heals, the self-heal exactly once"
+        );
+        assert_eq!(
+            stats[1].healing_done, 0,
+            "receiving HP is not a contribution, and regeneration has no healer"
+        );
     }
 
     /// Every skill in this fixture hits one target with perfect accuracy, so
