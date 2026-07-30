@@ -325,7 +325,7 @@ impl Battle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{AiProfile, Effect, Element, Stats, TargetKind};
+    use crate::data::{AiProfile, Effect, Element, Resistances, Stats, TargetKind};
 
     fn stats(hp: i32, atk: i32, spd: i32) -> Stats {
         Stats {
@@ -364,6 +364,11 @@ mod tests {
             stand: None,
             skills: vec![resolve::BASIC_ATTACK_ID.to_string()],
             ai: AiProfile::Aggressive,
+            // Empty on purpose: every test in this module is about turn order,
+            // SP recovery or event attribution, and a resistance here would be
+            // an uncontrolled variable in all three. Resistance behaviour is
+            // tested where it is implemented, in resolve.rs.
+            resist: Resistances::new(),
         }
     }
 
