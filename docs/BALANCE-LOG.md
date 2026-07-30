@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 4 is
-**forty-five predictions, twenty-eight of them wrong**. The scorecards are kept
+the fact is a rationalisation, and the running record through `0.4.0` step 5 is
+**fifty-four predictions, twenty-nine of them wrong**. The scorecards are kept
 per entry so the rate is visible rather than asserted. That is the argument for
 the harness, not against it -- the same wrong guesses shipped as content,
 unmeasured, would have been indistinguishable from design.
@@ -66,13 +66,14 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > combatant in that fight carries a resistance table and no skill in it deals a
 > typed element, which is why the Street Thug is the explicit control row.
 
-> **There is no boundary 6, and issues #11 and #12 are the reason it matters
+> **There is no boundary 6, and issues #11, #12 and #14 are the reason it matters
 > that there is not.** #11 changed reporting only; #12 changed the sample size
-> only. Neither touched a rule, so every figure in this file remains an estimate
-> of the same underlying quantity as before. What changed at #12 is how
-> *precisely* those quantities are known, which is not the same thing as the
-> quantities having moved. A boundary marks "these numbers describe a different
-> game"; a wider sample marks "these numbers describe the same game, better".
+> only; #14 changed instrumentation that no build reads. None touched a rule, so
+> every figure in this file remains an estimate of the same underlying quantity
+> as before. What changed at #12 is how *precisely* those quantities are known,
+> which is not the same thing as the quantities having moved. A boundary marks
+> "these numbers describe a different game"; a wider sample marks "these numbers
+> describe the same game, better".
 
 ## Current status
 
@@ -88,6 +89,11 @@ All three encounters are inside their declared bands, and for the first time in
 this project **the intervals are inside the bands too**, rather than merely the
 point estimates. `matchup.dio_boss` is no longer the marginal row it was
 reported to be at twelve seeds; that appearance was an artefact of the sample.
+
+Issue #14 reproduced the `assassin_ambush` row independently, from a separate
+roster file on a separate branch, in every digit. Two different files describing
+the same combatants produce the same 1800-event batch, which is a stronger
+statement about determinism than any single run can make.
 
 ## The throughput model
 
@@ -150,13 +156,25 @@ stat into damage past the point where a combatant runs out of SP.
 > still the right way to size a change; the confidence it earned from those
 > checks was overstated.
 
+> **Amended by issue #14, and the SP-ceiling explanation is withdrawn.** The
+> re-sweep at 300 seeds reads `sp/b` as 64, 66, 67, 64, 61, 56 across the range.
+> It is not pinned at 57 or at anything else, because SP regen arrived after the
+> original sweep. The model's error is no longer a uniform over-prediction; it is
+> a **slope error**, 15% low at `atk` 135 and 15% high at `atk` 225, crossing zero
+> near 175. The cause is battle length: per-*turn* output is `0.22 x atk` to
+> within 4% across a threefold range, while battle length falls from 22 turns to
+> 16. A model that converts a stat into per-battle damage without modelling
+> battle length must get the slope wrong. **Estimate per-turn output first, then
+> multiply by expected length.**
+
 The two things it makes obvious, both of which the Change E prediction missed:
 
 - **A slow foe is a cheap foe.** The Brawler's 72 speed buys it 20% of the
   actions in the fight, so its 73 damage per action becomes 285 per battle.
   Speed multiplies damage as directly as attack does.
 - **A foe's output is capped by its SP, not by the clock.** *(True until
-  `7f72a4f`; see the amendment above.)*
+  `7f72a4f`; withdrawn entirely by issue #14 -- see the amendment above. The
+  clock is now the binding constraint.)*
 
 ---
 
@@ -352,6 +370,14 @@ it wins half.
 > zone. That number was never measured. The sweep in
 > [`BALANCE-CURVE.md`](BALANCE-CURVE.md) puts the bend between 0.65 and 0.74.
 
+> **Retracted a second time, by issue #14.** The replacement claim above -- a
+> bend between 0.65 and 0.74 -- was itself read off five twelve-seed points. At
+> 300 seeds there is no bend and no step function. The response is a smooth
+> monotone decline from 96% to 12%, steepest where it passes 50%, with no flat
+> region at either end of the measured range. "A race resolves as a step function
+> around parity" is the wrong mental model; it resolves as an ordinary sigmoid,
+> and every point on it is reachable by tuning.
+
 ---
 
 ## Change E -- the ambush's second foe becomes the Iron Brawler
@@ -411,6 +437,14 @@ Four options for the design decision; one was chosen:
 
 Option 5: **measure the curve first**. See Change G.
 
+> **Strengthened by issue #14.** "Jotaro is the structural ceiling" was inferred
+> here from one run. The re-sweep measures it directly across six enemy strengths:
+> his survival tracks the encounter's win rate to within three points at every
+> point on the curve (93/96, 78/81, 51/53, 33/34, 19/20, 12/12), while Kakyoin's
+> sits far below it throughout (48, 28, 15, 8, 6, 2). The party essentially never
+> wins without Jotaro and rarely loses with him. This is now the best-supported
+> claim in either document.
+
 ---
 
 ## Change G -- Iron Brawler atk 105 -> 135
@@ -460,6 +494,26 @@ the sixth.**
 > and 8% and no amount of sampling error bridges that. Its *resolution* does not.
 > The six wasted changes were partly chasing a flat curve and partly chasing
 > noise, and at the time there was no way to tell those two apart.
+
+> **The plateau is retracted outright by issue #14.** The 67% at `atk` 135 and the
+> 67% at `atk` 165 were not two independent points agreeing. At 300 seeds they
+> read **53%** and **34%** -- nineteen points apart, with about three points of
+> error each. Two draws of 8/12 landing on the same value is the single most
+> likely coincidence available to a twelve-seed instrument.
+>
+> This reaches a real decision. `atk` 135 was chosen over 165 partly *because*
+> they measured the same win rate, so 135 could be taken as the near edge of a
+> flat region that would absorb a later party buff rather than push the encounter
+> off a cliff. **There is no flat region, and there is no cliff.** The choice of
+> 135 survives on its other two grounds -- effective `atk` stays under Dio's, and
+> it leaves Kakyoin alive some of the time -- but the plateau argument behind it is
+> void, and the shipped encounter sits on the *steepest* part of the curve rather
+> than a stable one. It must be re-measured after any change touching its four
+> participants.
+>
+> The prior annotation also over-credited the shape. "Flat at low ratio" is not
+> supported either: the new lowest rung, `atk` 75, reads 96% rather than 100%.
+> What survives is only that the curve is monotone and spans the full range.
 
 ---
 
@@ -627,6 +681,14 @@ struct literal that initialises it without sweeping all files. Both failures
 (`battle.rs:359`, `sim.rs:310`) were inside `#[cfg(test)]`, so
 `cargo run --bin balance` compiled and produced a full report while
 `cargo clippy --all-targets` and `cargo test` could not build.
+
+> **A second instance of the same defect surfaced in issue #14.** `#[serde(default)]`
+> on `resist` means a roster file written before this change loads without error
+> as an empty table. `tools/probe/combatants.probe.json` did exactly that for two
+> milestones, silently, and would have produced a full and entirely wrong sweep.
+> The field that made migration painless also made drift invisible. Any hand-
+> maintained copy of `data/*.json` must be diffed against the original before it
+> is trusted, and the probe README now says so.
 
 ### The two runs, in order
 
@@ -935,9 +997,165 @@ Three things worth noting:
   now needs its own justification, not this run's.
 - **The curve is still void.** [`BALANCE-CURVE.md`](BALANCE-CURVE.md) was swept
   at twelve seeds under pre-`0.4.0` rules; it is now invalid on both counts.
-  Re-sweep is issue #14, and it must be swept at 300.
+  Re-sweep is issue #14, and it must be swept at 300. *(Done -- see below.)*
 - **The historical entries are not rewritten.** Their annotations mark what is
   now known to be inside the noise. A retracted measurement is evidence too.
+
+---
+
+## Issue #14 -- the response curve is re-swept, and the plateau it published never existed
+
+Commits `60667aa` (probe roster repaired and widened to 300 seeds) and `9c8a88f`
+(`BALANCE-CURVE.md` rewritten). **Instrumentation only. No code, no rules, no
+content, no comparability boundary** -- nothing under `tools/probe/` is reachable
+from the game, the validator or the CI gate.
+
+Six probes, 1800 battles, `atk` 75 to 225. Full write-up and the pricing tool are
+in [`BALANCE-CURVE.md`](BALANCE-CURVE.md); this entry records what it changes
+about the rest of this file.
+
+### The instrument had drifted, silently, and would have produced a wrong sweep
+
+Before anything could be measured, `tools/probe/combatants.probe.json` had to be
+repaired. Three faults, of which the first is the serious one:
+
+1. **Not one combatant in it carried a `resist` table.** The file predates issue
+   #10, and `resist` is `#[serde(default)]`, so it loaded without complaint as
+   empty. The Iron Brawler clones were taking full physical damage from Jotaro
+   where the shipped one takes 25% less, and ordinary psychic damage from Kakyoin
+   where the shipped one takes 25% more.
+2. **The control had moved and nobody had moved it.** Change G shipped `atk`
+   105 -> 135 two milestones ago, so `probe.curve_a105` had quietly stopped being
+   the shipped creature. The control is now `probe.curve_a135`.
+3. **The seed lists were still the twelve Fibonacci seeds.**
+
+Issue #14 asked for the gap between control and shipped encounter and called that
+gap the measurement of what the rules changes did. Run uncorrected, the gap would
+have mixed six rules changes with one missing resistance table, and there would
+have been no way to separate them afterwards. This is the same failure the
+"change one number" rule at the top of this file exists to prevent, arriving
+through a file nobody thought of as content.
+
+### The control
+
+`probe.curve_a135` reproduced the shipped `matchup.assassin_ambush` in **every
+digit** -- 158 won, 142 lost, turns 21/13/32, all four combatant rows, and every
+skill-use count down to Kakyoin's six uses of `strike`. Two different roster
+files describing the same combatants produce the same 300-battle event stream.
+
+### The curve
+
+| Probe | `atk` | Win rate | 95% interval | Jotaro alive | Turns |
+| --- | --- | --- | --- | --- | --- |
+| `a075` | 75 | **96%** | 94..98 | 93% | 22 |
+| `a105` | 105 | **81%** | 77..85 | 78% | 21 |
+| `a135` | 135 | **53%** | 47..59 | 51% | 21 |
+| `a165` | 165 | **34%** | 29..39 | 33% | 19 |
+| `a195` | 195 | **20%** | 16..25 | 19% | 17 |
+| `a225` | 225 | **12%** | 8..16 | 12% | 16 |
+
+Monotone throughout. No plateau, no cliff, and no flat region at either end of
+the measured range.
+
+### Scorecard
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `a075` 95-100% | 96% | correct |
+| 2 | `a105` 72-85% | 81% | correct |
+| 3 | `a135` exactly 53%, every digit | exactly that | correct (arithmetic, not a forecast) |
+| 4 | `a165` 30-42% | 34% | correct |
+| 5 | `a195` 15-27% | 20% | correct |
+| 6 | `a225` 3-12% | 12% | correct, on the boundary |
+| 7 | The 67% plateau does not reappear | it did not | correct |
+| 8 | The bend moves to a lower `atk` | steepest segment is still 105-135 | **wrong** |
+| 9 | The control matches bit for bit | it did | correct |
+
+Eight of nine, the best run this project has recorded, and three things keep that
+honest: row 3 is arithmetic, the ranges were 10-13 points wide against an
+instrument with 3 points of error, and row 6 landed on its boundary. The one miss
+is informative: the curve moved **down** without moving **sideways**. Six rules
+changes lowered the whole response without relocating the point of maximum
+sensitivity.
+
+### What this retracts
+
+- **The 67% plateau.** See the annotation on Change G. Two draws of 8/12 landing
+  on the same value.
+- **"A race resolves as a step function around parity."** See the second
+  retraction on Change D. It resolves as an ordinary sigmoid.
+- **The SP ceiling as the explanation for the throughput model's error.** See the
+  amendment in the model section. The binding constraint is battle length.
+
+### What it could not deliver, and why that is the finding
+
+Issue #14's second acceptance criterion says the gap between the old control row
+and the new one **is** the measurement of what the rules changes did. It is not.
+Put 95% intervals on the five old twelve-seed points and compare:
+
+| `atk` | Old | Old 95% interval | New | Contradicted? |
+| --- | --- | --- | --- | --- |
+| 105 | 100% | 76..100 | 81% | no |
+| 135 | 67% | 39..94 | 53% | no |
+| 165 | 67% | 39..94 | 34% | **yes** |
+| 195 | 42% | 15..72 | 20% | no |
+| 225 | 8% | 0..36 | 12% | no |
+
+**Four of five old points cannot disagree with anything.** Their intervals are
+wide enough to contain the new values, so the differences are equally consistent
+with "the rules changed the curve" and with "the old instrument could not see".
+Differencing the tables would yield five numbers of which four are noise, with no
+way to identify which four. The old table is therefore **retracted, not
+differenced**, and what six rules changes did to this curve is not recoverable
+from the record.
+
+That is the same conclusion issue #12 reached from the opposite direction. A
+measurement taken with an instrument too coarse is not a cheap version of the
+real thing; it is an absence of information shaped like a number, and it cannot
+be rescued later by measuring properly, because there is nothing to compare
+against.
+
+### What it establishes
+
+1. **Jotaro is the win condition, and this is now the best-supported claim in the
+   project.** His survival tracks the win rate to within three points at all six
+   points on the curve. Kakyoin's sits far below it throughout. See the
+   annotation on Change F.
+2. **Per-turn output is linear in `atk`; only per-battle output saturates.**
+   `0.22 x atk` holds to within 4% across a threefold range. The saturation
+   visible in per-battle figures is battle-length compression, 22 turns down to
+   16.
+3. **The shipped ambush sits on the steepest part of the curve**, about 0.8 win
+   rate points per point of enemy `atk`. It is tunable and it is not stable.
+4. **The one-sided ratio axis is unusable above 0.9.** `Foe out / party HP` moves
+   0.92 -> 0.97 while the win rate falls 34% -> 12%, because per-battle output is
+   depressed by the very short battles a strong enemy causes. The replacement is
+   the exchange ratio, `(foe out / party HP) / (party out / foe HP)`, which
+   crosses 1.0 exactly where the win rate crosses 50%.
+
+### An unexplained trend, filed rather than guessed at
+
+Kakyoin abandons `emerald_snare` as the enemy gets stronger: 35%, 32%, 28%, 21%,
+19%, 14% of his turns across the six rows. Six points, monotone, 1800 battles --
+not noise. It is not merely shorter battles either: his turns per battle fall by
+a factor of 1.8 while his snare uses fall by 4.4.
+
+The probe's `spd` is 62 on every row and only `atk` differs, so the thing
+`spd_down` counters has not changed at all. The mechanism is somewhere in
+`ai.rs`. **Filed as issue #27 rather than explained here**, with the condition
+that the explanation and any fix must not share a commit -- the curve above was
+measured with the current behaviour, and if that behaviour is a defect then part
+of this curve is measuring the defect.
+
+### What this entry does not authorise
+
+- **No content change.** Nothing in `data/` moved and nothing needs to.
+- **The curve is valid only for the current rules.** It is now correct on both
+  counts that invalidated it -- swept at 300 seeds, under `0.4.0` rules -- but
+  issues #15, #16, #17, #22 and #27 all touch rules or the roster, and any of
+  them voids it again.
+- **The probe roster is not self-maintaining.** Diff it against
+  `data/combatants.json` before every sweep.
 
 ---
 
@@ -953,6 +1171,14 @@ Recorded here so a number is not over-read:
   is granularity rather than sampling error; the true standard error at twelve
   seeds was around 14. Now 300 seeds and about +/-2.9.
 - **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.**
+- **~~The curve is void.~~ Re-swept at 300 seeds in issue #14**, under current
+  rules, with the control reproducing shipped content exactly.
+- **The probe roster is a hand-maintained copy and drifts silently.** It carried
+  no resistance tables for two milestones without any error, because `resist` is
+  `#[serde(default)]`. A schema field that defaults gracefully makes migration
+  painless and makes drift invisible. Diff `tools/probe/combatants.probe.json`
+  against `data/combatants.json` before every sweep, and treat a control row that
+  does not reproduce shipped content in every digit as proof the sweep is void.
 - **Confidence is not reported, only the point estimate.** `balance_bounds`
   compares a single measured percentage against a band and says nothing about how
   precisely that percentage is known. At 300 seeds the interval is narrow enough
@@ -968,7 +1194,7 @@ Recorded here so a number is not over-read:
 - **A rules change resets the series.** RNG draw order is part of the rules, so
   after any edit to `ai.rs`, `resolve.rs`, `state.rs` or `battle.rs` the same seed
   no longer reproduces the same battle. Issue #9 crossed this boundary six times;
-  issue #10 crossed it once; issues #11 and #12 crossed it zero times.
+  issue #10 crossed it once; issues #11, #12 and #14 crossed it zero times.
 - **One row survived a boundary it should not have.** `Flame Assassin` in
   `dio_boss` was effectively constant across two boundaries (305 at `7f72a4f`,
   304 at `f6ba445`). Until that is explained, treat "bit-identical" as evidence
@@ -979,6 +1205,11 @@ Recorded here so a number is not over-read:
   experience.
 - **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
   `power` without consulting the target's resistance table. Tracked as issue #22.
+- **The AI's skill choice responds to enemy `atk` through an unidentified
+  channel.** Kakyoin's `emerald_snare` share falls monotonically as the enemy
+  gets stronger, with nothing the skill counters having changed. Tracked as issue
+  #27. Until it is explained, treat any measured action mix as descriptive rather
+  than as evidence of intended behaviour.
 - **~~Only five of eleven skills are ever used.~~ Ten of twelve as of `7f72a4f`.**
   Two remain: `guard_stance` and `rage_focus`, both declined correctly on their
   own numbers. Content defects, issues #15 and #16.
@@ -986,6 +1217,6 @@ Recorded here so a number is not over-read:
   values a lock as the actions it *denies*; a lock defers, not removes. Dio uses
   it on 23% of its turns.
 - **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
-  current rules, not a constant.** It is invalidated six times over and was swept
-  at twelve seeds besides. Re-sweep is issue #14. Replace the table rather than
-  appending to it.
+  current rules, not a constant.** Replace the table rather than appending to it,
+  and re-sweep after any change to `resolve.rs`, `ai.rs`, the party roster or the
+  skill list.
