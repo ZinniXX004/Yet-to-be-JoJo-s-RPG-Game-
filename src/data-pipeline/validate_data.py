@@ -13,8 +13,8 @@ Checks performed:
      matchup -> combatants).
   5. IDs are unique and follow the `namespace.name` convention.
   6. Soft balance warnings (unreachable skills, resistances to elements nothing
-     deals, zero-cost nukes, encounters whose declaration cannot produce a
-     meaningful measurement).
+     deals, zero-cost nukes, encounters whose seed list is too small to support
+     the band declared against it).
   7. With `--mirror`, every combatant that also exists in a reference directory
      is identical to the entry there, field for field.
 
@@ -86,10 +86,27 @@ CONTENT_FILES = ("skills", "stands", "combatants", "matchups")
 MIN_RESISTANCE = -100
 MAX_RESISTANCE = 100
 
-# Twelve seeds give a resolution of 8.3 percentage points per battle. Eight is
-# the point below which a single seed flipping moves the reported win rate by
-# more than 12 points, which is wider than most declared bands are forgiving.
-MIN_USEFUL_SEEDS = 8
+# Below this many seeds, a measured win rate cannot support a declared band.
+#
+# This constant used to be 8, justified by "a single seed flipping moves the
+# reported win rate by more than 12 points" -- that is 100/n, the spacing between
+# two adjacent possible readings. Issue #12 established that the project had
+# spent three releases treating that spacing as though it were measurement error.
+# It is not, and it flatters small samples: it shrinks as n falls, which is
+# backwards. What matters is sampling error, `sqrt(p * (1 - p) / n)`, worst-cased
+# at p = 0.5 because the true rate is unknown while a file is being read.
+#
+# That correction was applied to BALANCE-LOG.md, ROADMAP.md and BALANCE-CURVE.md
+# and never applied here, which was the one place the mistake was executable.
+# Under the old value an eight-seed encounter passed in silence, where the 95%
+# interval is about +/-35 points and a reading of 60% could be anything from 25%
+# to 95%.
+#
+# 100 is where the interval narrows to roughly +/-10 points, which is about the
+# widest any shipped band could tolerate being wrong by. All three shipped
+# matchups use 300 (+/-6) and are unaffected, so nothing warns today -- this
+# exists for the next encounter someone declares.
+MIN_SEEDS_FOR_A_BAND = 100
 
 # Fields that must agree when a combatant is mirrored from another directory.
 # `id` is excluded because it is the key the two entries are matched on.
@@ -125,6 +142,17 @@ def default_data_dir() -> Path:
     if candidate.is_dir():
         return candidate
     return Path("data")
+
+
+def win_rate_interval(seed_count: int) -> int:
+    """Half-width of the 95% interval on a win rate, in percentage points.
+
+    Worst-cased at p = 0.5, where `p * (1 - p)` is largest, because the true
+    rate is not known while a declaration is being read. 1.96 * 100 is folded
+    into the constant to keep this arithmetic obvious: 8 seeds -> 35, 12 -> 28,
+    24 -> 20, 100 -> 10, 300 -> 6.
+    """
+    return round(196 * (0.25 / seed_count) ** 0.5)
 
 
 class Report:
@@ -459,11 +487,15 @@ def validate_matchups(rows: list[dict[str, Any]], filename: str,
                     # two, which quietly biases the win rate.
                     report.error(where, f"seed {seed} appears more than once")
                 seen_seeds.add(seed)
-            if len(seeds) < MIN_USEFUL_SEEDS:
+            if len(seeds) < MIN_SEEDS_FOR_A_BAND:
                 report.warn(
                     where,
-                    f"{len(seeds)} seeds give a resolution of"
-                    f" {round(100 / len(seeds))} percentage points per battle",
+                    f"{len(seeds)} seeds: a win rate measured over this many"
+                    f" battles carries a 95% interval of about +/-"
+                    f"{win_rate_interval(len(seeds))} percentage points, so a"
+                    f" band fitted to it cannot tell passing from failing"
+                    f" (>= {MIN_SEEDS_FOR_A_BAND} keeps that within about"
+                    f" +/-{win_rate_interval(MIN_SEEDS_FOR_A_BAND)})",
                 )
 
         band = row.get("band")
