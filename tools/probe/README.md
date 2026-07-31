@@ -31,9 +31,13 @@ been quietly wrong for two milestones and nothing in the project noticed.
 
 ### The mirrored entries are checked by CI now, and only those
 
-Issue #30 added a comparison to the content validation job:
+Issue #30 added a comparison to the content validation job. **Run it from the
+repository root, not from `src`** -- unlike the `cargo` commands above and below,
+the path to the script is relative to where you stand, and `cd src` first gives
+you `src/src/data-pipeline/...` and a file-not-found:
 
 ```text
+cd <repo root>
 python src/data-pipeline/validate_data.py \
     --combatants tools/probe/combatants.probe.json \
     --matchups   tools/probe/matchups.probe.json \
@@ -45,14 +49,51 @@ Every combatant id that appears in **both** this directory and
 included. Today that is all seven shipped combatants. Edit a shipped stat without
 updating the copy here and CI goes red, naming the combatant and the field.
 
+On an unmodified checkout the run ends like this. Ten warnings and a trailing
+note are the expected state, not a problem to fix:
+
+```text
+checked 12 skills, 6 stands, 13 combatants, 6 matchups, 7 mirrored: 0 error(s), 10 warning(s)
+note: paths were overridden, so this run does not describe the shipped content
+```
+
+The `7 mirrored` is the part to read. A comparison that silently matched nothing
+would also report zero errors, so the count is the difference between green and
+lucky.
+
+Of the ten warnings, six are the `0..100` bands declaring no intent, which is
+deliberate here. The other four are combatants this directory carries but no
+probe encounter uses.
+
+### What the check still cannot protect, and why that is tolerable
+
 Note what is deliberately *not* covered. The six `npc.probe_a*` clones have no
 shipped counterpart, so nothing constrains them -- being invented is the whole
 point of them. The probe matchups are not compared either, because they are
 supposed to differ: `0..100` bands, `max_turns: 300`, their own encounter list.
-That run therefore prints warnings by design, six of them about bands that
-declare no intent, and warnings do not fail it.
 
-**This does not make the numbers here trustworthy, only current.** A clone with a
+There is a sharper gap, found by running the check rather than by designing it.
+When #30 rejected adding machinery to detect a *deleted* mirrored entry, the
+argument was that a matchup referencing an unknown combatant is already an error,
+so an entry that matters cannot vanish unnoticed. The run shows that argument
+covers **three of the seven**: `pc.jotaro`, `pc.kakyoin` and `npc.flame_assassin`
+are the only mirrored combatants any probe encounter names. Delete `pc.josuke`,
+`npc.dio`, `npc.thug` or `npc.iron_brawler` from this file and nothing complains.
+
+That is tolerable, because an entry no encounter references cannot influence a
+sweep -- but it is tolerable for that reason and not because the reference check
+covers it. If a future probe matchup starts using one of those four, it moves into
+the protected set automatically.
+
+One consequence worth carrying forward: **the mirrored `npc.iron_brawler` is
+inert for measurement.** The sweep reads `atk` from the clones, not from it. Its
+staleness in #14 therefore misled whoever read the file rather than corrupting a
+number, which is a smaller fault than "the control stopped being the shipped
+creature" suggests. Re-check that framing against the #14 entry in
+`docs/BALANCE-LOG.md` before citing it again; the resistance omission, which hit
+the clones the sweep does read, is the fault that moved results.
+
+**None of this makes the numbers here trustworthy, only current.** A clone with a
 plausible `atk` and a stale idea of the rules is still fiction; see the control
 section below.
 
@@ -116,7 +157,9 @@ everything.
 
 The mirror check narrows what can go wrong here but does not replace this step.
 It compares the roster, not the rules: a change to `resolve.rs` or `ai.rs` moves
-the control while every field still matches.
+the control while every field still matches. It also does not constrain the
+clone the control actually uses, `npc.probe_a135`, because that id exists only
+here -- so the control must still be reproduced by hand.
 
 ### Keep the seed lists at 300 and keep them identical across rows
 
@@ -126,6 +169,10 @@ wider than most differences worth measuring, and 1800 battles cost well under a
 second. Rows must share a seed list, or differences between them mix the effect
 under test with a change of sample.
 
+The validator warns below 100 seeds and reports the 95% interval a list that
+small would carry (issue #31). It cannot warn about the opposite mistake -- rows
+that disagree with each other -- so that one stays a reading rule.
+
 ### Only one field may differ between probe clones
 
 The six clones differ in `atk` and in nothing else -- same `hp`, `sp`, `def`,
@@ -134,6 +181,10 @@ This is the whole reason a sweep can attribute its trend to a single stat. It is
 also why issue #27 is a real question rather than a shrug: Kakyoin's skill mix
 moves across the range, and because `spd` is 62 on every row, whatever is
 driving that cannot be the thing `spd_down` counters.
+
+Nothing enforces this. The mirror check has no opinion about the clones, so a
+second field drifting between them stays exactly as invisible as the resistance
+tables were.
 
 If you add a probe, add it as a clone with one field changed, and say in the
 matchup name which field that is.
