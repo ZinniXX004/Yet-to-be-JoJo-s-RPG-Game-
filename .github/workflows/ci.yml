@@ -69,6 +69,28 @@ jobs:
       # must run from the repository root.
       - name: Validate data/*.json
         run: python src/data-pipeline/validate_data.py
+      # tools/probe/ is not shipped, but its combatants are hand-copied from
+      # data/, and copies do not follow their originals. Issue #14 found this
+      # roster two milestones stale -- no resistance tables at all, and an Iron
+      # Brawler still at atk 105 after Change G shipped 135 -- which made the
+      # row labelled "control" stop being the shipped creature.
+      #
+      # Validating the directory on its own would not have caught either fault:
+      # an absent resist table is legal and 105 is a valid integer, so both
+      # files were internally consistent and had merely stopped describing the
+      # game. --mirror is the comparison, and it is here rather than in a README
+      # because the README already asked for this and was not obeyed. See #30.
+      #
+      # skills and stands are not overridden: the probe roster borrows the
+      # shipped ones, which is why references like stand.iron_hymn resolve.
+      # Warnings are expected from this run (0..100 bands by design) and do not
+      # fail it; only a drifted field or a broken reference does.
+      - name: Validate tools/probe against data/
+        run: >-
+          python src/data-pipeline/validate_data.py
+          --combatants tools/probe/combatants.probe.json
+          --matchups tools/probe/matchups.probe.json
+          --mirror data
 
   core:
     name: core (${{ matrix.os }})
