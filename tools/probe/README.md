@@ -2,15 +2,14 @@
 
 **This directory is not game content.** The two JSON files here have the same
 shape as `data/combatants.json` and `data/matchups.json`, but nothing loads them
-unless a path is pointed at them by hand: the game reads `data/`,
-`src/data-pipeline/validate_data.py` validates `data/`, and the blocking CI job
-runs `balance` with no arguments, which can only read the content compiled into
-the binary by `include_str!`. These files exist to answer measurement questions
-that would otherwise need one throwaway commit per data point -- the combatants
-are deliberately absurd (`atk` up to 225, roughly half again as hard-hitting as
-the final boss) and the bands are `0..100` so a probe can never report a
-violation. Numbers measured here are only meaningful once they are re-measured
-on shipped content; the curve they produced is written up in
+unless a path is pointed at them by hand: the game reads `data/`, and the
+blocking `balance` CI job runs with no arguments, which can only read the content
+compiled into the binary by `include_str!`. These files exist to answer
+measurement questions that would otherwise need one throwaway commit per data
+point -- the combatants are deliberately absurd (`atk` up to 225, roughly half
+again as hard-hitting as the final boss) and the bands are `0..100` so a probe
+can never report a violation. Numbers measured here are only meaningful once they
+are re-measured on shipped content; the curve they produced is written up in
 [`docs/BALANCE-CURVE.md`](../../docs/BALANCE-CURVE.md).
 
 ```text
@@ -30,35 +29,65 @@ re-run the sweep before sizing another encounter against it.
 Everything below was learned the hard way in issue #14, where this roster had
 been quietly wrong for two milestones and nothing in the project noticed.
 
-### These files have no validation and no test. None.
+### The mirrored entries are checked by CI now, and only those
 
-`validate_data.py` reads `data/` and only `data/`. The CI gate cannot see this
-directory. Nothing here is type-checked beyond what `serde` will accept, and
-`serde` accepts a great deal:
+Issue #30 added a comparison to the content validation job:
+
+```text
+python src/data-pipeline/validate_data.py \
+    --combatants tools/probe/combatants.probe.json \
+    --matchups   tools/probe/matchups.probe.json \
+    --mirror     data
+```
+
+Every combatant id that appears in **both** this directory and
+`data/combatants.json` must be identical, field for field, resistance tables
+included. Today that is all seven shipped combatants. Edit a shipped stat without
+updating the copy here and CI goes red, naming the combatant and the field.
+
+Note what is deliberately *not* covered. The six `npc.probe_a*` clones have no
+shipped counterpart, so nothing constrains them -- being invented is the whole
+point of them. The probe matchups are not compared either, because they are
+supposed to differ: `0..100` bands, `max_turns: 300`, their own encounter list.
+That run therefore prints warnings by design, six of them about bands that
+declare no intent, and warnings do not fail it.
+
+**This does not make the numbers here trustworthy, only current.** A clone with a
+plausible `atk` and a stale idea of the rules is still fiction; see the control
+section below.
+
+### Why a human diff was not good enough, and why one file check is not either
+
+This section used to say the directory had no validation and instruct a reader to
+diff it against `data/` before every sweep. Two things were wrong with that.
+
+The first is that the instruction was never followed, which is why #14 happened.
+
+The second is subtler and worth keeping in mind whenever a check is added here:
+**validating this directory on its own could not have found either fault.**
 
 - **`resist` is `#[serde(default)]`.** A roster file written before issue #10
-  loads without error, without warning, with every resistance table empty. That
-  is exactly what happened here. Six Iron Brawler clones were taking full
-  physical damage from Jotaro where the shipped Brawler takes 25% less, and
-  ordinary psychic damage from Kakyoin where the shipped one takes 25% more.
-- The same applies to any future field added with a default. The property that
-  makes save-data migration painless makes drift here invisible.
+  loads without error, without warning, with every resistance table empty. Six
+  Iron Brawler clones were taking full physical damage from Jotaro where the
+  shipped Brawler takes 25% less, and ordinary psychic damage from Kakyoin where
+  the shipped one takes 25% more. An absent table is legal, and the validator
+  returns immediately when it sees one -- correctly, because most combatants have
+  none.
+- **`npc.iron_brawler` still had `atk: 105`.** Change G shipped `atk: 135` two
+  milestones earlier. 105 is a positive integer and no schema check has an
+  opinion about which positive integer it ought to be.
 
-### The probe roster is a hand-maintained copy, so it decays
+Both files were internally consistent. They had simply stopped being descriptions
+of the game, and the information needed to notice that was in another directory.
+The same applies to any future field added with a default: the property that
+makes save-data migration painless makes drift here invisible to anything except
+a comparison.
 
-Every entry in `combatants.probe.json` that is meant to mirror shipped content
-is a copy taken at some past moment. Copies do not follow their originals. Two
-separate faults were found at once in #14:
-
-- No resistance tables at all, as above.
-- `npc.iron_brawler` still had `atk: 105`. Change G shipped `atk: 135` two
-  milestones earlier, so the row labelled "control" had silently stopped being
-  the shipped creature.
-
-**Diff this directory against `data/` before every sweep.** Party members, the
-Flame Assassin and any shipped combatant appearing in a probe matchup must match
-their `data/combatants.json` entries field for field, resistance tables
-included.
+For the record, the old instruction could not have been carried out as written
+even by someone willing: `validate_data.py` looks for `skills.json`,
+`stands.json`, `combatants.json` and `matchups.json`, and this directory contains
+none of those names. A bare directory argument died on four missing files before
+checking anything. The per-file overrides above exist because of that.
 
 ### The control is `probe.curve_a135`, and it is not optional
 
@@ -84,6 +113,10 @@ the difference is interesting.** Whatever made the control disagree also applies
 to the other rows, where there is nothing to compare against and no way to
 separate it from the effect being measured. Fix the roster, then re-run
 everything.
+
+The mirror check narrows what can go wrong here but does not replace this step.
+It compares the roster, not the rules: a change to `resolve.rs` or `ai.rs` moves
+the control while every field still matches.
 
 ### Keep the seed lists at 300 and keep them identical across rows
 
