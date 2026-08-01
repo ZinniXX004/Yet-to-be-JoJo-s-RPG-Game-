@@ -146,5 +146,18 @@
       { "kind": "damage", "power": 140, "element": "physical", "variance": 10 },
       { "kind": "status", "status": "stun", "potency": 0, "duration": 1, "chance": 40 }
     ]
+  },
+  {
+    "id": "skill.riposte",
+    "name": "Riposte",
+    "description": "Answers the blow before it lands. The cut is shallow; the habit it breaks is not. The first skill in the game whose value is what the target stops being able to do.",
+    "sp_cost": 14,
+    "target": "one_enemy",
+    "accuracy": 90,
+    "tempo_cost": 1000,
+    "effects": [
+      { "kind": "damage", "power": 85, "element": "physical", "variance": 8 },
+      { "kind": "status", "status": "atk_down", "potency": 35, "duration": 3, "chance": 75 }
+    ]
   }
 ]
