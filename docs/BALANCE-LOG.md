@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 5 is
-**fifty-four predictions, twenty-nine of them wrong**. The scorecards are kept
+the fact is a rationalisation, and the running record through `0.4.0` step 6 is
+**sixty-one predictions, thirty-two of them wrong**. The scorecards are kept
 per entry so the rate is visible rather than asserted. That is the argument for
 the harness, not against it -- the same wrong guesses shipped as content,
 unmeasured, would have been indistinguishable from design.
@@ -66,34 +66,50 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > combatant in that fight carries a resistance table and no skill in it deals a
 > typed element, which is why the Street Thug is the explicit control row.
 
-> **There is no boundary 6, and issues #11, #12 and #14 are the reason it matters
-> that there is not.** #11 changed reporting only; #12 changed the sample size
-> only; #14 changed instrumentation that no build reads. None touched a rule, so
-> every figure in this file remains an estimate of the same underlying quantity
-> as before. What changed at #12 is how *precisely* those quantities are known,
+> **Comparability boundary 6 -- `matchup.dio_boss` gains a fourth party member.**
+> Issue #15 adds `pc.polnareff` to the boss encounter's party. Nothing in the
+> rules changed and no other encounter moved, but the boss fight now has four
+> party members where every figure recorded above it has three. 47% and 68% are
+> not two readings of the same encounter, and the difference between them is not
+> a measurement of anything. **This boundary applies to `matchup.dio_boss` only**
+> -- `thug_solo` and `assassin_ambush` reproduce bit for bit across it, which is
+> what makes the scope of the boundary a measured claim rather than an assertion.
+>
+> It is also the first boundary in this file that comes from **content** rather
+> than from rules, and that is worth naming. The five above it were all edits to
+> `src/`, which made them easy to spot: change `resolve.rs` and obviously the
+> numbers move. A roster edit looks like ordinary tuning and is not. Adding a
+> combatant to a party changes the denominator of every per-battle average in
+> that encounter, changes how long the fight runs, and -- as this entry
+> discovered -- can change what the *enemy* chooses to do.
+
+> **Issues #11, #12 and #14 created no boundary, and it matters that they did
+> not.** #11 changed reporting only; #12 changed the sample size only; #14
+> changed instrumentation that no build reads. None touched a rule or a roster,
+> so every figure spanning them remains an estimate of the same underlying
+> quantity. What changed at #12 is how *precisely* those quantities are known,
 > which is not the same thing as the quantities having moved. A boundary marks
 > "these numbers describe a different game"; a wider sample marks "these numbers
 > describe the same game, better".
 
 ## Current status
 
-After issue #12, commit `1f5aaed`, re-measured over **300 seeds**:
+After issue #15, commit `07af985a`, measured over **300 seeds**:
 
 | Matchup | Win rate | 95% interval | Band | Status |
 | --- | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | -- | 85..100 | ok |
 | `matchup.assassin_ambush` | 53% | 47..59 | 45..90 | ok |
-| `matchup.dio_boss` | 47% | 41..53 | 35..75 | ok |
+| `matchup.dio_boss` | 68% | 62..74 | 35..75 | ok |
 
-All three encounters are inside their declared bands, and for the first time in
-this project **the intervals are inside the bands too**, rather than merely the
-point estimates. `matchup.dio_boss` is no longer the marginal row it was
-reported to be at twelve seeds; that appearance was an artefact of the sample.
+All three encounters are inside their declared bands, and the intervals are
+inside the bands too rather than merely the point estimates. `matchup.dio_boss`
+is the row to watch: it sits 7 points under its ceiling against an interval half
+that wide, so it is inside the band but no longer comfortably so. That is a
+consequence of boundary 6, not a drift -- the encounter it describes is a
+different fight from the one the band was argued for.
 
-Issue #14 reproduced the `assassin_ambush` row independently, from a separate
-roster file on a separate branch, in every digit. Two different files describing
-the same combatants produce the same 1800-event batch, which is a stronger
-statement about determinism than any single run can make.
+The first two rows are the control for issue #15 and reproduce bit for bit.
 
 ## The throughput model
 
@@ -166,6 +182,18 @@ stat into damage past the point where a combatant runs out of SP.
 > 16. A model that converts a stat into per-battle damage without modelling
 > battle length must get the slope wrong. **Estimate per-turn output first, then
 > multiply by expected length.**
+
+> **Amended by issue #15 -- the model has no term for the defence toll, and that
+> is where it broke.** Every calibration above varies `atk` while holding `power`
+> at or above 100. Issue #15 varied `power` instead, to 85, and the model as
+> written says a power-85 skill delivers 85% of a power-100 skill. It does not.
+> The defence subtraction happens *after* the power scaling, so the loss is
+> `power_deficit x atk / 100` against a hit that has already had `def / 2`
+> removed -- against the Iron Brawler that is 45 damage falling to 34, a 24% loss
+> from a 15% power cut, and against Dio 42 falling to 27, a **36% loss**. The
+> multiplier the model implies is right only when defence is zero, and it gets
+> worse as the target hardens. **When sizing a change to `power` rather than to
+> `atk`, compute the hit against each specific target's defence; do not scale.**
 
 The two things it makes obvious, both of which the Change E prediction missed:
 
@@ -445,6 +473,17 @@ Option 5: **measure the curve first**. See Change G.
 > wins without Jotaro and rarely loses with him. This is now the best-supported
 > claim in either document.
 
+> **Bounded by issue #15, which tested it the only way it can be tested: by
+> taking Jotaro out.** `probe.chariot_duel` is `assassin_ambush` with Polnareff
+> in Jotaro's place and reads **4%**, against the control's 53%. So the claim
+> survives as a statement about *this* encounter. What #15 adds is that the
+> tracking relationship does not generalise: in the four-person boss fight
+> Jotaro's survival reads 62% against a 68% win rate, and Polnareff's 53% and
+> Josuke's 59% are close behind it. A party of three with one carry produces a
+> survival figure that tracks the win rate; a party of four does not, because no
+> single member is load-bearing enough. **"Jotaro is the win condition" is a
+> property of the two-person ambush, not a law of the game.**
+
 ---
 
 ## Change G -- Iron Brawler atk 105 -> 135
@@ -606,6 +645,13 @@ At 40 SP the volley loses to a free attack before the halt is even considered.
 only because the pool regenerates. A skill reachable for one specific reason is
 fragile.
 
+> **Issue #15 found the other end of this.** `blade_volley` at 36 SP was 3% of
+> Dio's actions for two milestones and is **46%** of them once the party has four
+> members, because `affected_count` prices an `all_enemies` skill per target. The
+> skill was not fragile because 36 was a knife-edge price; it was fragile because
+> its value depends on a number nobody thought of as a tuning input -- how many
+> people are standing opposite it.
+
 ### The final measurement -- commit `7f72a4f`
 
 `matchup.thug_solo` **bit-identical** to the pre-#9 baseline. `matchup.dio_boss`
@@ -644,6 +690,12 @@ fragile.
   > either citation -- and the claim was carried forward verbatim into `1eadf86`
   > without being checked. A cross-reference is a claim like any other and decays
   > the same way the probe roster did.
+
+  > **Restated after issue #15.** Thirteen skills now, eleven reachable, the same
+  > two not. #15 added `skill.riposte`, which is reachable and heavily used, and
+  > it did **not** make `guard_stance` or `rage_focus` reachable -- `ai.rs`
+  > already carries tests pinning both as correctly declined at the potencies the
+  > game ships. #29 is untouched.
 
 ---
 
@@ -699,6 +751,17 @@ struct literal that initialises it without sweeping all files. Both failures
 > The field that made migration painless also made drift invisible. Any hand-
 > maintained copy of `data/*.json` must be diffed against the original before it
 > is trusted, and the probe README now says so.
+>
+> **The manual instruction above is superseded by issues #30 and #31.** "Diff it
+> before you trust it" was the right diagnosis and the wrong remedy: it asked a
+> human to remember something, every time, forever. `validate_data.py --mirror`
+> now compares the seven `MIRROR_FIELDS` of every mirrored combatant against
+> `data/` and exits non-zero on any difference, and CI runs it on every push. The
+> guard was verified in both directions -- green on the real files, and red on a
+> one-point change to a single `hp` value. Diffing by hand is no longer the
+> procedure; it is the fallback for a case the guard does not cover, and the
+> known gap is that the mirror check protects only combatants that appear in the
+> probe roster at all.
 
 ### The two runs, in order
 
@@ -738,6 +801,14 @@ compensating routing toward the Brawler's psychic vulnerability, because
 > reading the win rate. The scorer genuinely does not consult resistance tables.
 > What cannot be claimed from that run is that resistance-blindness costs the
 > party seventeen points; only that it costs them something.
+
+> **Issue #15 found the same blindness with a larger price tag.** #22 is about
+> the scorer ignoring the target's resistance table. #33 is about the scorer
+> ignoring the target's *defence*, which is not a table but the oldest number in
+> the game. Both come from `score_action` pricing `Effect::Damage` from `power`
+> alone, with no access to the thing it is about to hit. They should be fixed
+> together or neither, because either fix alone changes every AI test's
+> arithmetic and voids the curve.
 
 ### Finding 2 -- `thug_solo` is the control, and it held
 
@@ -1130,7 +1201,8 @@ against.
 1. **Jotaro is the win condition, and this is now the best-supported claim in the
    project.** His survival tracks the win rate to within three points at all six
    points on the curve. Kakyoin's sits far below it throughout. See the
-   annotation on Change F.
+   annotation on Change F. *(Bounded by issue #15: this holds for the two-person
+   ambush and does not generalise to a four-person party.)*
 2. **Per-turn output is linear in `atk`; only per-battle output saturates.**
    `0.22 x atk` holds to within 4% across a threefold range. The saturation
    visible in per-battle figures is battle-length compression, 22 turns down to
@@ -1157,6 +1229,15 @@ that the explanation and any fix must not share a commit -- the curve above was
 measured with the current behaviour, and if that behaviour is a defect then part
 of this curve is measuring the defect.
 
+> **Issue #15 supplies a candidate mechanism, and it is not in `ai.rs`.** #33
+> establishes that `emerald_snare` at power 75 against Kakyoin's atk 78 already
+> deals less than his free `strike`, and that the deficit **widens with the
+> target's defence**. The probes vary `atk` and hold `def` at 48, so that cannot
+> be the whole story here -- but the same skill's share of Kakyoin's turns also
+> moves from 28% in the ambush to 70% against Dio, whose defence is more than
+> twice as high. Any explanation of #27 must account for both directions, and
+> #33 is the more likely root than anything in the scorer's `atk` handling.
+
 ### What this entry does not authorise
 
 - **No content change.** Nothing in `data/` moved and nothing needs to.
@@ -1166,6 +1247,244 @@ of this curve is measuring the defect.
   of them voids it again.
 - **The probe roster is not self-maintaining.** Diff it against
   `data/combatants.json` before every sweep.
+
+  > **Superseded by issues #30 and #31.** `validate_data.py --mirror data` now
+  > enforces this and CI runs it on every push, so the roster *is* self-
+  > maintaining for every combatant that appears in it. Issue #15 is the first
+  > entry to benefit: `pc.polnareff` was added to both files in one commit and
+  > the guard proves them byte-identical. The residual risk is narrower than the
+  > line above suggests but it is not zero -- a combatant absent from the probe
+  > roster entirely is not mirrored and not checked.
+
+---
+
+## Issue #15 -- a fourth playable character, and a paid skill that was worse than the free one
+
+Commits `3d59744` (content, measured red) and `07af985a` (reprice and relocate).
+**A content change. Comparability boundary 6 begins here, and it is the first
+boundary in this file that comes from content rather than from rules.**
+
+### What shipped
+
+Four additions to `data/`, nothing in `src/`:
+
+- `skill.riposte` -- 14 SP, one enemy, 90% accuracy, power **110** physical,
+  plus `atk_down` 35 potency / 3 turns / 75% chance.
+- `stand.silver_chariot` -- `{ atk 16, def 14, spd 26, will 18 }`, one skill.
+  The single-skill Stand has precedent in `stand.iron_hymn`.
+- `pc.polnareff` -- 570 / 100 / 78 / 66 / 74 / 80, `support` profile, effective
+  **atk 94, def 80, spd 100, will 98** after the Stand bonus. Speed sits
+  deliberately under Jotaro's 102 so the party's action order is unchanged.
+- `pc.polnareff` joins `matchup.dio_boss`.
+
+### The design was decided by reading the engine, not by guessing at it
+
+The character was conceived as a debuffer, on the assumption that debuffs would
+need engine support. Reading `ai.rs` and `state.rs` first proved otherwise:
+`AtkDown`, `DefDown`, `SpdUp` and `Regen` are all implemented, priced by
+`status_points` and validated. They simply had no shipped skill using them. **No
+`src/` change was needed, and one was very nearly written.**
+
+The same read killed the original concept. An ally-facing buff is **unreachable
+by construction**: `is_candidate` admits only `OneEnemy | AllEnemies | SelfOnly`,
+so a `one_ally` buff can never be selected for an action slot no matter how it is
+priced. That is the #29 defect exactly, and it would have shipped a dead skill
+into a milestone whose acceptance criteria include reducing the count of dead
+skills. It was caught by reading a function, not by running anything.
+
+### The two runs
+
+| Commit | `riposte` power | `chariot_duel` lives in | thug | ambush | boss | Gate |
+| --- | --- | --- | --- | --- | --- | --- |
+| `4588c33` | -- | -- | 100% | 53% | **47%** | green |
+| `3d59744` | **85** | `data/matchups.json` | 100% | 53% | **56%** | **RED** |
+| `07af985a` | **110** | `tools/probe/` | 100% | 53% | **68%** | green |
+
+`thug_solo` and `assassin_ambush` reproduce bit for bit across both runs.
+Polnareff is in neither, so they are the control, and they are the evidence that
+boundary 6 applies to the boss fight alone.
+
+### Run 1 scorecard -- one of four
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `chariot_duel` lands 25-40% | **0%**, 300 losses from 300 | **wrong** |
+| 2 | `dio_boss` rises from 47% | 56% | correct |
+| 3 | `dio_boss` may breach the 75 ceiling | 56% | **wrong** |
+| 4 | Jotaro's survival keeps tracking the win rate | 48% against 56% | **wrong** |
+
+Prediction 1 is the worst single miss in this file. A 25-40% range against a
+measured 0% is not a near-miss; it is a claim about the encounter's shape that
+was wrong in kind. **The error was treating a defensive rider as compensation for
+a 40% loss of party damage output.** Polnareff replacing Jotaro drops party
+throughput from 1244 per battle to 744 against 1340 HP of foes, and no amount of
+mitigation closes that in an attrition race. A debuff slows the loss; it does not
+win the race.
+
+### Run 2 scorecard -- three of three
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| 1 | `dio_boss` rises to 60-70 | 68% | correct |
+| 2 | `probe.chariot_duel` off zero, under 25% | 4% | correct |
+| 3 | Mirror green at 8, warnings stay at 10 | 8 mirrored, 7 band + 3 unencountered | correct |
+
+A fourth was recorded -- "may breach the 75 ceiling, and if it does the fix is
+Polnareff's `atk` or `riposte`'s SP cost, never the band" -- and is **not scored**,
+because "may" is not falsifiable. It is kept on the record as a pre-committed
+remedy rather than as a forecast.
+
+Prediction 1 landed and its reasoning did not. It argued Polnareff's output would
+roughly double, from the arithmetic that his hit on Dio goes from 27 to 51.
+Measured, his `dealt/b` went 321 -> **483**, half the predicted increase, because
+the fight also shortened from 54 turns to 49 and he therefore acted less. **A
+right answer from wrong reasoning is a failure that happens to score as a
+success**, and it is recorded that way here.
+
+### `matchup.dio_boss` -- 300 battles, 203 won, 97 lost, turns 49 / 30 / 74
+
+| Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Jotaro | 1186 | 688 | 0 | 98 | 3040 | 9% | 62% |
+| Josuke | 231 | 741 | **1091** | 112 | 1213 | 8% | 59% |
+| Kakyoin | **177** | 822 | 0 | **137** | 3173 | 10% | 45% |
+| Polnareff | 483 | 740 | 0 | 125 | 2984 | 10% | 53% |
+| Dio | 2833 | 1436 | 34 | 205 | 7757 | 11% | 32% |
+| Flame Assassin | 150 | 640 | 0 | 23 | 694 | 8% | 0% |
+
+Actions: Jotaro `rush_barrage 1637 (54%), strike 1403 (46%)`; Josuke
+`restore 1276 (51%), strike 838 (34%), concussive_slam 375 (15%)`; Kakyoin
+`emerald_snare 1740 (70%), emerald_splash 692 (28%), strike 49 (2%)`; Polnareff
+`riposte 2690 (90%), strike 294 (10%)`; Dio `blade_volley 1464 (46%),
+strike 1349 (42%), blood_drain 205 (6%), concussive_slam 97 (3%),
+tempo_halt 95 (3%)`; Assassin `sun_flare 435 (63%), strike 259 (37%)`.
+
+### Finding 1 -- the shipped skill was strictly worse than the free attack it displaced
+
+This is the reason run 1 failed, and it is the most transferable thing in the
+entry. Damage is `max(power * atk / 100 - def / 2, 1)`. The defence toll is
+subtracted **after** the power scaling, so at Polnareff's effective atk 94:
+
+| Target | `riposte` at power 85 | free `strike` at power 100 |
+| --- | --- | --- |
+| Iron Brawler (def 66, physical 25) | 79 - 33 = 46 -> **34** | 94 - 33 = 61 -> **45** |
+| Flame Assassin (def 60) | **49** | **64** |
+| Dio (def 104) | **27** | **42** |
+
+A 15% cut in power produced a 24% cut in damage against the Brawler and a **36%**
+cut against Dio. The skill cost 14 SP to deal less damage than the free option,
+at worse accuracy, and the gap widened against exactly the targets it was
+designed for.
+
+**The AI chose it on 99% of Polnareff's turns anyway.** `status_points` prices
+`AtkDown` at `baseline * potency / 100 * duration`, roughly 98 power-units for a
+35/3 debuff, and an 11-to-15 point damage deficit disappears inside that. The
+scorer was not malfunctioning; it cannot see the defence toll, because
+`score_action` never receives the target. Power 110 is the minimum that puts the
+paid skill above the free one against every current target.
+
+**The defect is in shipped content too, and predates this branch.**
+`skill.emerald_snare` is power 75 against Kakyoin's effective atk 78. Against Dio
+it delivers **4 damage** where his free `strike` delivers 26, and he spends 15 SP
+on it for 70% of his turns -- which is why his `dealt/b` in the table above is 177
+against 344 in the ambush, on nearly double the SP. **Filed as #33 and
+deliberately not fixed here**, because raising `emerald_snare` moves
+`assassin_ambush`, which sits on the steepest part of the measured curve and is
+the control for this entire entry.
+
+The validator warns when a *free* skill's total power exceeds 130 and dominates
+the basic attack. It has no warning for the inverse, which is the failure that
+actually shipped.
+
+### Finding 2 -- the debuff works, and the first analysis of it was confounded
+
+The first check compared damage per **battle turn** between `chariot_duel` and
+the control: 44.9 against 45.5, about 1%, which reads as "the status is inert".
+That comparison is wrong, because foe survival differs sharply between the two
+fixtures -- 94% and 100% in the duel against 16% and 42% in the ambush -- so the
+same number of battle turns contains very different numbers of foe actions.
+
+Normalised per **foe action**, at an average party defence of 72 in both
+fixtures: chariot `1078 / 13.1 = 82` against ambush `975 / 9.3 = 105`. A **22%
+cut in enemy damage per swing**, close to the intended potency and uptime.
+
+**Normalise per actor action, not per battle turn, whenever two fixtures differ
+in how long their combatants survive.** The confounded version was one sentence
+from being published as evidence that a working feature did nothing.
+
+### Finding 3 -- a debuff's value scales with party size, and this was not stated in advance
+
+The same character moved `dio_boss` up 21 points and left `chariot_duel` at 4%.
+The reason is structural rather than numeric: a debuff protects **everyone**, so
+its value scales with the number of allies benefiting, while the cost -- the
+offence forgone by the debuffer -- is fixed. In a two-person party the debuffer is
+half the party's damage. In a four-person party he is a quarter of it and
+protects three others.
+
+This should have been written down before the fixture was designed. It is
+predictable from the design of `status_points` without running anything.
+
+### Finding 4 -- a fourth party member changed the boss's behaviour, not just his difficulty
+
+Nothing on Dio's sheet changed. His action mix did:
+
+| Skill | Three-person party | Four-person party |
+| --- | --- | --- |
+| `blade_volley` | 139 uses, **3%** | 1464 uses, **46%** |
+| `tempo_halt` | 1188 uses, **23%** | 95 uses, **3%** |
+| `strike` | 2698 uses, 53% | 1349 uses, 42% |
+
+`affected_count` multiplies an `all_enemies` skill's value by the number of
+targets, so a fourth body reorganised the boss around his area attack. His
+`dealt/b` rose 2304 -> 2833 while his action count per battle fell 17.0 -> 11.9.
+
+**Party composition is an input to enemy behaviour, not only to enemy
+difficulty.** Issue #16 adds three enemies, at least one of which is likely to
+carry an area skill, and this is the mechanism that will decide whether they are
+threatening or trivial. It also retroactively explains issue #9's finding 3:
+`blade_volley` looked fragile at 36 SP because its value was being measured
+against three targets.
+
+### Finding 5 -- "Jotaro is the win condition" is a property of the ambush, not a law
+
+`probe.chariot_duel` is the direct test: remove Jotaro, keep everything else, and
+the encounter reads 4% against the control's 53%. So the claim holds where it was
+made.
+
+It does not generalise. In the four-person boss fight Jotaro's survival is 62%
+against a 68% win rate, with Polnareff at 53% and Josuke at 59% close behind.
+The tight tracking measured across all six curve rows is a property of a
+two-person party with one carry, not of the engine. See the bound added to
+Change F.
+
+### Why moving `chariot_duel` to the probe file is not band-fitting
+
+It is worth stating explicitly, because it has the same shape as the thing this
+file exists to prevent. The argument is **categorical, not numeric**:
+`chariot_duel` was authored as "`assassin_ambush` with one variable changed",
+which is the definition of a probe. It would belong in `tools/probe/` at 53%
+exactly as much as at 0%. The reading is preserved, not discarded -- it is in the
+sweep and in the table above.
+
+The test of that claim is the counterfactual: had it read 15% against a 20..60
+band, widening the band to 10..60 would have been the dishonest fix, and the file
+would **still** have been the wrong home for it. Both statements are true at
+once, which is what distinguishes relocating a fixture from rescuing a number.
+
+### What this entry does not authorise
+
+- **No band is re-declared.** `dio_boss` at 68% is inside 35..75. It is 7 points
+  under the ceiling against a +/-6 interval, so it is inside but not comfortably,
+  and the pre-committed remedy if a future change pushes it out is Polnareff's
+  `atk` or `riposte`'s SP cost -- never the band.
+- **`emerald_snare` is not touched.** See #33 and the note in finding 1.
+- **#29 is not closed.** Eleven of thirteen skills reachable; the same two are
+  not, and `ai.rs` already pins both as correctly declined.
+- **The curve is not voided.** Polnareff appears in no curve probe, and all six
+  rows reproduce their recorded values exactly: 96 / 81 / 53 / 34 / 20 / 12.
+  `probe.curve_a135` reports 158 won and 142 lost, identical to the shipped
+  ambush in every digit, which is what makes the other six readable.
+- **The 47% -> 68% movement is not a measurement of anything.** See boundary 6.
 
 ---
 
@@ -1183,12 +1502,18 @@ Recorded here so a number is not over-read:
 - **~~`miss%` is inflated for area skills.~~ Fixed in issue #8.**
 - **~~The curve is void.~~ Re-swept at 300 seeds in issue #14**, under current
   rules, with the control reproducing shipped content exactly.
-- **The probe roster is a hand-maintained copy and drifts silently.** It carried
-  no resistance tables for two milestones without any error, because `resist` is
-  `#[serde(default)]`. A schema field that defaults gracefully makes migration
-  painless and makes drift invisible. Diff `tools/probe/combatants.probe.json`
-  against `data/combatants.json` before every sweep, and treat a control row that
-  does not reproduce shipped content in every digit as proof the sweep is void.
+- **~~The probe roster is a hand-maintained copy and drifts silently.~~ Guarded
+  since issues #30 and #31.** It carried no resistance tables for two milestones
+  without any error, because `resist` is `#[serde(default)]`: a schema field that
+  defaults gracefully makes migration painless and makes drift invisible.
+  `validate_data.py --mirror data` now compares the seven `MIRROR_FIELDS` of every
+  mirrored combatant against `data/` and exits non-zero on any difference, and CI
+  runs it on every push. The guard was verified in both directions, including a
+  deliberate one-point `hp` change that correctly turned it red. **Two gaps
+  remain:** a combatant absent from the probe roster entirely is not mirrored and
+  therefore not checked, and `stand` is deliberately outside `MIRROR_FIELDS`
+  because the probe clones legitimately differ there. A control row that does not
+  reproduce shipped content in every digit is still proof the sweep is void.
 - **Cross-references in this file decay the same way.** Two skills were recorded
   as "tracked by issues #15 and #16" for two milestones while no such issue
   existed; see the correction in the #9 entry. A citation is a claim and should
@@ -1200,6 +1525,17 @@ Recorded here so a number is not over-read:
   that this rarely matters, but the gate would report a 47% reading and a 34%
   reading with identical confidence. Reporting the interval alongside the
   estimate would make the instrument honest about itself.
+- **The scorer prices a skill without ever seeing its target.** `score_action`
+  reads `Effect::Damage.power` and knows nothing about the defence or the
+  resistance table of the thing it is about to hit. Two separate issues are the
+  same root: #22 (resistance-blind) and #33 (defence-blind). #33 is the more
+  expensive of the two -- it let a paid skill that deals less damage than the free
+  basic attack be chosen on 99% of a character's turns, and it is present in
+  shipped content in `skill.emerald_snare`. Any fix changes every AI test's
+  arithmetic and voids the curve, so they should be done together.
+- **Nothing warns when a paid skill is weaker than the basic attack.** The
+  validator warns in the opposite direction only, when a *free* skill's total
+  power exceeds 130. Tracked with #33.
 - **SP recovery is silent.** `recover_sp` deliberately emits no event, so the
   Godot HUD cannot show a player where their SP came from. `sp/b` above a
   combatant's `max_sp` is the only visible signal.
@@ -1209,7 +1545,11 @@ Recorded here so a number is not over-read:
 - **A rules change resets the series.** RNG draw order is part of the rules, so
   after any edit to `ai.rs`, `resolve.rs`, `state.rs` or `battle.rs` the same seed
   no longer reproduces the same battle. Issue #9 crossed this boundary six times;
-  issue #10 crossed it once; issues #11, #12 and #14 crossed it zero times.
+  issue #10 crossed it once; issues #11, #12, #14 and #15 crossed it zero times.
+- **A roster change resets it too, and that is easier to miss.** Issue #15 added
+  one combatant to one party and every figure in that encounter moved, including
+  the *enemy's* choice of skill. A content edit that changes who is standing in a
+  fight is a comparability boundary even though no code changed. See boundary 6.
 - **One row survived a boundary it should not have.** `Flame Assassin` in
   `dio_boss` was effectively constant across two boundaries (305 at `7f72a4f`,
   304 at `f6ba445`). Until that is explained, treat "bit-identical" as evidence
@@ -1218,23 +1558,29 @@ Recorded here so a number is not over-read:
   skill once and never sets up a combination across turns. An AI-vs-AI win rate
   is therefore a floor for a competent player, not an estimate of their
   experience.
-- **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
-  `power` without consulting the target's resistance table. Tracked as issue #22.
 - **The AI's skill choice responds to enemy `atk` through an unidentified
   channel.** Kakyoin's `emerald_snare` share falls monotonically as the enemy
   gets stronger, with nothing the skill counters having changed. Tracked as issue
-  #27. Until it is explained, treat any measured action mix as descriptive rather
-  than as evidence of intended behaviour.
-- **~~Only five of eleven skills are ever used.~~ Ten of twelve as of `7f72a4f`.**
-  Two remain: `guard_stance` and `rage_focus`, both declined correctly on their
-  own numbers -- though "correctly" has itself never been verified against
-  `score_action`, and if the scorer cannot price deferred value then every
-  duration-based buff in the game is underpriced. Tracked as issue **#29**
+  #27, with a candidate mechanism from #33 noted in the #14 entry. Until it is
+  explained, treat any measured action mix as descriptive rather than as evidence
+  of intended behaviour.
+- **An enemy's action mix depends on how many people it is fighting.** Dio's
+  `blade_volley` share went 3% -> 46% when the party gained a fourth member,
+  because `affected_count` prices an area skill per target. Any action mix
+  recorded in this file is a property of the party that was standing opposite it.
+- **~~Only five of eleven skills are ever used.~~ Eleven of thirteen as of
+  `07af985a`.** Two remain: `guard_stance` and `rage_focus`, both declined
+  correctly on their own numbers -- and unlike earlier statements of this line,
+  "correctly" is now verified: `ai.rs` carries
+  `bracing_is_declined_at_the_potency_the_game_ships` and
+  `an_attack_buff_worth_less_than_one_hit_is_declined`. Tracked as issue **#29**
   (previously miscited here as #15 and #16).
 - **`skill.tempo_halt` is still mispriced, in the other direction.** The scorer
-  values a lock as the actions it *denies*; a lock defers, not removes. Dio uses
-  it on 23% of its turns. If #29 finds a missing payoff horizon, this and #29 are
-  the same defect seen from opposite sides.
+  values a lock as the actions it *denies*; a lock defers, not removes. Dio used
+  it on 23% of his turns against a three-person party and 3% against a
+  four-person one, so the mispricing is now masked rather than fixed. If #29
+  finds a missing payoff horizon, this and #29 are the same defect seen from
+  opposite sides.
 - **The curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) is a property of the
   current rules, not a constant.** Replace the table rather than appending to it,
   and re-sweep after any change to `resolve.rs`, `ai.rs`, the party roster or the
