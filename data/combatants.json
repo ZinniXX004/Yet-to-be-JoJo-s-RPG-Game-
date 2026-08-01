@@ -28,6 +28,15 @@
     "ai": "support"
   },
   {
+    "id": "pc.polnareff",
+    "name": "Polnareff",
+    "team": "party",
+    "stats": { "hp": 570, "sp": 100, "atk": 78, "def": 66, "spd": 74, "will": 80 },
+    "stand": "stand.silver_chariot",
+    "skills": ["skill.strike"],
+    "ai": "support"
+  },
+  {
     "id": "npc.dio",
     "name": "Dio",
     "team": "foe",

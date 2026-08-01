@@ -54,8 +54,8 @@
   {
     "id": "matchup.dio_boss",
     "name": "Full party vs Dio and the Flame Assassin",
-    "description": "The encounter that is actually playable in Godot today, and the one the first manual playthrough lost with Dio still on 389 of 1520 HP. Its band is the M2 exit criterion in numeric form.",
-    "party": ["pc.jotaro", "pc.josuke", "pc.kakyoin"],
+    "description": "The encounter that is actually playable in Godot today, and the one the first manual playthrough lost with Dio still on 389 of 1520 HP. Its band is the M2 exit criterion in numeric form. The party is four from issue #15 onward; the band below was argued for three, and if the measurement now sits above it the band is what has to be re-argued, not widened to fit.",
+    "party": ["pc.jotaro", "pc.josuke", "pc.kakyoin", "pc.polnareff"],
     "foes": ["npc.dio", "npc.flame_assassin"],
     "seeds": [
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,

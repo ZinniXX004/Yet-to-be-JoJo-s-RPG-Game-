@@ -21,6 +21,13 @@
     "skills": ["skill.emerald_snare", "skill.emerald_splash"]
   },
   {
+    "id": "stand.silver_chariot",
+    "name": "Silver Chariot",
+    "description": "Armoured, and faster still without the armour. Wins by taking the other blade's initiative away rather than by out-hitting it.",
+    "bonus": { "atk": 16, "def": 14, "spd": 26, "will": 18 },
+    "skills": ["skill.riposte"]
+  },
+  {
     "id": "stand.magicians_red",
     "name": "Magician's Red",
     "description": "Ranged flame control with lingering burn.",

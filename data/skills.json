@@ -63,7 +63,7 @@
   {
     "id": "skill.emerald_snare",
     "name": "Emerald Snare",
-    "description": "Ranged binding attack that slows the target.",
+    "description": "Ranged binding attack that slows the target. Power 75 sits below the free basic attack, so for Kakyoin's atk 78 this trades damage away for the slow rather than adding one to the other; see the riposte note and the issue it points at.",
     "sp_cost": 15,
     "target": "one_enemy",
     "accuracy": 92,
@@ -145,6 +145,19 @@
     "effects": [
       { "kind": "damage", "power": 140, "element": "physical", "variance": 10 },
       { "kind": "status", "status": "stun", "potency": 0, "duration": 1, "chance": 40 }
+    ]
+  },
+  {
+    "id": "skill.riposte",
+    "name": "Riposte",
+    "description": "Answers the blow before it lands. The cut is shallow; the habit it breaks is not. Power shipped at 85 and measured at 0 wins in 300: because damage subtracts half the target's defence, any power below the basic attack's 100 is a downgrade the AI's scorer cannot see, since it prices the debuff separately and generously. 110 is the least that makes a paid skill worth more than the free one it displaces.",
+    "sp_cost": 14,
+    "target": "one_enemy",
+    "accuracy": 90,
+    "tempo_cost": 1000,
+    "effects": [
+      { "kind": "damage", "power": 110, "element": "physical", "variance": 8 },
+      { "kind": "status", "status": "atk_down", "potency": 35, "duration": 3, "chance": 75 }
     ]
   }
 ]
