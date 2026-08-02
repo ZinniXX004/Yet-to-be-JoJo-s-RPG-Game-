@@ -159,5 +159,17 @@
       { "kind": "damage", "power": 110, "element": "physical", "variance": 8 },
       { "kind": "status", "status": "atk_down", "potency": 35, "duration": 3, "chance": 75 }
     ]
+  },
+  {
+    "id": "skill.flurry_cut",
+    "name": "Flurry Cut",
+    "description": "Two shallow cuts in the time one blow would take. Power is 105 and not lower on purpose: damage subtracts half the target's defence, so anything under the free attack's 100 is a downgrade, which is the fault riposte shipped with and #33 records. The point of the skill is tempo_cost 700 against the basic attack's 1000 - the first content here that uses tempo as a design lever rather than copying the default. Note that the scorer has no term for tempo_cost, so the AI cannot see the property this skill exists for.",
+    "sp_cost": 10,
+    "target": "one_enemy",
+    "accuracy": 95,
+    "tempo_cost": 700,
+    "effects": [
+      { "kind": "damage", "power": 105, "element": "physical", "variance": 6 }
+    ]
   }
 ]
