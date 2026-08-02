@@ -171,5 +171,17 @@
     "effects": [
       { "kind": "damage", "power": 105, "element": "physical", "variance": 6 }
     ]
+  },
+  {
+    "id": "skill.wither_hex",
+    "name": "Wither Hex",
+    "description": "Lays a weakening mark on every opponent at once. The first skill in this file that deals no damage of any kind, which is the point and also the risk: the harness counts a combatant inert when it deals no damage and heals nothing, so its carrier has to hold skill.strike too or a debuffer doing its job perfectly would be reported as having sat out the batch. Priced by the scorer at baseline 100 times potency 26 over duration 3, doubled for two targets and taken at the 85% chance to land, which is 132 against a free strike's 100 - a 32-point margin, so a real decision rather than a foregone one. When only one party member is still standing the target count halves the score to 66 and the carrier goes back to hitting things, which is correct behaviour that no branch anywhere asks for. Potency is 26 and not 40 because damage subtracts half the target's defence after multiplying by attack, so an attack debuff bites harder than its percentage: at 40 it would halve Kakyoin's output rather than trim it. Same asymmetry as the riposte note, seen from the other side.",
+    "sp_cost": 18,
+    "target": "all_enemies",
+    "accuracy": 100,
+    "tempo_cost": 900,
+    "effects": [
+      { "kind": "status", "status": "atk_down", "potency": 26, "duration": 3, "chance": 85 }
+    ]
   }
 ]

@@ -66,6 +66,15 @@
     "resist": { "fire": 75 }
   },
   {
+    "id": "npc.hex_weaver",
+    "name": "Hex Weaver",
+    "team": "foe",
+    "stats": { "hp": 480, "sp": 90, "atk": 60, "def": 55, "spd": 78, "will": 85 },
+    "stand": null,
+    "skills": ["skill.strike", "skill.wither_hex"],
+    "ai": "aggressive"
+  },
+  {
     "id": "npc.iron_brawler",
     "name": "Iron Brawler",
     "team": "foe",

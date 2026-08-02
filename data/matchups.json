@@ -28,7 +28,7 @@
   {
     "id": "matchup.assassin_ambush",
     "name": "Jotaro and Kakyoin vs the Flame Assassin and the Iron Brawler",
-    "description": "Mid-tier encounter. Two party members short of a full team, so it is the first fight where a wasted turn should be able to cost the run. Previously fought a 300 HP thug that dealt 13 damage per battle and existed only as a body; the harness measured the encounter at a 100% win rate three changes in a row, so the roster was the defect, not the numbers on it. From issue #16 onward this fight is also the control for matchup.dancer_rush, which is this encounter with one foe exchanged.",
+    "description": "Mid-tier encounter. Two party members short of a full team, so it is the first fight where a wasted turn should be able to cost the run. Previously fought a 300 HP thug that dealt 13 damage per battle and existed only as a body; the harness measured the encounter at a 100% win rate three changes in a row, so the roster was the defect, not the numbers on it. From issue #16 onward this fight is also the control for matchup.dancer_rush and matchup.weaver_gambit, which are this encounter with the Flame Assassin exchanged two different ways. The Iron Brawler is the constant across all three, which makes its output a measured quantity rather than an assumed one.",
     "party": ["pc.jotaro", "pc.kakyoin"],
     "foes": ["npc.flame_assassin", "npc.iron_brawler"],
     "seeds": [
@@ -80,7 +80,7 @@
   {
     "id": "matchup.dancer_rush",
     "name": "Jotaro and Kakyoin vs the Blade Dancer and the Iron Brawler",
-    "description": "The Blade Dancer's home encounter, and the fixture the Dancer's own numbers were argued against twice before they were argued correctly. Reading one paired the Dancer with the Flame Assassin and measured 100%: removing the Iron Brawler removed the tier's threat, foe output fell from the ambush's 975 per battle to 487, and the party won every seed. Reading two restored the Brawler and measured 95%, because the Dancer at 340 HP took 2.60 actions per battle beside the Brawler against 2.61 beside the Assassin - its lifetime was invariant to its partner, so pairing could not fix it, and the Brawler itself weakened from 631 to 531 because a flimsy ally leaves the survivor alone against the whole party sooner. The Dancer has the highest action rate in the game at 0.137 against the Brawler's 0.058, and delivered 0.65 times the Brawler's actions: 27% of the speed it was built around. Hence 620 HP, which is the Brawler's own figure and puts the foe pool at 1320 against the 1340 the balance curve was measured at, so the curve applies here almost uncorrected. Fragility now means def 38, the lowest in the game against subtractive defence, and no longer means a small HP pool; that is a recorded retreat from the brief in #16, which cannot be met against a party as fast as Jotaro and Kakyoin. Both axes are stated because they disagree: the ratio axis gives 0.76 and the a105 row's 81%, the atk axis gives mean effective foe atk 124 and about 66%. Predicted 72..86 before the run. Band 60..90, unchanged rather than widened, and the narrowest in this file.",
+    "description": "The Blade Dancer's home encounter, and the fixture the Dancer's own numbers were argued against twice before they were argued correctly. Reading one paired the Dancer with the Flame Assassin and measured 100%: removing the Iron Brawler removed the tier's threat, foe output fell from the ambush's 975 per battle to 487, and the party won every seed. Reading two restored the Brawler and measured 95%, because the Dancer at 340 HP took 2.60 actions per battle beside the Brawler against 2.61 beside the Assassin - its lifetime was invariant to its partner, so pairing could not fix it, and the Brawler itself weakened from 631 to 531 because a flimsy ally leaves the survivor alone against the whole party sooner. The Dancer has the highest action rate in the game at 0.137 against the Brawler's 0.058, and delivered 0.65 times the Brawler's actions: 27% of the speed it was built around. Hence 620 HP, which is the Brawler's own figure and puts the foe pool at 1320 against the 1340 the balance curve was measured at, so the curve applies here almost uncorrected. Reading three measured 70% against a predicted 72..86, and the Dancer reached 5.03 actions per battle against a predicted 5.5 or more. Fragility now means def 38, the lowest in the game against subtractive defence, and no longer means a small HP pool; that is a recorded retreat from the brief in #16, which cannot be met against a party as fast as Jotaro and Kakyoin. Band 60..90, unchanged rather than widened across all three readings.",
     "party": ["pc.jotaro", "pc.kakyoin"],
     "foes": ["npc.blade_dancer", "npc.iron_brawler"],
     "seeds": [
@@ -101,6 +101,32 @@
       281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300
     ],
     "band": { "min_percent": 60, "max_percent": 90 },
+    "max_turns": 300
+  },
+  {
+    "id": "matchup.weaver_gambit",
+    "name": "Jotaro and Kakyoin vs the Hex Weaver and the Iron Brawler",
+    "description": "The Hex Weaver's home encounter, and the third fixture built from the ambush by exchanging one foe beside a constant Iron Brawler. The Weaver deals almost nothing itself; its whole contribution is removing party output, which no column in the report can show, so it will be read by comparing party dealt/b and fight length against the two sibling fixtures rather than by reading the Weaver's own line. Predicted 68..80 before the run, from the balance curve's ratio axis computed correctly for the first time: that column is (foe out / party HP pool) / (party out / foe HP pool), not foe output over party output, and the wrong reading of it is what produced the two out-of-band dancer_rush guesses. Foe pool is 1180. Party output is expected to fall about 24% net of hex uptime, lengthening the fight to roughly 27 turns and letting the Brawler convert its unchanged attack 135 into more actions, which is the mechanism this encounter exists to test: a debuff that takes nothing away from the party's HP bar still kills it, by buying time for somebody else. Band 58..86, two points narrower than dancer_rush and the narrowest in this file.",
+    "party": ["pc.jotaro", "pc.kakyoin"],
+    "foes": ["npc.hex_weaver", "npc.iron_brawler"],
+    "seeds": [
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+      41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+      61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+      81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
+      101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120,
+      121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
+      141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160,
+      161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180,
+      181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200,
+      201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220,
+      221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240,
+      241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260,
+      261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280,
+      281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300
+    ],
+    "band": { "min_percent": 58, "max_percent": 86 },
     "max_turns": 300
   }
 ]
