@@ -40,7 +40,7 @@
     "id": "npc.blade_dancer",
     "name": "Blade Dancer",
     "team": "foe",
-    "stats": { "hp": 340, "sp": 60, "atk": 92, "def": 38, "spd": 110, "will": 50 },
+    "stats": { "hp": 620, "sp": 60, "atk": 92, "def": 38, "spd": 110, "will": 50 },
     "stand": null,
     "skills": ["skill.strike", "skill.flurry_cut"],
     "ai": "aggressive"
