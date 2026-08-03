@@ -36,7 +36,7 @@ jobs:
     name: verify tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # A tag whose version does not match Cargo.toml is the classic release
       # mistake. Catch it before any artefact exists.
       - name: Tag must match workspace version
@@ -82,7 +82,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact: librpg_bridge.dylib
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libclang (Linux)
         if: runner.os == 'Linux'
@@ -139,7 +139,7 @@ jobs:
             fi
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package-${{ matrix.target }}
           path: |
@@ -155,9 +155,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: package-*
           merge-multiple: true
@@ -184,7 +184,7 @@ jobs:
             echo "\`src/game/bin/\` to run the Godot project."
           } >> notes.md
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/*.zip
