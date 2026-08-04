@@ -85,6 +85,15 @@
     "resist": { "physical": 25, "psychic": -25 }
   },
   {
+    "id": "npc.requiem_bell",
+    "name": "Requiem Bell",
+    "team": "foe",
+    "stats": { "hp": 560, "sp": 90, "atk": 96, "def": 60, "spd": 40, "will": 70 },
+    "stand": null,
+    "skills": ["skill.strike", "skill.grave_toll"],
+    "ai": "aggressive"
+  },
+  {
     "id": "npc.thug",
     "name": "Street Thug",
     "team": "foe",

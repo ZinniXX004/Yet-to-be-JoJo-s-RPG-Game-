@@ -183,5 +183,17 @@
     "effects": [
       { "kind": "status", "status": "atk_down", "potency": 26, "duration": 8, "chance": 85 }
     ]
+  },
+  {
+    "id": "skill.grave_toll",
+    "name": "Grave Toll",
+    "description": "One stroke of a bell that is not made of metal, heard by everyone on the other side at once. Three fields here are the extremes of this file and all three are the design rather than enthusiasm: tempo_cost 2000 against the basic attack's 1000 and the previous maximum of 1500, power 240 against rush_barrage's 195, and a carrier at spd 40, the lowest in the game. The skill exists to be a single event a fight is arranged around, so it has to cost more time than anything else and be worth more than anything else in the same breath. The arithmetic that matters is not the damage but the clock: tempo accrues spd per tick and acting needs 1000, so the Bell's first action lands on tick 25, and the party's combined action rate of 0.169 cannot put 560 hit points of damage through in that time no matter how the seeds fall, which makes the first toll unpreventable by design rather than by luck. Paying 2000 from a tempo of about 1000 saturates to zero, so the second action is another 25 ticks away, and whether the party gets there first is the whole encounter. Damage subtracts half the target's defence, so 240 * 96/100 = 230 becomes 190 on Jotaro and 198 on Kakyoin: two tolls is 61% of one HP bar and 76% of the other before the Iron Brawler's attack 135 is counted at all. sp 90 against sp_cost 40 permits exactly two casts and SP_REGEN_PER_TURN 4 comes nowhere near a third, so the tempo cap and the resource cap agree and the design does not rest on either alone. One deliberate contrast with wither_hex, whose measured action share moved seven points because its score fell under a free strike once a single party member was left: effect_points for damage is power times targets, 480 with two targets and 240 with one, so this skill has no such threshold and its share should read AGGRESSIVE_SKILL_CHANCE 65 cleanly. That makes this the controlled version of a measurement the hex confounded. And unlike the hex, this one is a damage skill at accuracy 100, so it does draw an accuracy roll - the Bell's rolls should equal its actions rather than only its strikes.",
+    "sp_cost": 40,
+    "target": "all_enemies",
+    "accuracy": 100,
+    "tempo_cost": 2000,
+    "effects": [
+      { "kind": "damage", "power": 240, "element": "psychic", "variance": 10 }
+    ]
   }
 ]
