@@ -182,9 +182,9 @@ count moved twice while the work was done:
   the numbers the game currently ships. These are content problems, fixed under
   step 5, not AI problems.
 
-Current content is **thirteen skills, eleven reachable**, after
+Current content is **sixteen skills, fourteen reachable**, after
 `skill.emerald_splash` was added so Hierophant Green stops borrowing Dio's
-thrown knives and `skill.riposte` arrived with the fourth character. Adding
+thrown knives `skill.riposte` arrived with the fourth character, and issue #16 added `skill.flurry_cut`, `skill.wither_hex` and `skill.grave_toll`, each measured in use at 66%, 62% and 62% of its bearer's turns. Adding
 content on top of an AI that cannot use part of it would multiply the blind spot
 instead of closing it.
 
@@ -241,7 +241,7 @@ number.
    a log entry: a third playable character, three more enemies to reach six, and
    a second boss fight. `skill.guard_stance` and `skill.rage_focus` are repriced
    here, because that is where the unreachable-skill criterion is actually met.
-   **In progress -- the character is delivered; see the result below.**
+   **In progress -- the character and the three enemies are delivered; the second boss (issue #17) and the repricing (issue #29) remain. See the results below.**
 6. **Then the presentation defects** carried from M1: floating damage numbers,
    status icons with durations, and a tempo readout that stays legible when one
    combatant is left. These cannot be verified by CI -- no job in this repository
@@ -557,7 +557,10 @@ Run 2, `07af985a`:
 | 3 | Mirror check green at 8 mirrored, 10 warnings | exactly that | correct |
 
 Four of seven. **Running total across the milestone: sixty-one predictions,
-thirty-two wrong.**
+thirty-two wrong.** The three enemies of issue #16 took that to **one hundred
+and seventeen predictions, fifty-seven wrong** -- the entry with the ten
+readings and the per-commit scorecards is in
+[`BALANCE-M3-ENEMIES.md`](BALANCE-M3-ENEMIES.md).
 
 Run 2's first prediction landed and its reasoning did not, which is recorded
 here because a right answer from wrong reasoning scores as a success and is not
@@ -644,8 +647,10 @@ and `--mirror` is what said so rather than a human remembering to diff.
 - [x] `BALANCE-CURVE.md` re-swept after the rules changes, with the stale curve
       marked rather than deleted *(1800 battles at 300 seeds; the plateau it
       previously published turned out not to exist)*
-- [ ] Six enemies total, each exercised by at least one declared encounter
-      *(four; issue #16 adds the remaining three, one per commit)*
+- [x] Six enemies total, each exercised by at least one declared encounter
+      *(seven, not six. Issue #16 added the Blade Dancer, Hex Weaver and
+      Requiem Bell one per commit, each with its own declared encounter:
+      `dancer_rush` 70%, `weaver_gambit` 77%, `bell_race` 68%)*
 - [ ] Second boss fight with its own band *(issue #17)*
 - [ ] `skill.guard_stance` and `skill.rage_focus` repriced *(issue #29 -- split
       out of the first checklist line, which was ticking a criterion it did not
@@ -664,8 +669,8 @@ was. The `Delivered` column is filled in as each lands.
 | `src/core/src/resolve.rs` | Apply elemental resistance to computed damage; add the rounding rule to the module docs | Yes, plus three unit tests |
 | `src/core/src/event.rs` | `Event::Healed` gains an `actor` field | Yes, **plus `Event::StatusHealed`**, which the plan did not contain and which the actor field made unavoidable |
 | `src/core/src/report.rs` | `CombatantStats` gains healing done; fix `miss%` so an area skill counts one action, not one per target | Yes to both, plus per-skill action accounting the plan did not contain, plus an `inert_combatants` correction the plan did not foresee |
-| `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Seeds delivered at **300**, not 24 -- the plan's target was set from the wrong statistic. Step 5 added Polnareff to `matchup.dio_boss`; the two new encounters remain issues #16 and #17 |
-| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Character delivered in step 5 (`pc.polnareff`, `stand.silver_chariot`, `skill.riposte`), and it needed **no `src/` change** -- every status it uses was already implemented and priced. Three enemies remain, issue #16. Earlier: `skill.emerald_splash` and the `blade_volley` reprice (step 1), resistance tables for four combatants (step 2) |
+| `data/matchups.json` | 24 seeds; two more encounters, including the second boss | Seeds delivered at **300**, not 24 -- the plan's target was set from the wrong statistic. Step 5 added Polnareff to `matchup.dio_boss`; issue #16 then added three encounters (`dancer_rush`, `weaver_gambit`, `bell_race`), leaving the second boss as issue #17 |
+| `data/combatants.json`, `data/stands.json`, `data/skills.json` | Third playable character, three enemies, the skills and stands they need | Character delivered in step 5 (`pc.polnareff`, `stand.silver_chariot`, `skill.riposte`), and it needed **no `src/` change** -- every status it uses was already implemented and priced. The three enemies landed under issue #16 -- `npc.blade_dancer`, `npc.hex_weaver` and `npc.requiem_bell`, carrying `skill.flurry_cut`, `skill.wither_hex` and `skill.grave_toll` -- and they needed no `src/` change either. Earlier: `skill.emerald_splash` and the `blade_volley` reprice (step 1), resistance tables for four combatants (step 2) |
 | `src/core/src/state.rs`, `src/core/src/battle.rs` | *Not planned.* SP recovery per turn, without which step 1 makes the boss fight unwinnable | Yes; `battle.rs` also carried the regeneration fix in step 3 |
 | `src/core/src/data.rs` | *Not planned.* `Resistances` type, `MAX_RESISTANCE`, `MIN_RESISTANCE`, `CombatantDef.resist` | Yes (step 2) |
 | `src/core/src/sim.rs` | *Not planned.* Credit healing to the healer in `accumulate`, and deliberately credit `StatusHealed` to nobody | Yes (step 3) |
@@ -687,7 +692,7 @@ rather than rediscovered.
 | **Bands break in CI** after steps 1 and 2 | `balance_bounds` fails with `outside the declared band` on encounters nobody touched | **Fired, four runs in step 1, once in step 4, once in step 5**. Steps 2 and 3 did not fire it. Step 4's firing was a false alarm from a 24-battle sample; step 5's was a real defect in a fixture that should not have been in `data/` at all |
 | **A red gate is believed without checking its precision** | Two encounters out of band, an obvious content fix, and no interval computed | **Fired in step 4 and caught before any content was touched.** A gate that compares a point estimate to a band cannot distinguish a real regression from an unlucky draw. Compute `sqrt(p(1-p)/n)` before editing `data/` in response to a red bounds test |
 | **`miss%` was already wrong**, not about to become wrong | Miss rates inflated on anyone holding an area skill | **Resolved before step 1, in #8.** Released `0.3.0` Kakyoin at 20% was two accuracy rolls counted as one action; true rate is 11% |
-| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and the margin narrowed again in step 5: the longest boss battle is 74 turns against a 500-turn limit, with a fourth party member now extending fights. Issue #16 adds three more enemies and is the likeliest trigger |
+| **Stalemates** as statuses and heals multiply | `BattleOutcome::Stalemate`, or `no_encounter_stalls` failing on the 500-turn limit | Not yet fired, and the margin narrowed again in step 5: the longest boss battle is 74 turns against a 500-turn limit, with a fourth party member now extending fights. Issue #16 added three more enemies and did not fire it: the longest of the three new encounters has a median of 26 turns and a maximum of 48 against a 300-turn limit, and `no_encounter_stalls` reported zero stalls across 900 battles. Issue #17's second boss is now the likeliest trigger |
 | **New skills are unaffordable** and quietly never used | A skill appears in `data/` but never in any report | **Fired, by my own hand.** `skill.blade_volley` at 40 SP went unused across twelve boss battles |
 | **A new skill is used constantly and is still a downgrade** | A skill dominates a character's action list while that character's `dealt/b` falls | **Fired in step 5, and this row did not exist before it.** `skill.riposte` at power 85 was chosen on 99% of Polnareff's turns while dealing less than his free attack, because subtractive defence makes any paid skill below power 100 a downgrade and `score_action` never sees the target. Usage share is not evidence a skill is good. Issue #33 |
 | **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | **Fired, as predicted.** `skill.rage_focus` returns 0.8 of a hit for the price of one; declining it is correct on wrong numbers. Fix is in `data/skills.json`, issue #29 |

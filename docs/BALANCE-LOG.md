@@ -9,11 +9,11 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 6 is
-**sixty-one predictions, thirty-two of them wrong**. The scorecards are kept
-per entry so the rate is visible rather than asserted. That is the argument for
-the harness, not against it -- the same wrong guesses shipped as content,
-unmeasured, would have been indistinguishable from design.
+the fact is a rationalisation, and the running record through `0.4.0` step 7 is
+**one hundred and seventeen predictions, fifty-seven of them wrong**. The
+scorecards are kept per entry so the rate is visible rather than asserted. That
+is the argument for the harness, not against it -- the same wrong guesses shipped
+as content, unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
 
@@ -83,33 +83,50 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > that encounter, changes how long the fight runs, and -- as this entry
 > discovered -- can change what the *enemy* chooses to do.
 
-> **Issues #11, #12 and #14 created no boundary, and it matters that they did
-> not.** #11 changed reporting only; #12 changed the sample size only; #14
-> changed instrumentation that no build reads. None touched a rule or a roster,
-> so every figure spanning them remains an estimate of the same underlying
-> quantity. What changed at #12 is how *precisely* those quantities are known,
-> which is not the same thing as the quantities having moved. A boundary marks
-> "these numbers describe a different game"; a wider sample marks "these numbers
-> describe the same game, better".
+> **Issues #11, #12, #14 and #16 created no boundary, and it matters that they
+> did not.** #11 changed reporting only; #12 changed the sample size only; #14
+> changed instrumentation that no build reads; **#16 added three enemies and
+> three encounters without touching a single existing one**. None touched a rule
+> or an existing roster, so every figure spanning them remains an estimate of the
+> same underlying quantity. What changed at #12 is how *precisely* those
+> quantities are known, which is not the same thing as the quantities having
+> moved. A boundary marks "these numbers describe a different game"; a wider
+> sample marks "these numbers describe the same game, better"; and a new
+> encounter beside the old ones marks "there is more game, and the old part of it
+> is untouched". #16 is the strongest case of that last kind in the file, because
+> it was verified at **ten consecutive commits** rather than once.
 
 ## Current status
 
-After issue #15, commit `07af985a`, measured over **300 seeds**:
+After issue #16, commit `f341618d`, measured over **300 seeds** per encounter:
 
 | Matchup | Win rate | 95% interval | Band | Status |
 | --- | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | -- | 85..100 | ok |
 | `matchup.assassin_ambush` | 53% | 47..59 | 45..90 | ok |
 | `matchup.dio_boss` | 68% | 62..74 | 35..75 | ok |
+| `matchup.dancer_rush` | 70% | 65..75 | 60..90 | ok |
+| `matchup.weaver_gambit` | 77% | 72..82 | 58..86 | ok |
+| `matchup.bell_race` | 68% | 63..73 | 48..80 | ok |
 
-All three encounters are inside their declared bands, and the intervals are
-inside the bands too rather than merely the point estimates. `matchup.dio_boss`
-is the row to watch: it sits 7 points under its ceiling against an interval half
-that wide, so it is inside the band but no longer comfortably so. That is a
-consequence of boundary 6, not a drift -- the encounter it describes is a
-different fight from the one the band was argued for.
+Six encounters, 1800 battles, all inside their declared bands, and every
+interval is inside its band rather than merely the point estimate.
+`matchup.dio_boss` remains the row to watch: it sits 7 points under its ceiling
+against an interval half that wide. `matchup.weaver_gambit` is the second, at 9
+points under a ceiling of 86 -- and its band is the narrowest in the file at 28
+points, which the sensitivity finding below argues is close to the minimum that
+can honestly be declared.
 
-The first two rows are the control for issue #15 and reproduce bit for bit.
+The first three rows are the control for issue #16 and reproduce bit for bit
+across all ten of its commits.
+
+## Issue #16 -- three enemies
+
+The entry for issue #16 is a separate document:
+[`BALANCE-M3-ENEMIES.md`](BALANCE-M3-ENEMIES.md). It is separate because this
+file can only be written whole, and writing it whole truncated it -- twice. The
+annotations #16 makes to the entries below sit beside the claims they amend; the
+entry proper, with the ten readings and the scorecards, is there.
 
 ## The throughput model
 
@@ -195,11 +212,48 @@ stat into damage past the point where a combatant runs out of SP.
 > worse as the target hardens. **When sizing a change to `power` rather than to
 > `atk`, compute the hit against each specific target's defence; do not scale.**
 
+> **Superseded for foe sizing by issue #16, which measured the model's own
+> quantities ten times and found a better form.** The version above estimates a
+> foe's output from speed shares of a battle length that is itself estimated. #16
+> inverted it, because the quantity that is actually stable across fixtures is
+> **party damage per party action**, measured at 87 to 110 across every reading
+> in this file:
+>
+> ```
+> foe actions/battle ~ (foe HP / party damage per party action)
+>                    x (foe action rate / party combined action rate)
+> ```
+>
+> where `action rate = spd / mean tempo cost`, weighted by the measured skill
+> mix. The party's combined rate is **0.169**. Measured rates: Jotaro 0.091,
+> Kakyoin 0.078, Blade Dancer 0.137, Flame Assassin 0.088, Hex Weaver 0.0833,
+> Iron Brawler 0.058, Requiem Bell **0.0242**. This form back-checks to within
+> ~13% on the Iron Brawler across six fixtures and it is the only version that
+> predicted the Requiem Bell's 1.24 actions per battle in advance. **A skill's
+> `tempo_cost` is as much a part of a foe's output as its speed is, and the
+> earlier model has no term for it.**
+
+> **One further correction from #16, on the focus-fire discount.** When
+> estimating how much damage will land on **one** particular foe, this file had
+> been multiplying the party's output by 0.6-0.65, taken from
+> `FOCUS_FIRE_CHANCE = 55`. That discount is **too pessimistic when the low-HP
+> foe stays the low-HP foe**, because every re-selection finds the same target
+> and the redirection compounds in one direction instead of averaging out.
+> `bell_race` recorded both models before the run and the reading chose between
+> them: undiscounted 95.6 damage per action predicted death near tick 48 and
+> won; the discounted ~64 predicted tick 52 and lost.
+
 The two things it makes obvious, both of which the Change E prediction missed:
 
 - **A slow foe is a cheap foe.** The Brawler's 72 speed buys it 20% of the
   actions in the fight, so its 73 damage per action becomes 285 per battle.
   Speed multiplies damage as directly as attack does.
+
+  > **Sharpened by issue #16.** "A slow foe is a cheap foe" is true and it is not
+  > about speed alone. The Requiem Bell has the lowest `spd` in the game at 40
+  > *and* the highest `tempo_cost` at 2000, giving it an action rate of 0.0242
+  > against the Blade Dancer's 0.137 -- a factor of 5.7 from two fields rather
+  > than one. It took **1.24 actions per battle** against the Dancer's 5.03.
 - **A foe's output is capped by its SP, not by the clock.** *(True until
   `7f72a4f`; withdrawn entirely by issue #14 -- see the amendment above. The
   clock is now the binding constraint.)*
@@ -293,6 +347,14 @@ second factor. In the ambush the party out-damages the enemy side by roughly
 ratio untouched. To close a 2.8x shortfall with HP alone, the Assassin would
 need roughly 1790 HP.
 
+> **Issue #16 found the exception, and it is a narrow one.** HP is inert on a
+> *damage dealer* for exactly the reason given above. It is the strongest
+> available lever on a **support** enemy, because a debuffer's contribution is
+> its uptime and uptime is HP. The Hex Weaver went 480 -> 560 -> 690 and the
+> encounter moved 92% -> 88% -> 77%; the Blade Dancer went 340 -> 620 and it
+> moved 95% -> 70%. **HP on a debuffer is an uptime knob, not a durability
+> knob**, and the two behave nothing alike.
+
 ### The structural finding
 
 Both sides focus-fire the lowest-HP target, so the side with more damage per turn
@@ -361,6 +423,16 @@ the weakest enemy 55% of the time and picks uniformly random otherwise.
 Enemy lifetime damage 353 + 13 = 366 against party pool 1140. The enemy side
 needs roughly 3.1x its current output before the party is at risk.
 
+> **Issue #16 records the design consequence of `FOCUS_FIRE_CHANCE` that this
+> entry did not anticipate: it makes any non-damaging enemy self-defeating.** A
+> pure support foe deals little damage, so it is the lowest-HP foe for most of
+> the fight, so the party's own focus fire deletes it first -- and the more
+> valuable its debuff, the less of it the party ever sees. The Hex Weaver needed
+> 690 HP, the largest foe pool outside Dio, purely to survive long enough to
+> cast. The Requiem Bell inverted the problem deliberately by hitting hard
+> enough to draw fire on purpose, and the inversion held: its `alive%` reads
+> **7%**, so the party did aim at it. Filed as a separate issue.
+
 ---
 
 ## Change D -- Dio atk 100 -> 130
@@ -405,6 +477,19 @@ it wins half.
 > region at either end of the measured range. "A race resolves as a step function
 > around parity" is the wrong mental model; it resolves as an ordinary sigmoid,
 > and every point on it is reachable by tuning.
+
+> **Quantified by issue #16, and the slope is three times steeper than this file
+> has been using.** The Hex Weaver produced a clean measurement of it: party
+> damage per party action moved 89.8 -> 96.0, a rise of **6.9%**, and the win
+> rate moved **ten points**, 77% -> 87%. That is **~1.45 points of win rate per
+> 1% of party damage per action**, against the ~0.4 assumed in six consecutive
+> #16 predictions and in the sizing arguments above. Two consequences, both
+> retroactive. First, most of the "wrong direction" prediction misses in this
+> file were the right direction with the wrong gain. Second, **the minimum
+> defensible band width is about 25 points**, because a 1% error in a foe's
+> effective output -- which is inside what any of these models can resolve --
+> moves the win rate by 1.45. Bands this file has called generous were closer to
+> the floor than to the ceiling.
 
 ---
 
@@ -483,6 +568,14 @@ Option 5: **measure the curve first**. See Change G.
 > survival figure that tracks the win rate; a party of four does not, because no
 > single member is load-bearing enough. **"Jotaro is the win condition" is a
 > property of the two-person ambush, not a law of the game.**
+
+> **Issue #16 adds three more two-person fixtures and the tracking holds in all
+> three**, which is the strongest form of the bounded claim: Jotaro's `alive%` is
+> 67% against a 70% win rate in `dancer_rush`, 76% against 77% in
+> `weaver_gambit`, and 67% against 68% in `bell_race`. Three points, all within
+> three points of the win rate, on encounters designed independently of the
+> claim. **In a two-person party this relationship is now measured nine times and
+> has never failed.**
 
 ---
 
@@ -575,6 +668,18 @@ rolls and one action; `misses / actions` could exceed the real miss rate.
 **The released `0.3.0` report is wrong in that one column, and it stays on the
 record** rather than being edited to match.
 
+> **Issue #16 turned this column into a measurement instrument, using the rule
+> this entry established.** Because `rolls` counts one accuracy check per target
+> per attack, the count decomposes. `grave_toll` is an area attack used 232 times
+> beside 140 uses of `strike`, and the Requiem Bell's `rolls` reads **578**. If
+> every toll had found two party members that would be 232 x 2 + 140 = 604, so
+> 578 means **206 tolls landed on two targets and 26 on one** -- the party was
+> already down to a single survivor for **11.2%** of the tolls. No other column
+> in the report can count that. The corollary is that a **status-only** skill
+> draws no roll at all, measured four times on the Hex Weaver at 295/295,
+> 370/370, 524/524 and 594/594, and that is not a property of area skills but of
+> skills with no damage effect.
+
 ---
 
 ## Issue #9 -- the AI scores utility, and SP acquires a price and a refill
@@ -652,6 +757,18 @@ fragile.
 > its value depends on a number nobody thought of as a tuning input -- how many
 > people are standing opposite it.
 
+> **Issue #16 found a third face of the same mechanism, and this one is a
+> ceiling rather than a knife edge.** `AGGRESSIVE_SKILL_CHANCE = 65` is rolled
+> **before** `best_action` is ever called, so an aggressive combatant uses its
+> best skill on at most about 65% of its turns no matter how the pricing is
+> arranged. Measured shares across #16: `flurry_cut` 66%, `wither_hex` 62%,
+> `grave_toll` 62%. **Content built around a single signature action gets that
+> action roughly two turns in three, and there is no per-skill override.** For
+> the Requiem Bell, which takes 1.24 actions per battle, that means 0.77 tolls
+> per battle and **38% of battles in which the bell never rings at all**. Filed
+> as a separate issue; it is a design limit rather than a defect, but it is a
+> limit no amount of tuning reaches past.
+
 ### The final measurement -- commit `7f72a4f`
 
 `matchup.thug_solo` **bit-identical** to the pre-#9 baseline. `matchup.dio_boss`
@@ -697,6 +814,16 @@ fragile.
   > already carries tests pinning both as correctly declined at the potencies the
   > game ships. #29 is untouched.
 
+  > **Restated again after issue #16. Sixteen skills, fourteen reachable, the
+  > same two not.** `flurry_cut`, `wither_hex` and `grave_toll` are all reachable
+  > and all heavily used, at 66%, 62% and 62% of their carriers' turns -- which
+  > is the `AGGRESSIVE_SKILL_CHANCE` ceiling rather than a pricing result. #29 is
+  > still untouched, and it now has a ready answer: `ai.rs` carries
+  > `bracing_is_declined_at_the_potency_the_game_ships` and
+  > `an_attack_buff_worth_less_than_one_hit_is_declined`, so both skills are
+  > declined correctly on their own numbers and the issue can be closed by
+  > citation rather than by measurement.
+
 ---
 
 ## Issue #10 -- elemental resistances applied in damage resolution
@@ -738,6 +865,13 @@ isolation.
   psychic exposure
 - All others carry empty tables (intentional control: `thug_solo` must not move)
 
+> **All three of issue #16's enemies carry no resistance table at all**, and that
+> was a deliberate choice rather than an omission: three new encounters that each
+> vary one axis of enemy design are only readable if the damage pipeline is held
+> flat across them. The Iron Brawler is the constant foe in all three and does
+> carry its table, which is why its eight measured `dealt/b` values are
+> comparable to each other and to `assassin_ambush`.
+
 **Schema defect, owned here.** Adding `resist` to `CombatantDef` broke every
 struct literal that initialises it without sweeping all files. Both failures
 (`battle.rs:359`, `sim.rs:310`) were inside `#[cfg(test)]`, so
@@ -762,6 +896,14 @@ struct literal that initialises it without sweeping all files. Both failures
 > procedure; it is the fallback for a case the guard does not cover, and the
 > known gap is that the mirror check protects only combatants that appear in the
 > probe roster at all.
+>
+> **Issue #16 walked straight into that known gap and it cost nothing, this
+> time.** None of the Blade Dancer, Hex Weaver or Requiem Bell appears in any
+> probe fixture, so none of the three is mirrored and none is checked. The mirror
+> run still reads `8 mirrored` with 10 warnings, exactly as before, which is
+> correct behaviour and is also the shape of a silent gap: adding three
+> combatants moved the guard's coverage from five of eight to **five of eleven**
+> without producing a single line of output anywhere.
 
 ### The two runs, in order
 
@@ -809,6 +951,17 @@ compensating routing toward the Brawler's psychic vulnerability, because
 > alone, with no access to the thing it is about to hit. They should be fixed
 > together or neither, because either fix alone changes every AI test's
 > arithmetic and voids the curve.
+
+> **Issue #16 names the third member of the family, and it is the one with no
+> issue number until now.** #22 is resistance-blindness, #33 is
+> defence-blindness, and both are about `score_action` not seeing its target.
+> The third is that `score_action` **has no term for `tempo_cost` at all** -- not
+> a blindness to the target but to the actor's own cost. It priced
+> `flurry_cut`'s 700 and `grave_toll`'s 2000 identically to `strike`'s 1000. The
+> Requiem Bell is designed *entirely* around `tempo_cost`, so its whole design
+> premise is invisible to the AI that plays it. This is the mirror image of #33:
+> #33 is a skill chosen despite being worse than free, and this is a skill's
+> single most important property never entering the comparison.
 
 ### Finding 2 -- `thug_solo` is the control, and it held
 
@@ -893,6 +1046,17 @@ was corrected by reading `data/skills.json` rather than by running anything.
 `MatchupReport::inert_combatants` tested `damage_dealt == 0`, which would have
 accused a dedicated healer of sitting out a fight it was carrying. It now
 requires zero damage **and** zero healing.
+
+> **Issue #16 found the gap this guard still leaves, and had to design around
+> it.** The guard asks whether a combatant did *something* measurable. It cannot
+> ask whether that something mattered. A pure debuffer deals no damage and heals
+> nobody, so `no_combatant_sits_out_the_whole_batch` would have failed the Hex
+> Weaver as inert while it was quietly cutting Jotaro's hits by 31%. The fix in
+> the content was to give it `skill.strike`, which it uses on 38% of its turns --
+> so the guard is satisfied by the one thing the character is *not* for. **No
+> column in this report can attribute a mitigation, and the guard that exists to
+> catch a do-nothing combatant is satisfied by a token attack.** Filed as a
+> separate issue.
 
 ---
 
@@ -1004,6 +1168,13 @@ into state and passes it through a Murmur3-style finalizer, so sequential seeds
 produce decorrelated streams; a scattered list buys no independence and only makes
 the set harder to audit. All twelve original Fibonacci seeds are <= 233, so this
 run remains a superset of every figure measured before it.
+
+> **The cost of the array itself is now six times what it was.** Each shipped
+> matchup carries its own literal 300-entry seed list, about 6031 bytes, and
+> issue #16 took the count from three to **six** -- plus seven probe fixtures.
+> Roughly 78 KB of `data/` is now a contiguous integer sequence written out by
+> hand, repeated thirteen times. A `seed_count` / `seed_base` declaration would
+> express the same thing in two fields. Filed; it overlaps issue #31.
 
 ### `matchup.thug_solo` -- 300 battles, 300 won, turns 3 / 1 / 7
 
@@ -1202,7 +1373,8 @@ against.
    project.** His survival tracks the win rate to within three points at all six
    points on the curve. Kakyoin's sits far below it throughout. See the
    annotation on Change F. *(Bounded by issue #15: this holds for the two-person
-   ambush and does not generalise to a four-person party.)*
+   ambush and does not generalise to a four-person party. Extended by issue #16:
+   it holds in three further two-person fixtures, nine measurements in all.)*
 2. **Per-turn output is linear in `atk`; only per-battle output saturates.**
    `0.22 x atk` holds to within 4% across a threefold range. The saturation
    visible in per-battle figures is battle-length compression, 22 turns down to
@@ -1214,6 +1386,18 @@ against.
    depressed by the very short battles a strong enemy causes. The replacement is
    the exchange ratio, `(foe out / party HP) / (party out / foe HP)`, which
    crosses 1.0 exactly where the win rate crosses 50%.
+
+   > **Issue #16 used the replacement axis ten times and measured where it fails.**
+   > It is calibrated to about two points between 0.43 and 0.92, and it
+   > **over-calls the win rate below `a075`'s 0.61 by 3-4 points and by a full 8
+   > points at 0.716**. It is also **near-degenerate in any fixture the party
+   > usually wins**, because party `out/b` is then pinned to the foe HP pool by
+   > definition -- 1179 against 1180, 1256 against 1260, 1368 against 1390 -- so
+   > the denominator carries almost no information and the axis reduces to foe
+   > output over party HP. Two of the ten readings were wrongly sized by trusting it
+   > past that point. The formula is also easy to misread and was misread here for
+   > three consecutive commits: it is `(foe out/b / party HP pool) / (party out/b
+   > / foe HP pool)`, **not** foe output divided by party output.
 
 ### An unexplained trend, filed rather than guessed at
 
@@ -1238,6 +1422,14 @@ of this curve is measuring the defect.
 > twice as high. Any explanation of #27 must account for both directions, and
 > #33 is the more likely root than anything in the scorer's `atk` handling.
 
+> **Issue #16 adds three more points and they do not settle it either.** Against
+> the Blade Dancer (def 38) the snare is 40% of Kakyoin's turns, against the Hex
+> Weaver (def 55) 32%, against the Requiem Bell (def 60) 35%. The Iron Brawler at
+> def 48 is present in all three. Three foes spanning 22 points of defence and
+> the share moves eight points non-monotonically -- so whatever drives #27, a
+> single foe's defence is not it in a two-foe fight where the AI also chooses its
+> target. #27 remains open and unexplained.
+
 ### What this entry does not authorise
 
 - **No content change.** Nothing in `data/` moved and nothing needs to.
@@ -1245,6 +1437,13 @@ of this curve is measuring the defect.
   counts that invalidated it -- swept at 300 seeds, under `0.4.0` rules -- but
   issues #15, #16, #17, #22, #27 and #29 all touch rules or the roster, and any
   of them voids it again.
+
+  > **Issue #16 did not void it, and that is worth recording because the line
+  > above expected it to.** All six probe rows reproduce their recorded values
+  > exactly. None of the three new enemies appears in any probe fixture and none
+  > of the four curve participants changed, so the curve survives a milestone
+  > step that was listed in advance as likely to invalidate it. **What voids a
+  > curve is touching its participants, not adding content beside it.**
 - **The probe roster is not self-maintaining.** Diff it against
   `data/combatants.json` before every sweep.
 
@@ -1291,6 +1490,17 @@ so a `one_ally` buff can never be selected for an action slot no matter how it i
 priced. That is the #29 defect exactly, and it would have shipped a dead skill
 into a milestone whose acceptance criteria include reducing the count of dead
 skills. It was caught by reading a function, not by running anything.
+
+> **Issue #16 kept this practice and it paid for itself twice, then failed once
+> in a way that named its own limit.** It paid when a pure debuffer was checked
+> against `MatchupReport::inert_combatants` before being written, and again when
+> `tick_statuses` was read rather than assumed, establishing that duration is
+> counted in the *bearer's* own turns. It failed when the Requiem Bell's tempo
+> arithmetic was done against `battle.rs` and `state.rs` correctly and the
+> **`aggressive` profile's 65% roll in `ai.rs` was left out of the picture
+> entirely**. Reading the engine is necessary and it is not a single act:
+> **tempo, damage and duration are properties of the engine, but whether a skill
+> is used at all is a property of `ai.rs`, and the two must be read together.**
 
 ### The two runs
 
@@ -1395,6 +1605,15 @@ the control for this entire entry.
 The validator warns when a *free* skill's total power exceeds 130 and dominates
 the basic attack. It has no warning for the inverse, which is the failure that
 actually shipped.
+
+> **Issue #16 used this finding as a design constraint rather than rediscovering
+> it.** Every new skill was priced against the free attack before it was written:
+> `flurry_cut` at power 105 and 10 SP on a 92-atk carrier, `grave_toll` at power
+> 240, and `wither_hex` deliberately given **no damage effect at all** so the
+> comparison does not arise. `wither_hex` is the first skill in the game with no
+> `damage` effect, and it is reachable precisely because `status_points` prices
+> an `atk_down` at 26/8 across two targets at 354 points against a baseline of
+> around 100.
 
 ### Finding 2 -- the debuff works, and the first analysis of it was confounded
 

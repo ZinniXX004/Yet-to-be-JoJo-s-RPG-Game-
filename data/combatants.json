@@ -37,6 +37,15 @@
     "ai": "support"
   },
   {
+    "id": "npc.blade_dancer",
+    "name": "Blade Dancer",
+    "team": "foe",
+    "stats": { "hp": 620, "sp": 60, "atk": 92, "def": 38, "spd": 110, "will": 50 },
+    "stand": null,
+    "skills": ["skill.strike", "skill.flurry_cut"],
+    "ai": "aggressive"
+  },
+  {
     "id": "npc.dio",
     "name": "Dio",
     "team": "foe",
@@ -57,6 +66,15 @@
     "resist": { "fire": 75 }
   },
   {
+    "id": "npc.hex_weaver",
+    "name": "Hex Weaver",
+    "team": "foe",
+    "stats": { "hp": 690, "sp": 90, "atk": 60, "def": 55, "spd": 78, "will": 85 },
+    "stand": null,
+    "skills": ["skill.strike", "skill.wither_hex"],
+    "ai": "aggressive"
+  },
+  {
     "id": "npc.iron_brawler",
     "name": "Iron Brawler",
     "team": "foe",
@@ -65,6 +83,15 @@
     "skills": ["skill.strike", "skill.blood_drain"],
     "ai": "aggressive",
     "resist": { "physical": 25, "psychic": -25 }
+  },
+  {
+    "id": "npc.requiem_bell",
+    "name": "Requiem Bell",
+    "team": "foe",
+    "stats": { "hp": 560, "sp": 90, "atk": 96, "def": 60, "spd": 40, "will": 70 },
+    "stand": null,
+    "skills": ["skill.strike", "skill.grave_toll"],
+    "ai": "aggressive"
   },
   {
     "id": "npc.thug",

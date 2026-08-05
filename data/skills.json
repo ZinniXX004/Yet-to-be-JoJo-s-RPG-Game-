@@ -159,5 +159,41 @@
       { "kind": "damage", "power": 110, "element": "physical", "variance": 8 },
       { "kind": "status", "status": "atk_down", "potency": 35, "duration": 3, "chance": 75 }
     ]
+  },
+  {
+    "id": "skill.flurry_cut",
+    "name": "Flurry Cut",
+    "description": "Two shallow cuts in the time one blow would take. Power is 105 and not lower on purpose: damage subtracts half the target's defence, so anything under the free attack's 100 is a downgrade, which is the fault riposte shipped with and #33 records. The point of the skill is tempo_cost 700 against the basic attack's 1000 - the first content here that uses tempo as a design lever rather than copying the default. Note that the scorer has no term for tempo_cost, so the AI cannot see the property this skill exists for.",
+    "sp_cost": 10,
+    "target": "one_enemy",
+    "accuracy": 95,
+    "tempo_cost": 700,
+    "effects": [
+      { "kind": "damage", "power": 105, "element": "physical", "variance": 6 }
+    ]
+  },
+  {
+    "id": "skill.wither_hex",
+    "name": "Wither Hex",
+    "description": "Lays a weakening mark on every opponent at once. The first skill in this file that deals no damage of any kind, which is the point and also the risk: the harness counts a combatant inert when it deals no damage and heals nothing, so its carrier has to hold skill.strike too or a debuffer doing its job perfectly would be reported as having sat out the batch. Potency is 26 and not 40 because damage subtracts half the target's defence after multiplying by attack, so an attack debuff bites harder than its percentage - at 40 the same emerald_splash falls from 48 to 11, a 77% cut, which deletes Kakyoin rather than trimming him. Same asymmetry as the riposte note, seen from the other side. Duration is 8, which is by far the longest in this file, and it is the measured value rather than a guessed one. With hit points held at 690 and nothing else touched, duration 8 gives a 77% win rate and duration 3 gives 87% against a band of 58..86: ten points of win rate from this one field, along with Jotaro's damage per action moving 102.0 to 110.9 and the fight shortening from 26 turns to 24. An earlier commit concluded the opposite, that duration was inert, and it was wrong for an instructive reason - it tested the field at hp 560, where the Weaver lived only 3.42 actions and cast under two hexes, so there were hardly any of Jotaro's turns left for a longer mark to cover and no setting of duration could have shown an effect. A null result only counts when the experiment had room to show a positive one. The mechanism: duration counts in the BEARER's own turns, which battle.rs tick_statuses does by decrementing only the acting combatant's statuses, so the useful quantity is how many of Jotaro's roughly nine turns a battle sit under a mark. At duration 3, about 2.4 casts land 2.1 hexes covering at most 6.2 of 8.62 turns, near 72% before overlap. At duration 8 the same landings cover far more turns than exist, so it reaches the real ceiling, (turns - 1) / turns or about 89%, because the turns before the FIRST hex can never be covered by any duration at all and the Weaver dies with alive% 1%. Seventeen points of coverage on a 31% per-hit cut is what the ten points of win rate are made of. One threshold to know before tuning this again: status_points for AtkDown is baseline * potency / 100 * duration, so duration 3 gives 78 and with only one party member left 78 * 85/100 = 66 falls under a free strike's 100 and the carrier reverts to attacking, which showed up as the hex share dropping from 62% to 55% and its dealt/b rising from 40 to 45. At duration 8 the same figure is 177, the branch never fires, and the Weaver keeps hexing to the end. What actually balanced this encounter was hit points and duration together, 480 to 560 to 690 and 3 to 8, and neither alone: HP buys the caster the turns, duration decides how many of the party's turns those casts reach. And one thing this skill proved about the engine rather than about itself: the Weaver's accuracy rolls came to exactly its strike uses, 295 against 295 and later 370 against 370, so a status-only skill draws no accuracy roll at all - which is specific to a status-only skill, since grave_toll later showed that a damaging area attack draws one roll per target.",
+    "sp_cost": 18,
+    "target": "all_enemies",
+    "accuracy": 100,
+    "tempo_cost": 900,
+    "effects": [
+      { "kind": "status", "status": "atk_down", "potency": 26, "duration": 8, "chance": 85 }
+    ]
+  },
+  {
+    "id": "skill.grave_toll",
+    "name": "Grave Toll",
+    "description": "One stroke of a bell that is not made of metal, heard by everyone on the other side at once. Three fields here are the extremes of this file and all three are the design rather than enthusiasm: tempo_cost 2000 against the basic attack's 1000 and the previous maximum of 1500, power 240 against rush_barrage's 195, and a carrier at spd 40, the lowest in the game. The skill exists to be a single event a fight is arranged around, so it has to cost more time than anything else and be worth more than anything else in the same breath. The clock rather than the damage is the design: tempo accrues spd per tick and acting needs 1000, so the Bell's first ACTION lands on tick 25 and no seed prevents it, since the party's combined action rate of 0.169 cannot put 560 hit points through in that time. Paying 2000 from a tempo of about 1000 saturates to zero, so the next action is another 25 ticks away. CORRECTION, measured. An earlier version of this note went on to say the first TOLL was therefore unpreventable by design rather than by luck, and that was wrong. The aggressive profile rolls AGGRESSIVE_SKILL_CHANCE 65 before it scores anything, so tempo guarantees the Bell an action and guarantees nothing about which action it is. Measured: 1.24 actions per battle, 62% of them tolls, so 0.77 tolls per battle - nearly four battles in ten never hear the bell at all. The tempo arithmetic was right and the AI's own dice were left out of it, which is the third time in this project that content was reasoned about without the scorer in the picture, after riposte's power 85 and flurry_cut's tempo_cost. Tempo, damage and duration belong to the engine; whether a skill is USED belongs to ai.rs, and the two have to be reasoned about together. Damage subtracts half the target's defence, so 240 * 96/100 = 230 becomes 190 on Jotaro and 198 on Kakyoin: two tolls is 61% of one HP bar and 76% of the other before the Iron Brawler's attack 135 is counted at all. Measured dealt/b is 301 against a predicted 330..430, which is the same missing toll seen from the damage side. sp 90 against sp_cost 40 permits exactly two casts and SP_REGEN_PER_TURN 4 comes nowhere near a third; measured sp/b is 30, which is 0.77 tolls times 40 exactly, so every point of SP this combatant spends goes on this skill. One prediction held and one did not. Held: unlike wither_hex, whose share moved seven points because its score fell under a free strike once a single party member was left, effect_points for damage is power times targets, 480 with two and 240 with one, so there is no threshold here and the share read 62% inside a predicted 60..67. Did not: this note claimed the Bell's accuracy rolls would equal its actions, and they do not - 578 rolls against 372 actions, because a damaging area attack draws one roll PER TARGET, which sim.rs asserts outright in an_accuracy_roll_is_counted_for_every_target_of_every_attack. The right figure was 232 * 2 + 140 = 604. The measured 578 is worth more than the corrected prediction would have been, because it decomposes exactly: 206 tolls landed on two party members and 26 on one, so the party was already down to a single survivor for 11.2% of the tolls. That is the only route this report has to counting how often an area attack found a full party. miss% reads 1%, the lowest in the game, which checks out as the 140 strikes at accuracy 95 contributing about 7 misses to 578 rolls while the toll itself never misses.",
+    "sp_cost": 40,
+    "target": "all_enemies",
+    "accuracy": 100,
+    "tempo_cost": 2000,
+    "effects": [
+      { "kind": "damage", "power": 240, "element": "psychic", "variance": 10 }
+    ]
   }
 ]
