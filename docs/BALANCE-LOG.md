@@ -120,6 +120,14 @@ can honestly be declared.
 The first three rows are the control for issue #16 and reproduce bit for bit
 across all ten of its commits.
 
+## Issue #16 -- three enemies
+
+The entry for issue #16 is a separate document:
+[`BALANCE-M3-ENEMIES.md`](BALANCE-M3-ENEMIES.md). It is separate because this
+file can only be written whole, and writing it whole truncated it -- twice. The
+annotations #16 makes to the entries below sit beside the claims they amend; the
+entry proper, with the ten readings and the scorecards, is there.
+
 ## The throughput model
 
 Added after Change E, because five of six failed predictions failed for the same
