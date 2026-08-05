@@ -1394,7 +1394,7 @@ against.
    > usually wins**, because party `out/b` is then pinned to the foe HP pool by
    > definition -- 1179 against 1180, 1256 against 1260, 1368 against 1390 -- so
    > the denominator carries almost no information and the axis reduces to foe
-   > output over party HP. Two of the ten readings were mis-sized by trusting it
+   > output over party HP. Two of the ten readings were wrongly sized by trusting it
    > past that point. The formula is also easy to misread and was misread here for
    > three consecutive commits: it is `(foe out/b / party HP pool) / (party out/b
    > / foe HP pool)`, **not** foe output divided by party output.

@@ -103,7 +103,7 @@ fight. At this party's output a foe with a small pool does not get to act, so
 "fragile" is not expressible in HP in this engine. It is expressible in defence
 only.
 
-Reading 1 also mis-sized the encounter for a second reason: the Flame Assassin as
+Reading 1 also wrongly sized the encounter for a second reason: the Flame Assassin as
 the second foe. Swapping it for the Iron Brawler at reading 2 moved the exchange
 ratio 0.427 -> 0.594 for five points of win rate, which says the fixture was
 nowhere near parity and the Dancer was never the binding constraint.
@@ -309,7 +309,7 @@ Ratio = (foe out/b / party HP pool) / (party out/b / foe HP pool)
 ```
 
 Not foe output divided by party output -- which is how this file's own axis was
-misread for **three consecutive commits**, producing three mis-sized predictions
+misread for **three consecutive commits**, producing three wrongly sized predictions
 before anyone recomputed it. Calibrated to about two points between 0.43 and 0.92,
 it **over-calls by 3-4 points below 0.61 and by a full 8 points at 0.716**, and it
 is **near-degenerate in any fixture the party usually wins**, because party `out/b`
