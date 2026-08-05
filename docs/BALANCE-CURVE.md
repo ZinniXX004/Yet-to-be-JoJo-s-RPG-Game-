@@ -5,6 +5,11 @@
 > kept below under *The retracted table*. Companion to `BALANCE-LOG.md`, which
 > records changes; this file records the one measurement that changes have been
 > guessing at.
+>
+> The 0.4.0 enemies added in issue #16 changed no rule, stat or skill that
+> this sweep depends on, so the table below still stands. What they did add
+> is a sensitivity figure and three tests of the ratio axis, both folded in
+> below. The working is in docs/BALANCE-M3-ENEMIES.md.
 
 ## Why this exists
 
@@ -93,6 +98,54 @@ plus Iron Hymn's `hp: 80`.
 `(foe out / party HP) / (party out / foe HP)` — how fast each side is being
 killed, relative to each other. See *Pricing a new enemy* for why it is there.
 
+### Writing the ratio out in full
+
+The definition above has been misread three times in this project's own history,
+twice in `BALANCE-LOG.md`, so here it is at full width, including the healing
+term that `matchup.dio_boss` needs:
+
+`ratio = (foe out/b / (party HP pool + party healing/b)) / (party out/b / foe HP pool)`
+
+- It is **not** `foe out/b / party out/b`. That quantity ignores both HP pools,
+  and it is the form the log twice recorded by mistake.
+- Healing belongs in the **defending** pool. Josuke heals 1091 per battle in
+  `matchup.dio_boss`, more than Jotaro's entire HP bar; leaving it out
+  understates the party pool by a third.
+- Both outputs are per battle, summed across a side, as everywhere else here.
+
+### The axis is nearly degenerate in fixtures the party wins
+
+| Encounter | Party out/b | Foe HP pool | Quotient |
+| --- | --- | --- | --- |
+| `weaver_gambit`, weaver hp 480 | 1179 | 1180 | 1.00 |
+| `weaver_gambit`, weaver hp 560 | 1256 | 1260 | 1.00 |
+| `weaver_gambit`, shipped | 1368 | 1390 | 0.98 |
+| `dancer_rush`, shipped | 1268 | 1320 | 0.96 |
+| `bell_race`, shipped | 1193 | 1260 | 0.95 |
+| `assassin_ambush` | 1244 | 1340 | 0.93 |
+
+The party stops dealing damage the moment the last foe dies, so in any encounter
+it usually wins, its per-battle output is pinned to the pool it had to chew
+through. The second term of the ratio is therefore close to 1 by construction,
+and the ratio quietly collapses onto `foe out/b / party HP` -- the axis that
+finding 6 above declares dead above 0.9. Use the exchange ratio to **size** an
+encounter that has not been run. Do not use it to **explain** one that has.
+
+### What the axis got wrong on the 0.4.0 encounters
+
+| Encounter | Ratio | Curve says | Measured | Error |
+| --- | --- | --- | --- | --- |
+| `dancer_rush` | 0.815 | 71% | 70% | +1 |
+| `bell_race` | 0.826 | 70% | 68% | +2 |
+| `weaver_gambit` | 0.716 | 85% | 77% | +8 |
+
+It over-calls every time, and the size of the miss is not random. The eight-point
+miss is the Hex Weaver, whose signature skill deals no damage at all: the
+numerator credits it with its `strike` output alone, and a party HP pool cannot
+record a debuff. **The ratio is blind to an enemy that does not deal damage**,
+and blind in the optimistic direction. Any enemy priced on this axis must be
+priced on its damage, with its status effects treated as unmeasured.
+
 ### What the shape says
 
 1. **It is a smooth monotone decline. There is no plateau and no cliff.**
@@ -144,6 +197,34 @@ killed, relative to each other. See *Pricing a new enemy* for why it is there.
    The exchange ratio does not have this problem: it moves 1.07 -> 1.36 over the
    same rows, and it crosses 1.0 between `a135` and `a165`, exactly where the
    win rate crosses 50%.
+
+## How sensitive the win rate is, and how wide a band must be
+
+The 0.4.0 readings supplied the measurement this file was missing: the same
+encounter, twice, differing only in one status duration.
+
+`matchup.weaver_gambit` with `wither_hex` at duration 8 delivered 89.8 damage per
+party action and won 77% (232 of 300). At duration 3 it delivered 96.0 and won
+87% (260 of 300). Same roster, same stats, same 300 seeds, same engine.
+
+- +6.9% party damage per party action produced +10 points of win rate.
+- **About 1.45 win-rate points per 1% of party throughput.**
+
+Two consequences, both of which have already cost this project commits:
+
+1. **A ten-point band is unreachable.** A 1% throughput change is smaller than
+   almost any single-field content edit, and the 1.45 points it buys are smaller
+   than the 6-point sampling interval at 300 seeds. A band narrower than about
+   25 points will be crossed by changes too small to predict in advance. The
+   shipped widths are `weaver_gambit` 28, `dancer_rush` 30, `bell_race` 32,
+   `dio_boss` 40, `assassin_ambush` 45.
+2. **A prediction range of plus or minus four points is not honest here.** It
+   claims to know the party's throughput to within 3% before the run, which no
+   reading in this project has ever supported.
+
+This is a local slope near 80% win rate, on this party, from one pair of
+readings. Finding 2 above states the same sensitivity in the enemy's units:
+about 0.8 win-rate points per point of enemy `atk`.
 
 ## The retracted table
 
