@@ -5,6 +5,10 @@
 # reproducible from an immutable ref. Tags are cut from main, never from
 # development -- see docs/RELEASING.md section 2.
 #
+# There is also a manual trigger, which takes an existing tag. By default it does
+# everything except publish, so the packaging and artefact steps can be exercised
+# without cutting a release. Set dry_run to false only to re-publish a tag.
+#
 # Output: one archive per platform containing the GDExtension library, the
 # content data, the .gdextension descriptor and the licence, plus release notes
 # extracted from CHANGELOG.md.
@@ -23,6 +27,10 @@ on:
       tag:
         description: "Existing tag to build (e.g. v0.3.0)"
         required: true
+      dry_run:
+        description: "Build and package only; do not touch any GitHub release"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -30,6 +38,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # The one place the release tag is decided. On a tag push it is the tag; on a
+  # manual run it is the tag typed into the form. Every job below reads this and
+  # never GITHUB_REF_NAME, which on a manual run is a branch name.
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
 
 jobs:
   verify:
@@ -37,15 +49,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       # A tag whose version does not match Cargo.toml is the classic release
       # mistake. Catch it before any artefact exists.
       - name: Tag must match workspace version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            tag="${tag#v}"
-          fi
+          tag="${RELEASE_TAG#v}"
           manifest=$(grep -m1 '^version' src/Cargo.toml | cut -d'"' -f2)
           echo "tag=$tag manifest=$manifest"
           if [ "$tag" != "$manifest" ]; then
@@ -54,11 +64,7 @@ jobs:
           fi
       - name: CHANGELOG must contain the version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            tag="${tag#v}"
-          fi
+          tag="${RELEASE_TAG#v}"
           grep -q "## \\[$tag\\]" CHANGELOG.md || {
             echo "::error::CHANGELOG.md has no section for $tag"
             exit 1
@@ -83,6 +89,8 @@ jobs:
             artifact: librpg_bridge.dylib
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install libclang (Linux)
         if: runner.os == 'Linux'
@@ -107,7 +115,7 @@ jobs:
       - name: Stage package
         shell: bash
         run: |
-          name="jojo-rpg-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          name="jojo-rpg-${RELEASE_TAG}-${{ matrix.target }}"
           mkdir -p "dist/$name/bin" "dist/$name/data"
           cp "src/target/${{ matrix.target }}/release/${{ matrix.artifact }}" "dist/$name/bin/"
           cp data/*.json "dist/$name/data/"
@@ -156,6 +164,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -166,7 +176,7 @@ jobs:
       - name: Extract release notes for this version
         id: notes
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           # Print the section for this version only, stopping at the next one.
           awk -v v="$version" '
             $0 ~ "^## \\[" v "\\]" { inside = 1; next }
@@ -184,13 +194,18 @@ jobs:
             echo "\`src/game/bin/\` to run the Godot project."
           } >> notes.md
 
+      # Skipped on a dry run, so everything above is exercised while no release is
+      # touched. The tag is passed explicitly because on a manual run github.ref
+      # is a branch, and a release must never be cut from a branch.
       - uses: softprops/action-gh-release@v3
+        if: github.event_name == 'push' || github.event.inputs.dry_run != 'true'
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
             dist/*.zip
             dist/*.tar.gz
             dist/*.sha256
           body_path: notes.md
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           fail_on_unmatched_files: true
