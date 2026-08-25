@@ -100,6 +100,25 @@ and nothing more.
   `heal/b` column in the harness table beside `dealt/b`. The field is
   `#[serde(default)]` and appended last, so a report written by an older release
   still deserializes and reads zero — covered by an extended compatibility test.
+- **`pc.polnareff`, `stand.silver_chariot`, `skill.riposte`** (#15): the fourth
+  playable character, authored entirely in `data/` with no `src/` change.
+  Effective `atk 94, def 80, spd 100, will 98` after the Stand bonus; speed sits
+  under Jotaro's 102 so the party's action order is unchanged. `skill.riposte` —
+  14 SP, one enemy, 90% accuracy, power 110 physical, plus `atk_down` 35 potency
+  / 3 turns / 75% chance. `pc.polnareff` joins `matchup.dio_boss`.
+- **`npc.blade_dancer`, `npc.hex_weaver`, `npc.requiem_bell`** (#16): three
+  enemies, each varying one axis of design, with the Iron Brawler held constant
+  as the second foe in every encounter so the three are comparable to each other
+  and to `matchup.assassin_ambush`. Blade Dancer (620/60/92/38/**110**/50) —
+  `skill.flurry_cut`, 10 SP, power 105, `tempo_cost` 700. Hex Weaver
+  (690/90/60/55/78/85) — `skill.wither_hex`, 18 SP, `atk_down` 26 potency / 8
+  turns / 85% chance, **the first skill in the game with no damage effect**.
+  Requiem Bell (560/90/96/60/**40**/70) — `skill.grave_toll`, 40 SP, power
+  **240** psychic, `tempo_cost` **2000**, the largest power and the largest
+  tempo cost of any skill shipped. Their encounters — `matchup.dancer_rush`,
+  `matchup.weaver_gambit`, `matchup.bell_race` — ship measured at 300 seeds
+  directly; there is no provisional twelve-seed reading for any of the three,
+  because the seed list was already widened before #16 landed.
 
 ### Changed
 
@@ -161,6 +180,22 @@ and nothing more.
 - [docs/TRIAGE.md](docs/TRIAGE.md) gained the label-creation procedure, an
   explanation of how each form field becomes issue text, and the `0.4.0`
   backlog as filed.
+- **The seed list widened from twelve to 300 per encounter, in a commit that
+  changed nothing else** (M3 step 4). Twelve seeds only resolve to the spacing
+  between two adjacent possible readings — 8.3 percentage points — and the
+  actual sampling uncertainty at that size is close to ±14 points, roughly
+  three times coarser than the figure this document previously reasoned from.
+  At 300 seeds, `matchup.assassin_ambush` and `matchup.dio_boss` become the
+  first two encounters in the project whose full confidence interval, not just
+  their point estimate, lands inside the declared band.
+- **`matchup.dio_boss` gained a fourth party member, `pc.polnareff`** (#15).
+  This is content, not a rules change, but it moves the encounter on its own —
+  47% → 68%, comparability boundary 6 in `docs/BALANCE-LOG.md`. Adding one
+  combatant also changed the *enemy's* behaviour: Dio's `blade_volley` share
+  rose from 3% to 46% of his actions once `affected_count` re-priced the area
+  attack against a larger target field, and `tempo_halt` fell from 23% to 3%
+  of his turns in response. Party composition is now documented as an input to
+  enemy behaviour, not only to encounter difficulty.
 
 Re-measured after all of the above (steps 1 through 3), twelve seeds per
 encounter:
@@ -200,6 +235,24 @@ it offsets 38% of everything the enemy does. Dio self-heals **183 per battle**
 through `blood_drain`, sustain that was previously invisible and that inflates
 its effective pool well past the 1520 printed on the sheet. Neither figure could
 be derived from anything the harness printed before.
+
+**Current state, all six encounters, 300 seeds** — the table above stops at
+step 3 and twelve seeds; this is what `cargo run -p rpg-core --bin balance`
+reports on `development` today, after the seed widening, `pc.polnareff`
+joining `matchup.dio_boss`, and issue #16's three new encounters:
+
+| Encounter | Win rate | Declared band |
+| --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 |
+| `matchup.assassin_ambush` | 53% | 45..90 |
+| `matchup.dio_boss` | 68% | 35..75 |
+| `matchup.dancer_rush` | 70% | 60..90 |
+| `matchup.weaver_gambit` | 77% | 58..86 |
+| `matchup.bell_race` | 68% | 48..80 |
+
+All six inside their declared band. Full per-combatant breakdowns and the
+prediction scorecards for how each number was reached are in
+`docs/BALANCE-LOG.md` and `docs/BALANCE-M3-ENEMIES.md`, not repeated here.
 
 ### Fixed
 
@@ -284,6 +337,28 @@ Carried forward from `0.3.0` except where noted:
   `heal/b`; the support profile decides when to heal by its own rule, so Josuke's
   1044 HP per battle is a consequence of that rule rather than of any comparison
   against what the same SP would have bought as damage.
+- **Two of the items above are amended, not corrected, by M3 step 4 and #16.**
+  The seed list is 300, not twelve, so the 8.3-point figure no longer describes
+  this project's instrument. The resistance-blindness finding is superseded by
+  #33, which established that `score_action` is blind to the target's *defence*
+  as well as to its resistance table, and that the defence-blindness is the more
+  expensive of the two: a paid skill can deal less than the free basic attack
+  while still being chosen on 99% of a character's turns. Both original bullets
+  are left in place above rather than edited, so the numbers they were measured
+  against stay attached to them.
+- **`skill.guard_stance` and `skill.rage_focus` are still unreachable, and an
+  ally-facing buff cannot be shipped at all.** `is_candidate` admits only
+  `OneEnemy | AllEnemies | SelfOnly`, so a `one_ally` skill can never fill an
+  action slot at any price — found while designing `pc.polnareff`'s original
+  debuffer concept, which was abandoned for exactly this reason (#29).
+- **A paid skill can be strictly worse than the free attack it displaces, and
+  nothing warns when it is.** `skill.riposte` at power 85 dealt 34 against the
+  Iron Brawler where the free `strike` dealt 45, chosen on 99% of Polnareff's
+  turns anyway. The same defect is already live in shipped content:
+  `skill.emerald_snare` at power 75 deals 4 damage to Dio where Kakyoin's free
+  `strike` deals 26, on 70% of his turns. Filed as #33 and deliberately not
+  fixed in M3, because repricing `emerald_snare` would move
+  `matchup.assassin_ambush`, the control for the entire content-addition step.
 
 ## [0.3.0] - 2026-07-29
 
