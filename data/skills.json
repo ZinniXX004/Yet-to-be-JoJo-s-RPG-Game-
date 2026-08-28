@@ -8,7 +8,12 @@
     "accuracy": 95,
     "tempo_cost": 1000,
     "effects": [
-      { "kind": "damage", "power": 100, "element": "physical", "variance": 8 }
+      {
+        "kind": "damage",
+        "power": 100,
+        "element": "physical",
+        "variance": 8
+      }
     ]
   },
   {
@@ -20,7 +25,13 @@
     "accuracy": 100,
     "tempo_cost": 600,
     "effects": [
-      { "kind": "status", "status": "def_up", "potency": 60, "duration": 2, "chance": 100 }
+      {
+        "kind": "status",
+        "status": "def_up",
+        "potency": 60,
+        "duration": 2,
+        "chance": 100
+      }
     ]
   },
   {
@@ -32,7 +43,12 @@
     "accuracy": 90,
     "tempo_cost": 1200,
     "effects": [
-      { "kind": "damage", "power": 195, "element": "physical", "variance": 12 }
+      {
+        "kind": "damage",
+        "power": 195,
+        "element": "physical",
+        "variance": 12
+      }
     ]
   },
   {
@@ -44,8 +60,16 @@
     "accuracy": 100,
     "tempo_cost": 1500,
     "effects": [
-      { "kind": "tempo_lock", "ticks": 6 },
-      { "kind": "damage", "power": 60, "element": "temporal", "variance": 0 }
+      {
+        "kind": "tempo_lock",
+        "ticks": 6
+      },
+      {
+        "kind": "damage",
+        "power": 60,
+        "element": "temporal",
+        "variance": 0
+      }
     ]
   },
   {
@@ -57,7 +81,10 @@
     "accuracy": 100,
     "tempo_cost": 900,
     "effects": [
-      { "kind": "heal", "power": 140 }
+      {
+        "kind": "heal",
+        "power": 140
+      }
     ]
   },
   {
@@ -69,8 +96,19 @@
     "accuracy": 92,
     "tempo_cost": 1000,
     "effects": [
-      { "kind": "damage", "power": 75, "element": "psychic", "variance": 6 },
-      { "kind": "status", "status": "spd_down", "potency": 30, "duration": 3, "chance": 80 }
+      {
+        "kind": "damage",
+        "power": 75,
+        "element": "psychic",
+        "variance": 6
+      },
+      {
+        "kind": "status",
+        "status": "spd_down",
+        "potency": 30,
+        "duration": 3,
+        "chance": 80
+      }
     ]
   },
   {
@@ -82,7 +120,12 @@
     "accuracy": 90,
     "tempo_cost": 1300,
     "effects": [
-      { "kind": "damage", "power": 105, "element": "psychic", "variance": 12 }
+      {
+        "kind": "damage",
+        "power": 105,
+        "element": "psychic",
+        "variance": 12
+      }
     ]
   },
   {
@@ -94,7 +137,12 @@
     "accuracy": 88,
     "tempo_cost": 1300,
     "effects": [
-      { "kind": "damage", "power": 110, "element": "physical", "variance": 15 }
+      {
+        "kind": "damage",
+        "power": 110,
+        "element": "physical",
+        "variance": 15
+      }
     ]
   },
   {
@@ -106,7 +154,11 @@
     "accuracy": 90,
     "tempo_cost": 1000,
     "effects": [
-      { "kind": "drain", "power": 120, "element": "psychic" }
+      {
+        "kind": "drain",
+        "power": 120,
+        "element": "psychic"
+      }
     ]
   },
   {
@@ -118,8 +170,19 @@
     "accuracy": 90,
     "tempo_cost": 1100,
     "effects": [
-      { "kind": "damage", "power": 150, "element": "fire", "variance": 10 },
-      { "kind": "status", "status": "bleed", "potency": 25, "duration": 3, "chance": 60 }
+      {
+        "kind": "damage",
+        "power": 150,
+        "element": "fire",
+        "variance": 10
+      },
+      {
+        "kind": "status",
+        "status": "bleed",
+        "potency": 25,
+        "duration": 3,
+        "chance": 60
+      }
     ]
   },
   {
@@ -131,7 +194,13 @@
     "accuracy": 100,
     "tempo_cost": 700,
     "effects": [
-      { "kind": "status", "status": "atk_up", "potency": 40, "duration": 3, "chance": 100 }
+      {
+        "kind": "status",
+        "status": "atk_up",
+        "potency": 40,
+        "duration": 3,
+        "chance": 100
+      }
     ]
   },
   {
@@ -143,8 +212,19 @@
     "accuracy": 85,
     "tempo_cost": 1400,
     "effects": [
-      { "kind": "damage", "power": 140, "element": "physical", "variance": 10 },
-      { "kind": "status", "status": "stun", "potency": 0, "duration": 1, "chance": 40 }
+      {
+        "kind": "damage",
+        "power": 140,
+        "element": "physical",
+        "variance": 10
+      },
+      {
+        "kind": "status",
+        "status": "stun",
+        "potency": 0,
+        "duration": 1,
+        "chance": 40
+      }
     ]
   },
   {
@@ -156,8 +236,19 @@
     "accuracy": 90,
     "tempo_cost": 1000,
     "effects": [
-      { "kind": "damage", "power": 110, "element": "physical", "variance": 8 },
-      { "kind": "status", "status": "atk_down", "potency": 35, "duration": 3, "chance": 75 }
+      {
+        "kind": "damage",
+        "power": 110,
+        "element": "physical",
+        "variance": 8
+      },
+      {
+        "kind": "status",
+        "status": "atk_down",
+        "potency": 35,
+        "duration": 3,
+        "chance": 75
+      }
     ]
   },
   {
@@ -169,7 +260,12 @@
     "accuracy": 95,
     "tempo_cost": 700,
     "effects": [
-      { "kind": "damage", "power": 105, "element": "physical", "variance": 6 }
+      {
+        "kind": "damage",
+        "power": 105,
+        "element": "physical",
+        "variance": 6
+      }
     ]
   },
   {
@@ -181,7 +277,13 @@
     "accuracy": 100,
     "tempo_cost": 900,
     "effects": [
-      { "kind": "status", "status": "atk_down", "potency": 26, "duration": 8, "chance": 85 }
+      {
+        "kind": "status",
+        "status": "atk_down",
+        "potency": 26,
+        "duration": 8,
+        "chance": 85
+      }
     ]
   },
   {
@@ -193,7 +295,48 @@
     "accuracy": 100,
     "tempo_cost": 2000,
     "effects": [
-      { "kind": "damage", "power": 240, "element": "psychic", "variance": 10 }
+      {
+        "kind": "damage",
+        "power": 240,
+        "element": "psychic",
+        "variance": 10
+      }
+    ]
+  },
+  {
+    "id": "skill.erase_time",
+    "name": "Erase Time",
+    "sp_cost": 50,
+    "target": "one_enemy",
+    "accuracy": 100,
+    "tempo_cost": 900,
+    "effects": [
+      {
+        "kind": "tempo_lock",
+        "ticks": 8
+      },
+      {
+        "kind": "damage",
+        "power": 150,
+        "element": "physical",
+        "variance": 10
+      }
+    ]
+  },
+  {
+    "id": "skill.crimson_rage",
+    "name": "Crimson Rage",
+    "sp_cost": 0,
+    "target": "one_enemy",
+    "accuracy": 95,
+    "tempo_cost": 700,
+    "effects": [
+      {
+        "kind": "damage",
+        "power": 130,
+        "element": "physical",
+        "variance": 14
+      }
     ]
   }
 ]

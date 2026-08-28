@@ -3,103 +3,240 @@
     "id": "pc.jotaro",
     "name": "Jotaro",
     "team": "party",
-    "stats": { "hp": 620, "sp": 80, "atk": 95, "def": 70, "spd": 72, "will": 88 },
+    "stats": {
+      "hp": 620,
+      "sp": 80,
+      "atk": 95,
+      "def": 70,
+      "spd": 72,
+      "will": 88
+    },
     "stand": "stand.star_platinum",
-    "skills": ["skill.strike", "skill.guard_stance"],
+    "skills": [
+      "skill.strike",
+      "skill.guard_stance"
+    ],
     "ai": "aggressive",
-    "resist": { "temporal": 50 }
+    "resist": {
+      "temporal": 50
+    }
   },
   {
     "id": "pc.josuke",
     "name": "Josuke",
     "team": "party",
-    "stats": { "hp": 660, "sp": 95, "atk": 82, "def": 78, "spd": 60, "will": 74 },
+    "stats": {
+      "hp": 660,
+      "sp": 95,
+      "atk": 82,
+      "def": 78,
+      "spd": 60,
+      "will": 74
+    },
     "stand": "stand.crazy_diamond",
-    "skills": ["skill.strike", "skill.guard_stance"],
+    "skills": [
+      "skill.strike",
+      "skill.guard_stance"
+    ],
     "ai": "support"
   },
   {
     "id": "pc.kakyoin",
     "name": "Kakyoin",
     "team": "party",
-    "stats": { "hp": 520, "sp": 120, "atk": 70, "def": 58, "spd": 68, "will": 92 },
+    "stats": {
+      "hp": 520,
+      "sp": 120,
+      "atk": 70,
+      "def": 58,
+      "spd": 68,
+      "will": 92
+    },
     "stand": "stand.hierophant_green",
-    "skills": ["skill.strike"],
+    "skills": [
+      "skill.strike"
+    ],
     "ai": "support"
   },
   {
     "id": "pc.polnareff",
     "name": "Polnareff",
     "team": "party",
-    "stats": { "hp": 570, "sp": 100, "atk": 78, "def": 66, "spd": 74, "will": 80 },
+    "stats": {
+      "hp": 570,
+      "sp": 100,
+      "atk": 78,
+      "def": 66,
+      "spd": 74,
+      "will": 80
+    },
     "stand": "stand.silver_chariot",
-    "skills": ["skill.strike"],
+    "skills": [
+      "skill.strike"
+    ],
     "ai": "support"
   },
   {
     "id": "npc.blade_dancer",
     "name": "Blade Dancer",
     "team": "foe",
-    "stats": { "hp": 620, "sp": 60, "atk": 92, "def": 38, "spd": 110, "will": 50 },
+    "stats": {
+      "hp": 620,
+      "sp": 60,
+      "atk": 92,
+      "def": 38,
+      "spd": 110,
+      "will": 50
+    },
     "stand": null,
-    "skills": ["skill.strike", "skill.flurry_cut"],
+    "skills": [
+      "skill.strike",
+      "skill.flurry_cut"
+    ],
     "ai": "aggressive"
   },
   {
     "id": "npc.dio",
     "name": "Dio",
     "team": "foe",
-    "stats": { "hp": 1400, "sp": 160, "atk": 130, "def": 82, "spd": 70, "will": 96 },
+    "stats": {
+      "hp": 1400,
+      "sp": 160,
+      "atk": 130,
+      "def": 82,
+      "spd": 70,
+      "will": 96
+    },
     "stand": "stand.the_world",
-    "skills": ["skill.strike", "skill.blood_drain"],
+    "skills": [
+      "skill.strike",
+      "skill.blood_drain"
+    ],
     "ai": "aggressive",
-    "resist": { "temporal": 50, "psychic": 20 }
+    "resist": {
+      "temporal": 50,
+      "psychic": 20
+    }
   },
   {
     "id": "npc.flame_assassin",
     "name": "Flame Assassin",
     "team": "foe",
-    "stats": { "hp": 640, "sp": 70, "atk": 76, "def": 52, "spd": 80, "will": 64 },
+    "stats": {
+      "hp": 640,
+      "sp": 70,
+      "atk": 76,
+      "def": 52,
+      "spd": 80,
+      "will": 64
+    },
     "stand": "stand.magicians_red",
-    "skills": ["skill.strike"],
+    "skills": [
+      "skill.strike"
+    ],
     "ai": "aggressive",
-    "resist": { "fire": 75 }
+    "resist": {
+      "fire": 75
+    }
   },
   {
     "id": "npc.hex_weaver",
     "name": "Hex Weaver",
     "team": "foe",
-    "stats": { "hp": 690, "sp": 90, "atk": 60, "def": 55, "spd": 78, "will": 85 },
+    "stats": {
+      "hp": 690,
+      "sp": 90,
+      "atk": 60,
+      "def": 55,
+      "spd": 78,
+      "will": 85
+    },
     "stand": null,
-    "skills": ["skill.strike", "skill.wither_hex"],
+    "skills": [
+      "skill.strike",
+      "skill.wither_hex"
+    ],
     "ai": "aggressive"
   },
   {
     "id": "npc.iron_brawler",
     "name": "Iron Brawler",
     "team": "foe",
-    "stats": { "hp": 620, "sp": 80, "atk": 135, "def": 48, "spd": 62, "will": 58 },
+    "stats": {
+      "hp": 620,
+      "sp": 80,
+      "atk": 135,
+      "def": 48,
+      "spd": 62,
+      "will": 58
+    },
     "stand": "stand.iron_hymn",
-    "skills": ["skill.strike", "skill.blood_drain"],
+    "skills": [
+      "skill.strike",
+      "skill.blood_drain"
+    ],
     "ai": "aggressive",
-    "resist": { "physical": 25, "psychic": -25 }
+    "resist": {
+      "physical": 25,
+      "psychic": -25
+    }
   },
   {
     "id": "npc.requiem_bell",
     "name": "Requiem Bell",
     "team": "foe",
-    "stats": { "hp": 560, "sp": 90, "atk": 96, "def": 60, "spd": 40, "will": 70 },
+    "stats": {
+      "hp": 560,
+      "sp": 90,
+      "atk": 96,
+      "def": 60,
+      "spd": 40,
+      "will": 70
+    },
     "stand": null,
-    "skills": ["skill.strike", "skill.grave_toll"],
+    "skills": [
+      "skill.strike",
+      "skill.grave_toll"
+    ],
     "ai": "aggressive"
   },
   {
     "id": "npc.thug",
     "name": "Street Thug",
     "team": "foe",
-    "stats": { "hp": 300, "sp": 0, "atk": 58, "def": 40, "spd": 55, "will": 30 },
+    "stats": {
+      "hp": 300,
+      "sp": 0,
+      "atk": 58,
+      "def": 40,
+      "spd": 55,
+      "will": 30
+    },
     "stand": null,
-    "skills": ["skill.strike"],
+    "skills": [
+      "skill.strike"
+    ],
     "ai": "trickster"
+  },
+  {
+    "id": "npc.diavolo",
+    "name": "Diavolo",
+    "team": "foe",
+    "stats": {
+      "hp": 3400,
+      "sp": 220,
+      "atk": 190,
+      "def": 95,
+      "spd": 90,
+      "will": 110
+    },
+    "resistances": {
+      "physical": 20,
+      "psychic": 15
+    },
+    "skills": [
+      "skill.crimson_rage",
+      "skill.erase_time"
+    ]
   }
 ]
