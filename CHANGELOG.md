@@ -99,38 +99,44 @@ and nothing more.
 - **`healing_done` on `CombatantStats`**, with `healing_done_per_battle()` and a
   `heal/b` column in the harness table beside `dealt/b`. The field is
   `#[serde(default)]` and appended last, so a report written by an older release
-  still deserializes and reads zero — covered by an extended compatibility test.
+  still deserializes fine and just reads zero. An extended compatibility test
+  covers this.
 - **`pc.polnareff`, `stand.silver_chariot`, `skill.riposte`** (#15): the fourth
-  playable character, authored entirely in `data/` with no `src/` change.
-  Effective `atk 94, def 80, spd 100, will 98` after the Stand bonus; speed sits
-  under Jotaro's 102 so the party's action order is unchanged. `skill.riposte` —
-  14 SP, one enemy, 90% accuracy, power 110 physical, plus `atk_down` 35 potency
-  / 3 turns / 75% chance. `pc.polnareff` joins `matchup.dio_boss`.
-- **`npc.blade_dancer`, `npc.hex_weaver`, `npc.requiem_bell`** (#16): three
-  enemies, each varying one axis of design, with the Iron Brawler held constant
-  as the second foe in every encounter so the three are comparable to each other
-  and to `matchup.assassin_ambush`. Blade Dancer (620/60/92/38/**110**/50) —
-  `skill.flurry_cut`, 10 SP, power 105, `tempo_cost` 700. Hex Weaver
-  (690/90/60/55/78/85) — `skill.wither_hex`, 18 SP, `atk_down` 26 potency / 8
-  turns / 85% chance, **the first skill in the game with no damage effect**.
-  Requiem Bell (560/90/96/60/**40**/70) — `skill.grave_toll`, 40 SP, power
-  **240** psychic, `tempo_cost` **2000**, the largest power and the largest
-  tempo cost of any skill shipped. Their encounters — `matchup.dancer_rush`,
-  `matchup.weaver_gambit`, `matchup.bell_race` — ship measured at 300 seeds
-  directly; there is no provisional twelve-seed reading for any of the three,
-  because the seed list was already widened before #16 landed.
+  playable character, and he's entirely a `data/` addition — nothing in `src/`
+  had to change for him to exist. With the Stand bonus applied his stats land
+  at `atk 94, def 80, spd 100, will 98`; his speed stays just under Jotaro's
+  102, so the party's turn order doesn't shift. `skill.riposte` costs 14 SP,
+  hits one enemy at 90% accuracy for 110 physical power, and layers on
+  `atk_down` at 35 potency for 3 turns with a 75% chance to land. He joins the
+  party in `matchup.dio_boss`.
+- **`npc.blade_dancer`, `npc.hex_weaver`, `npc.requiem_bell`** (#16): three new
+  enemies, each pushing a different design axis, with the Iron Brawler kept as
+  the constant second foe across all three encounters so they stay comparable
+  to each other and to `matchup.assassin_ambush`. Blade Dancer
+  (620/60/92/38/**110**/50) carries `skill.flurry_cut`: 10 SP, power 105,
+  `tempo_cost` 700. Hex Weaver (690/90/60/55/78/85) carries `skill.wither_hex`:
+  18 SP, `atk_down` at 26 potency for 8 turns with an 85% chance, and it's
+  **the first skill in the game that deals no damage at all**. Requiem Bell
+  (560/90/96/60/**40**/70) carries `skill.grave_toll`: 40 SP, power **240**
+  psychic, `tempo_cost` **2000**, the biggest power number and the biggest
+  tempo cost shipped so far. Their three encounters — `matchup.dancer_rush`,
+  `matchup.weaver_gambit`, `matchup.bell_race` — all launched already measured
+  at 300 seeds. None of them got the old twelve-seed provisional treatment,
+  since the seed list had already widened by the time #16 landed.
 - **`npc.diavolo`, `skill.crimson_rage`, `skill.erase_time`** (#17): the
-  second boss. Solo encounter, same four-person party as `matchup.dio_boss` —
-  no new comparability boundary. Diavolo (3400/220/190/95/90/110) —
-  `skill.erase_time`, 50 SP, `tempo_lock` 8 ticks plus 150 physical damage,
-  the first enemy skill to combine `tempo_lock` with damage in one effect
-  list. `skill.crimson_rage` is free (0 SP) at power 130, the ceiling
-  `validate_data.py` enforces for an unpriced skill — a draft at power 170
-  tripped that check and was repriced, not exempted. `matchup.diavolo_boss`
-  measures at 40%, band 25..55, the lowest declared band in the project so
-  far. Kakyoin's low `def` makes him the first party member down in most
-  battles — alive at battle's end in 8% of them, against 21-32% for the rest
-  of the party — known and accepted, not a defect.
+  second boss, fought solo by the same four-person party as `matchup.dio_boss`,
+  so no new comparability boundary opens here. Diavolo
+  (3400/220/190/95/90/110) swings `skill.erase_time` for 50 SP: `tempo_lock`
+  for 8 ticks plus 150 physical damage, the first enemy skill anywhere in the
+  game to pack a `tempo_lock` and a damage hit into one effect list.
+  `skill.crimson_rage` costs nothing (0 SP) and sits at power 130, right at
+  the ceiling `validate_data.py` enforces for a free skill; an earlier draft
+  at power 170 tripped that check and got repriced rather than waved through.
+  `matchup.diavolo_boss` measures out at 40%, band 25..55, the lowest band
+  declared in the project yet. One thing worth flagging honestly: Kakyoin's
+  low `def` means he's usually the first one down, alive at the end of a
+  battle only 8% of the time against 21-32% for everyone else. That's
+  accepted as how the fight plays out, not treated as something broken.
 
 ### Changed
 
@@ -349,15 +355,15 @@ Carried forward from `0.3.0` except where noted:
   `heal/b`; the support profile decides when to heal by its own rule, so Josuke's
   1044 HP per battle is a consequence of that rule rather than of any comparison
   against what the same SP would have bought as damage.
-- **Two of the items above are amended, not corrected, by M3 step 4 and #16.**
-  The seed list is 300, not twelve, so the 8.3-point figure no longer describes
-  this project's instrument. The resistance-blindness finding is superseded by
-  #33, which established that `score_action` is blind to the target's *defence*
-  as well as to its resistance table, and that the defence-blindness is the more
-  expensive of the two: a paid skill can deal less than the free basic attack
-  while still being chosen on 99% of a character's turns. Both original bullets
-  are left in place above rather than edited, so the numbers they were measured
-  against stay attached to them.
+- **Two of the items above got amended by M3 step 4 and #16, not corrected.**
+  The seed list runs to 300 now, not twelve, so the old 8.3-point figure no
+  longer describes this project's instrument at all. The resistance-blindness
+  finding, meanwhile, has been folded into #33: it turns out `score_action` is
+  blind to the target's *defence* too, on top of its resistance table, and
+  that blindness costs more — a paid skill can deal less damage than the free
+  basic attack and still get chosen on 99% of a character's turns. Both
+  bullets above stay exactly as written rather than getting edited, so the
+  numbers they were measured against stay attached to the claim.
 - **`skill.guard_stance` and `skill.rage_focus` are still unreachable, and an
   ally-facing buff cannot be shipped at all.** `is_candidate` admits only
   `OneEnemy | AllEnemies | SelfOnly`, so a `one_ally` skill can never fill an
