@@ -12,7 +12,7 @@ with Godot 4 doing nothing but showing you what happened.**
 
 [![Rust](https://img.shields.io/badge/Rust-1.94.1-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Godot](https://img.shields.io/badge/Godot-4.6%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
-[![godot-rust](https://img.shields.io/badge/godot--rust-0.5.3-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
+[![godot-rust](https://img.shields.io/badge/godot--rust-0.5.4-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](docs/DEVELOPMENT.md)
 
@@ -34,24 +34,25 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status: `0.3.0` released. `0.4.0` (M3, content depth) in progress.**
-> `0.2.0` made one battle playable start to finish in Godot 4.7.1 with a clean
-> console. `0.3.0` made the numbers accountable: every encounter declares the
-> win rate it is supposed to produce, a headless harness measures the real one
-> over twelve fixed seeds, and CI fails the build when the two disagree. The
-> first playthrough's defeat turned out to be an anecdote pointing the wrong
-> way — unattended, the party won that same fight 92% of the time, and two of
-> three encounters sat outside their intended range.
+> **Status: `0.3.0` released. `0.4.0` (M3, content depth) well underway.**
+> `0.2.0` got one battle playable start to finish in Godot 4.7.1, console
+> clean. `0.3.0` made the numbers accountable: every encounter declares the
+> win rate it's supposed to produce, a headless harness measures the real
+> one, and CI fails the build the moment the two disagree. The first
+> playthrough's defeat turned out to be pointing the wrong way entirely —
+> left on autopilot, the party actually won that same fight 92% of the time,
+> with two of three encounters sitting outside their intended range.
 >
-> `0.4.0` closes the hole those measurements were taken through: the AI scores
-> a skill by damage alone, so three of eleven are unreachable —
-> `skill.guard_stance` and `skill.rage_focus` deal none and are filtered out,
-> and `skill.tempo_halt` is always beaten by a stronger option on every
-> combatant that owns it. Nothing in the game has ever guarded, buffed or
-> denied tempo, so every win rate published so far measures a subset of the
-> game. Rules first, then a wider seed list, then new content — in that order,
-> because changing the rules invalidates every number measured before it. Plan
-> in [ROADMAP.md](docs/ROADMAP.md), reporting rules in
+> `0.4.0` started by closing the hole those measurements were taken through:
+> the rules got fixed (miss accounting, elemental resistance, a scored AI in
+> place of a damage-only one, healing finally counted), and the seed list
+> widened from twelve to 300 so a measurement actually means something.
+> Content followed once the ground stopped moving — a fourth party member
+> (`pc.polnareff`, #15), three new enemies (#16), and a second boss
+> (`npc.diavolo`, #17). Left: `skill.guard_stance` and `skill.rage_focus`
+> still can't be chosen at any price (#29), and the scorer still can't tell
+> a good trade from a bad one against the target's defence (#33). Plan in
+> [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in
 > [BALANCE-LOG.md](docs/BALANCE-LOG.md).
 
@@ -59,11 +60,11 @@ with Godot 4 doing nothing but showing you what happened.**
 
 ## Why this exists
 
-Most hobby RPGs put their combat rules inside engine callbacks, where the logic
-cannot be tested, replayed or reasoned about. This project inverts that: the
-rules are a plain Rust library with no engine, no globals, no clock and no
-floating point, so a battle is a pure function of a seed plus a sequence of
-commands.
+Most hobby RPGs bury their combat rules inside engine callbacks, where the
+logic can't be tested, replayed, or reasoned about. This project inverts
+that: the rules live in a plain Rust library with no engine, no globals, no
+clock, and no floating point, so a battle is nothing more than a pure
+function of a seed plus a sequence of commands.
 
 That single constraint buys, for free:
 
@@ -85,20 +86,20 @@ repository shipped in `0.2.0`.
 ┌───────────────────────────────────────────────┐
 │ src/game        Godot 4  ·  GDScript          │  presentation only:
 │                 scenes, UI, animation         │  animates events,
-└──────────────────────┬──────────────────────┘  computes nothing
-                        │  JSON strings over GDExtension
-┌──────────────────────▼──────────────────────┐
+└──────────────────────┬────────────────────────┘  computes nothing
+                       │  JSON strings over GDExtension
+┌──────────────────────▼────────────────────────┐
 │ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
 │                 5 methods, JSON in and out    │  no game rules
-└──────────────────────┬──────────────────────┘
-                        │
-┌──────────────────────▼──────────────────────┐
+└──────────────────────┬────────────────────────┘
+                       │
+┌──────────────────────▼────────────────────────┐
 │ src/core        rpg-core  ·  Rust library     │  every rule lives here:
 │                 tempo scheduler, resolution,  │  deterministic,
 │                 statuses, AI, seeded RNG      │  engine-free, tested
-└──────────────────────┬──────────────────────┘
-                        │  reads
-┌──────────────────────▼──────────────────────┐
+└──────────────────────┬────────────────────────┘
+                       │  reads
+┌──────────────────────▼────────────────────────┐
 │ data/*.json     skills · stands · combatants  │  content, not code
 │                 matchups: declared win rates  │
 │ src/data-pipeline  stdlib-only validator      │  runs in CI
@@ -165,23 +166,27 @@ SHA-256 checksums.
 
 ## Balance
 
-Every encounter lives in [`data/matchups.json`](data/matchups.json) with a party,
-a set of foes, twelve fixed seeds and the win rate it is *supposed* to produce.
-The harness plays all of them with both sides on AI and reports the win rate it
-actually produces:
+Every encounter lives in [`data/matchups.json`](data/matchups.json) with a
+party, a set of foes, 300 fixed seeds, and the win rate it's *supposed* to
+produce. The harness plays all of them with both sides on AI and reports
+what actually happens:
 
 ```powershell
 cd src
 cargo run -q -p rpg-core --bin balance
 ```
 
-Current measurement, over 12 seeds per encounter:
+Current measurement, over 300 seeds per encounter:
 
 | Encounter | Win rate | Declared band | Median length |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | 3 turns |
-| `matchup.assassin_ambush` | 67% | 45..90 | 19 turns |
-| `matchup.dio_boss` | 50% | 35..75 | 50 turns |
+| `matchup.assassin_ambush` | 53% | 45..90 | 21 turns |
+| `matchup.dio_boss` | 68% | 35..75 | 49 turns |
+| `matchup.dancer_rush` | 70% | 60..90 | 22 turns |
+| `matchup.weaver_gambit` | 77% | 58..86 | 26 turns |
+| `matchup.bell_race` | 68% | 48..80 | 17 turns |
+| `matchup.diavolo_boss` | 40% | 25..55 | 72 turns |
 
 The binary exits non-zero when any encounter leaves its band, so it is both a
 tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under
@@ -214,11 +219,14 @@ repository rather than an appendix to it:
   plateau to 0.81, then 8% by parity. Six changes were spent moving a number
   along the flat part of a curve nobody had plotted yet.
 
-A win rate here is a **floor for a competent player**, not a forecast: the AI
-takes the strongest affordable skill and never sets up, and twelve seeds resolve
-to 8.3 percentage points. Both limits, and five more, are listed at the end of
-the balance log. If you want to dispute a number, [TRIAGE.md](docs/TRIAGE.md)
-says what a balance finding has to contain before it can be acted on.
+A win rate here is a **floor for a competent player**, not a forecast — the
+AI always takes the strongest affordable skill and never sets up for later.
+The seed list runs to 300 now, not twelve, which narrows the noise
+considerably; the exact current margin is in
+[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md), along with this limit and
+several more at the end of the balance log. If you want to dispute a number,
+[TRIAGE.md](docs/TRIAGE.md) says what a balance finding has to contain before
+it can be acted on.
 
 ---
 
