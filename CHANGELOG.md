@@ -119,6 +119,18 @@ and nothing more.
   `matchup.weaver_gambit`, `matchup.bell_race` — ship measured at 300 seeds
   directly; there is no provisional twelve-seed reading for any of the three,
   because the seed list was already widened before #16 landed.
+- **`npc.diavolo`, `skill.crimson_rage`, `skill.erase_time`** (#17): the
+  second boss. Solo encounter, same four-person party as `matchup.dio_boss` —
+  no new comparability boundary. Diavolo (3400/220/190/95/90/110) —
+  `skill.erase_time`, 50 SP, `tempo_lock` 8 ticks plus 150 physical damage,
+  the first enemy skill to combine `tempo_lock` with damage in one effect
+  list. `skill.crimson_rage` is free (0 SP) at power 130, the ceiling
+  `validate_data.py` enforces for an unpriced skill — a draft at power 170
+  tripped that check and was repriced, not exempted. `matchup.diavolo_boss`
+  measures at 40%, band 25..55, the lowest declared band in the project so
+  far. Kakyoin's low `def` makes him the first party member down in most
+  battles — alive at battle's end in 8% of them, against 21-32% for the rest
+  of the party — known and accepted, not a defect.
 
 ### Changed
 
