@@ -50,7 +50,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo fmt --version
       - run: cargo fmt --all --check
@@ -60,8 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       # Stdlib only on purpose: a content validator that needs a dependency tree
@@ -82,7 +82,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo --version && cargo clippy --version
       - uses: Swatinem/rust-cache@v2
@@ -104,7 +104,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo --version
       - uses: Swatinem/rust-cache@v2
@@ -138,7 +138,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # godot-rust uses prebuilt GDExtension bindings by default, so no Godot
       # binary is needed here. libclang is installed anyway because bindgen is
       # pulled in on some feature paths and the failure mode is cryptic.
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # This action runs cargo-deny inside its own container, which ships an
       # older default toolchain and therefore has to install the pinned 1.94.1
       # from rust-toolchain.toml on every run. That costs about thirty seconds
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # Pinned to a release tag. Tracking master means an upstream dictionary
       # change can fail a build on a commit that changed no prose.
       - uses: crate-ci/typos@v1
@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: lycheeverse/lychee-action@v2
         with:
           # Dead links in a README are the most visible kind of rot on a
