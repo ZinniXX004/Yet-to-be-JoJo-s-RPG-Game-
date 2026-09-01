@@ -1,8 +1,8 @@
 # Contributing
 
-This is a solo portfolio project, but the process is written down anyway: the
-rules are what keep the architecture from eroding, and following them visibly is
-part of what the repository is meant to demonstrate.
+This is a solo portfolio project, but the process still gets written down:
+the rules are what keep the architecture from eroding over time, and
+following them visibly is part of what this repository is meant to show.
 
 ## Setup
 
@@ -19,10 +19,11 @@ override it locally.
 
 ## Commits
 
-[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), scoped by
-layer: `feat(core):`, `fix(bridge):`, `ci:`, `docs(readme):`.
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), scoped
+by layer: `feat(core):`, `fix(bridge):`, `ci:`, `docs(readme):`.
 
-Write the body to explain *why*. The diff already shows what.
+The body should explain *why* a change happened — the diff already shows
+*what* changed.
 
 ## Before opening a PR
 
