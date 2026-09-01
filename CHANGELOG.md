@@ -358,11 +358,24 @@ Carried forward from `0.3.0` except where noted:
   while still being chosen on 99% of a character's turns. Both original bullets
   are left in place above rather than edited, so the numbers they were measured
   against stay attached to them.
-- **`skill.guard_stance` and `skill.rage_focus` are still unreachable, and an
-  ally-facing buff cannot be shipped at all.** `is_candidate` admits only
-  `OneEnemy | AllEnemies | SelfOnly`, so a `one_ally` skill can never fill an
-  action slot at any price — found while designing `pc.polnareff`'s original
-  debuffer concept, which was abandoned for exactly this reason (#29).
+- **Correction to the bullet below as first written: `skill.guard_stance` and
+  `skill.rage_focus` are not blocked by `is_candidate`.** Both are
+  `target: "self_only"`, which `is_candidate` allows. The real story is two
+  separate problems. `skill.rage_focus` is not equipped by any combatant in
+  `data/combatants.json` — it has never been reachable because nothing can
+  try to use it, not because of any scoring rule. `skill.guard_stance` *is*
+  equipped (`pc.jotaro`, `pc.josuke`) and does clear `is_candidate`, but its
+  priced value can't beat the free `strike` under the numbers it ships with:
+  `power_units = prevented * 100 / atk`, and with `potency 60, duration 2` the
+  best case across every shipped encounter (2 enemies) comes to 63 for Jotaro
+  and 73 for Josuke, against `strike`'s flat 100. It has 0 recorded uses
+  across every balance run in this changelog. A pricing gap, not a candidacy
+  one.
+- **`is_candidate` still only admits `OneEnemy | AllEnemies | SelfOnly`, and a
+  `one_ally` or `all_allies` skill can never fill an action slot at any
+  price.** This is real, and it's what blocked `pc.polnareff`'s original
+  debuffer concept — but it's a separate finding from the bullet above, not
+  the explanation for it, since nothing shipped so far targets an ally (#29).
 - **A paid skill can be strictly worse than the free attack it displaces, and
   nothing warns when it is.** `skill.riposte` at power 85 dealt 34 against the
   Iron Brawler where the free `strike` dealt 45, chosen on 99% of Polnareff's
