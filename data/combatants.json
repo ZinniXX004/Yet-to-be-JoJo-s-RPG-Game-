@@ -72,7 +72,8 @@
     },
     "stand": "stand.silver_chariot",
     "skills": [
-      "skill.strike"
+      "skill.strike",
+      "skill.rage_focus"
     ],
     "ai": "support"
   },

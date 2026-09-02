@@ -311,12 +311,23 @@ fn as_power_units(hp: i32, at: &Situation) -> i32 {
 ///
 /// Enemy-facing skills and self-buffs are. Ally-facing skills are not: healing
 /// is decided by the support triage branch above, which runs first and knows
-/// *who* is hurt, and no shipped skill buffs an ally. Admitting them here would
-/// mean inventing an ally-selection rule in a scorer that cannot see HP.
+/// *who* is hurt. `OneAlly` and `AllAllies` are admitted -- `resolved_target`
+/// already sends any non-hostile skill back to the actor itself, so no new
+/// ally-selection rule is needed to reach this point. What is still missing is
+/// the ability to aim a one-ally skill at anyone *other* than the caster: the
+/// scorer has no per-ally HP, so every one-ally skill an actor picks through
+/// this generic path is a self-cast. `Effect::Heal` is priced at `WORTHLESS`
+/// regardless (see `effect_points`), so `skill.restore` reaching this function
+/// changes nothing -- healing is still decided entirely by the support triage
+/// in `choose`.
 fn is_candidate(def: &SkillDef) -> bool {
     matches!(
         def.target,
-        TargetKind::OneEnemy | TargetKind::AllEnemies | TargetKind::SelfOnly
+        TargetKind::OneEnemy
+            | TargetKind::AllEnemies
+            | TargetKind::SelfOnly
+            | TargetKind::OneAlly
+            | TargetKind::AllAllies
     )
 }
 
@@ -576,7 +587,12 @@ mod tests {
     }
 
     #[test]
-    fn a_skill_aimed_at_an_ally_is_not_a_candidate_for_the_action_slot() {
+    fn a_healing_skill_aimed_at_an_ally_still_scores_worthless() {
+        // OneAlly is a candidate now (see is_candidate), but Effect::Heal is
+        // priced at WORTHLESS regardless of candidacy -- the support triage in
+        // `choose`, not this generic scorer, is what picks a heal. This test
+        // used to be named around candidacy; it is candidacy that changed, not
+        // this assertion.
         let heal = skill(
             "heal",
             TargetKind::OneAlly,
@@ -584,6 +600,55 @@ mod tests {
             vec![Effect::Heal { power: 140 }],
         );
         assert_eq!(score_action(&heal, &healthy(100)), None);
+    }
+
+    #[test]
+    fn an_ally_targeted_buff_is_now_a_reachable_candidate() {
+        let encourage = skill(
+            "encourage",
+            TargetKind::OneAlly,
+            0,
+            vec![status(StatusKind::AtkUp, 40, 3, 100)],
+        );
+        assert!(score_action(&encourage, &healthy(100)).is_some());
+    }
+
+    #[test]
+    fn an_all_allies_buff_is_now_a_reachable_candidate_and_scales_with_ally_count() {
+        let rally = skill(
+            "rally",
+            TargetKind::AllAllies,
+            0,
+            vec![status(StatusKind::AtkUp, 40, 3, 100)],
+        );
+        let two_allies = Situation {
+            allies: 2,
+            ..healthy(100)
+        };
+        let one_ally = Situation {
+            allies: 1,
+            ..healthy(100)
+        };
+        let with_two = score_action(&rally, &two_allies).expect("should score");
+        let with_one = score_action(&rally, &one_ally).expect("should score");
+        assert_eq!(with_two, with_one * 2);
+    }
+
+    #[test]
+    fn a_non_hostile_skill_resolves_its_target_to_the_caster() {
+        let encourage = skill(
+            "encourage",
+            TargetKind::OneAlly,
+            0,
+            vec![status(StatusKind::AtkUp, 40, 3, 100)],
+        );
+        let db = database(vec![encourage.clone()]);
+        let actor = 0;
+        let some_hostile = 7;
+        assert_eq!(
+            resolved_target(&db, &encourage.id, actor, some_hostile),
+            actor
+        );
     }
 
     #[test]
