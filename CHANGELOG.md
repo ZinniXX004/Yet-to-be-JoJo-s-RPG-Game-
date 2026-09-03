@@ -361,9 +361,14 @@ Carried forward from `0.3.0` except where noted:
 - **Correction to the bullet below as first written: `skill.guard_stance` and
   `skill.rage_focus` are not blocked by `is_candidate`.** Both are
   `target: "self_only"`, which `is_candidate` allows. The real story is two
-  separate problems. `skill.rage_focus` is not equipped by any combatant in
-  `data/combatants.json` — it has never been reachable because nothing can
-  try to use it, not because of any scoring rule. `skill.guard_stance` *is*
+  separate problems. `skill.rage_focus` is not equipped by any combatant
+  directly, but `npc.flame_assassin` reaches it through `stand.magicians_red`
+  -- the same blind spot this document already hit once for `pc.jotaro`
+  (`rush_barrage`, `tempo_halt` via `stand.star_platinum`) and
+  `pc.polnareff` (`riposte` via `stand.silver_chariot`), and missed again
+  here before catching it. It had 0 recorded uses at the numbers it shipped
+  with, same as `skill.guard_stance` below, for the same reason: too weak to
+  beat what was already available. `skill.guard_stance` *is*
   equipped (`pc.jotaro`, `pc.josuke`) and does clear `is_candidate`, but its
   priced value can't beat the free `strike` under the numbers it ships with:
   `power_units = prevented * 100 / atk`, and with `potency 60, duration 2` the
@@ -376,6 +381,22 @@ Carried forward from `0.3.0` except where noted:
   price.** This is real, and it's what blocked `pc.polnareff`'s original
   debuffer concept — but it's a separate finding from the bullet above, not
   the explanation for it, since nothing shipped so far targets an ally (#29).
+- **#29 resolved.** `is_candidate` now admits `OneAlly` and `AllAllies`;
+  `resolved_target` already sent any non-hostile skill back to its caster, so
+  no ally-selection logic had to be invented, and `Effect::Heal` stays priced
+  at `WORTHLESS` regardless, so `skill.restore` is unaffected -- healing is
+  still the support triage's job alone. Four new tests cover the change.
+  `skill.guard_stance` repriced from `potency 60, duration 2` to `duration 3`
+  (potency unchanged): now clears `strike` in some fights, not others --
+  194 uses in `matchup.weaver_gambit` (77% → 73%, still inside 58..86), single
+  digits in `matchup.assassin_ambush` and `matchup.bell_race`, zero in the
+  rest. `skill.rage_focus` assigned to `pc.polnareff` and repriced from
+  `potency 40, duration 3` to `potency 35, duration 4`: `matchup.dio_boss`
+  68% → 69% (inside 35..75), `matchup.diavolo_boss` 40% → 33% (inside
+  25..55). `npc.flame_assassin`'s incidental access through
+  `stand.magicians_red` picked it up too, 14 uses (1%) in
+  `matchup.assassin_ambush`, no measurable effect on that encounter's 53%.
+  All seven bands re-verified `ok` in the same run.
 - **A paid skill can be strictly worse than the free attack it displaces, and
   nothing warns when it is.** `skill.riposte` at power 85 dealt 34 against the
   Iron Brawler where the free `strike` dealt 45, chosen on 99% of Polnareff's
