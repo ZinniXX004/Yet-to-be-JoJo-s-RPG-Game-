@@ -651,10 +651,21 @@ and `--mirror` is what said so rather than a human remembering to diff.
       *(seven, not six. Issue #16 added the Blade Dancer, Hex Weaver and
       Requiem Bell one per commit, each with its own declared encounter:
       `dancer_rush` 70%, `weaver_gambit` 77%, `bell_race` 68%)*
-- [ ] Second boss fight with its own band *(issue #17)*
-- [ ] `skill.guard_stance` and `skill.rage_focus` repriced *(issue #29 -- split
+- [x] Second boss fight with its own band *(issue #17 -- `npc.diavolo`, King
+      Crimson simplified to its "erase time" ability via the existing
+      `tempo_lock` primitive; Epitaph has no engine equivalent and was not
+      attempted. `matchup.diavolo_boss` measures 40%, band 25..55, the
+      lowest declared band in the project)*
+- [x] `skill.guard_stance` and `skill.rage_focus` repriced *(issue #29 -- split
       out of the first checklist line, which was ticking a criterion it did not
-      meet)*
+      meet. Turned out to be three separate things: `is_candidate` widened to
+      admit `OneAlly`/`AllAllies` -- `resolved_target` already defaulted
+      non-hostile skills to the caster, so no ally-selection logic had to be
+      invented; `guard_stance` repriced (`duration` 2->3); `rage_focus`
+      assigned to `pc.polnareff` and repriced (`potency` 40->35, `duration`
+      3->4). The mirror guard from #30/#31 caught a real omission before
+      merge: `pc.polnareff`'s probe entry needed the same skill added, and
+      `--mirror` is what said so.)*
 - [ ] Floating damage numbers, status icons, legible tempo readout
 - [ ] A recorded playthrough of both boss fights, console clean
 
