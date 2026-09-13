@@ -723,6 +723,57 @@ mod tests {
         );
     }
 
+    /// Issue #27: emerald_snare's share of Kakyoin's turns falls as the
+    /// enemy's atk rises, and nothing in the probe explained why. Traced it
+    /// with temporary instrumentation on best_action rather than guessing:
+    /// the score for both skills is exactly constant across every sp level
+    /// and every enemy atk value tested, so the scorer's own preference
+    /// never moves. What moves is which enemy-count state Kakyoin is alive
+    /// to see. An AllEnemies skill's value is multiplied by the live enemy
+    /// count (affected_count, already covered by
+    /// an_area_attack_is_worth_its_power_once_per_target above), so it wins
+    /// outright with two enemies up and loses that edge the moment only one
+    /// remains -- at which point a smaller one_enemy skill that also carries
+    /// a status effect wins instead. As enemy atk rises, Kakyoin's survival
+    /// collapses long before either enemy dies, so a shrinking share of his
+    /// turns ever happen in the one-enemy state. The drift is a composition
+    /// effect, not a defect: pinned here so the arithmetic cannot silently
+    /// change out from under that conclusion.
+    #[test]
+    fn an_all_enemies_skill_loses_its_edge_once_only_one_enemy_remains() {
+        let skills = vec![
+            skill(
+                "snare",
+                TargetKind::OneEnemy,
+                15,
+                vec![damage(75), status(StatusKind::SpdDown, 30, 3, 80)],
+            ),
+            skill("splash", TargetKind::AllEnemies, 22, vec![damage(105)]),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+
+        let two_enemies = Situation {
+            enemies: 2,
+            ..healthy(145)
+        };
+        let one_enemy = Situation {
+            enemies: 1,
+            ..healthy(145)
+        };
+
+        assert_eq!(
+            best_action(&db, &list, &two_enemies).as_deref(),
+            Some("splash"),
+            "with two enemies up, the AllEnemies multiplier should win"
+        );
+        assert_eq!(
+            best_action(&db, &list, &one_enemy).as_deref(),
+            Some("snare"),
+            "drop to one enemy and the OneEnemy skill should win instead"
+        );
+    }
+
     /// The same finding for the attack buff: 40% over three turns returns 0.8
     /// of a hit for the price of one.
     #[test]
