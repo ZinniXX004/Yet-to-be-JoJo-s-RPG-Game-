@@ -1707,6 +1707,87 @@ once, which is what distinguishes relocating a fixture from rescuing a number.
 
 ---
 
+## Issue #22 -- the scorer learns a target's resistance table
+
+**A rules change.** `ai.rs` is touched directly, not `data/`. No comparability
+boundary opens by itself -- nothing about the rules that produce a given
+encounter's numbers changed, only how accurately the AI estimates them before
+acting -- but every encounter with a resistance table anywhere in it was
+re-measured anyway, because the fix's own effect is exactly to make behaviour
+shift in exactly those encounters.
+
+### The problem, restated precisely
+
+`score_action` priced `Effect::Damage` and `Effect::Drain` by `power * targets`
+alone. `resolve.rs`'s `compute_damage` has applied the target's resistance
+since issue #10 -- but the AI choosing the skill never looked. Two identical
+power values against a physically-resistant target and a psychically-vulnerable
+one scored identically, even though the real hits landing on each would not be.
+
+### What changed
+
+`Situation` gained a `target_resist: Resistances` field: the resistance table
+of whichever hostile target `choose` has already picked for this turn, empty
+(neutral) when no hostile target applies. `effect_points` now weights
+`Effect::Damage` and `Effect::Drain` by `(100 - resist) / 100`, clamped to the
+same `MIN_RESISTANCE..MAX_RESISTANCE` range `compute_damage` already uses.
+Extended to `Drain` as well as `Damage`, on inspection of `resolve.rs`: both
+go through `compute_damage`, so limiting the fix to `Damage` alone would have
+left the identical defect sitting under a different effect kind.
+
+**The RNG draw order everything else in this file depends on is unchanged.**
+`choose` used to build one `Situation` before picking a hostile target; it now
+builds `Situation` separately inside the `Support` and `Aggressive` branches,
+after the hostile pick -- but that pick already happened in the same relative
+position it always has, and constructing a struct draws nothing from the RNG.
+`same_seed_produces_identical_logs` and the full band suite both stayed green,
+which is what that guarantee is for.
+
+### Control: `matchup.thug_solo`
+
+Street Thug carries no resistance table. Required to come out bit-identical,
+and it did -- `dealt/b`, `taken/b`, `rolls`, every column, unchanged to the
+integer.
+
+### Re-measured, 300 seeds
+
+| Encounter | Before | After | Band | Status |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 | ok, bit-identical |
+| `matchup.assassin_ambush` | 53% | 54% | 45..90 | ok |
+| `matchup.dio_boss` | 69% | 69% | 35..75 | ok |
+| `matchup.dancer_rush` | 70% | 77% | 60..90 | ok |
+| `matchup.weaver_gambit` | 73% | 69% | 58..86 | ok |
+| `matchup.bell_race` | 68% | 66% | 48..80 | ok |
+| `matchup.diavolo_boss` | 33% | 33% | 25..55 | ok, unaffected -- Diavolo carries a resistance table, but nothing on the party side changed and Diavolo's own targets (the party) were already being priced without one on his side of the fight either |
+
+`matchup.assassin_ambush` and `matchup.dio_boss` are the two the issue named.
+`matchup.dancer_rush`, `matchup.weaver_gambit` and `matchup.bell_race` all
+share the Iron Brawler (`physical: 25, psychic: -25`) as their second foe and
+moved too, unprompted by the issue text -- checked rather than assumed to
+still be `ok`, which they are. `npc.blade_dancer` itself carries no
+resistance table at all; `matchup.dancer_rush`'s +7 points is entirely the
+Iron Brawler half of that encounter.
+
+### The qualitative story behind `matchup.dio_boss`'s unmoved win rate
+
+An unchanged aggregate can still hide a real, correctly-directed shift. `Dio`
+(`temporal: 50, psychic: 20`, and the party's Jotaro also carries
+`temporal: 50`) used `skill.tempo_halt` (the only `temporal` skill Dio holds)
+97 times pre-fix, 77 post-fix -- down from 3% to 2% of his actions, in the
+direction the issue predicted, just not far enough to move the win rate on
+its own. `blade_volley`'s share absorbed the difference. Recorded so the
+"nothing changed" reading of an unmoved percentage is not mistaken for the
+fix having no effect here.
+
+### Acceptance criteria
+
+- [x] `score_action` consults the target's resistance table when pricing
+      damage effects
+- [x] The three existing `resolve` unit tests still pass
+- [x] `matchup.assassin_ambush` win rate re-measured and recorded above
+- [x] `matchup.dio_boss` win rate re-measured and recorded above
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
