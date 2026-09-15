@@ -265,6 +265,18 @@ joining `matchup.dio_boss`, and issue #16's three new encounters:
 All six inside their declared band. Full per-combatant breakdowns and the
 prediction scorecards for how each number was reached are in
 `docs/BALANCE-LOG.md` and `docs/BALANCE-M3-ENEMIES.md`, not repeated here.
+- **`score_action` weighs `Effect::Damage`/`Effect::Drain` by the target's
+  resistance** (#22), matching what `compute_damage` has applied since #10.
+  `Situation` carries the already-chosen hostile target's resistance table
+  now; RNG draw order is unchanged (verified: `same_seed_produces_identical_logs`
+  and the full band suite stayed green). `matchup.thug_solo` (no resistance
+  data) came out bit-identical, as required. `matchup.assassin_ambush` 53% ->
+  54%, `matchup.dio_boss` 69% -> 69% (aggregate unmoved, but Dio's `tempo_halt`
+  share against temporal-resistant Jotaro dropped 3% -> 2%, the predicted
+  direction). Three more encounters that share the Iron Brawler moved too and
+  were checked, not assumed: `matchup.dancer_rush` 70% -> 77%,
+  `matchup.weaver_gambit` 73% -> 69%, `matchup.bell_race` 68% -> 66%. All seven
+  bands still hold. Full numbers in `docs/BALANCE-LOG.md`.
 
 ### Fixed
 

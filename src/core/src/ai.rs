@@ -64,7 +64,10 @@
 //! skills the actor is holding, so there is no new constant to tune --
 //! `data/skills.json` keeps deciding behaviour.
 
-use crate::data::{AiProfile, Database, Effect, Id, SkillDef, StatusKind, TargetKind};
+use crate::data::{
+    AiProfile, Database, Effect, Id, Resistances, SkillDef, StatusKind, TargetKind, MAX_RESISTANCE,
+    MIN_RESISTANCE,
+};
 use crate::resolve::BASIC_ATTACK_ID;
 use crate::state::BattleState;
 use crate::Command;
@@ -131,6 +134,13 @@ struct Situation {
     /// Used as the exchange rate for effects whose value is measured in enemy
     /// or own *actions* rather than in HP.
     baseline: i32,
+    /// The resistance table of whichever hostile target has already been
+    /// chosen for this turn (see `choose`) -- empty, which reads as neutral
+    /// for every element, when no hostile target applies (a self-only or
+    /// ally-only decision). Populated before scoring, not after, so
+    /// `effect_points` can weight `Effect::Damage`/`Effect::Drain` by it
+    /// (issue #22) without the scorer ever picking a target itself.
+    target_resist: Resistances,
 }
 
 /// Picks a command for `actor`. Takes `&mut BattleState` because the RNG lives
@@ -155,13 +165,11 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
         return Command::Wait;
     }
 
-    let situation = Situation {
-        sp,
-        atk,
-        enemies: enemies.len() as i32,
-        allies: allies.len() as i32,
-        baseline: baseline_power(db, &skills, sp),
-    };
+    // Numeric context that does not depend on which specific hostile gets
+    // picked, so it is safe to compute before the RNG draw that picks one.
+    let enemy_count = enemies.len() as i32;
+    let ally_count = allies.len() as i32;
+    let baseline = baseline_power(db, &skills, sp);
 
     // Ties break on the lower index so the fallback is deterministic rather
     // than dependent on iteration details.
@@ -191,7 +199,19 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                     return Command::Skill { skill, target };
                 }
             }
+            // Unchanged position relative to the RNG draws above: the hostile
+            // target is picked here exactly as before. Only what happens
+            // *after* that pick (building `situation` with its resistance
+            // table now known) is new.
             let hostile = pick_hostile_target(st, &enemies, weakest_enemy);
+            let situation = Situation {
+                sp,
+                atk,
+                enemies: enemy_count,
+                allies: ally_count,
+                baseline,
+                target_resist: st.combatants[hostile].resist.clone(),
+            };
             if let Some(skill) = best_action(db, &skills, &situation) {
                 let target = resolved_target(db, &skill, actor, hostile);
                 return Command::Skill { skill, target };
@@ -199,8 +219,18 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
             Command::Attack { target: hostile }
         }
         AiProfile::Aggressive => {
+            // Same note as the Support branch above: this RNG draw is in the
+            // same place it always was.
             let hostile = pick_hostile_target(st, &enemies, weakest_enemy);
             if st.rng.chance(AGGRESSIVE_SKILL_CHANCE) {
+                let situation = Situation {
+                    sp,
+                    atk,
+                    enemies: enemy_count,
+                    allies: ally_count,
+                    baseline,
+                    target_resist: st.combatants[hostile].resist.clone(),
+                };
                 if let Some(skill) = best_action(db, &skills, &situation) {
                     let target = resolved_target(db, &skill, actor, hostile);
                     return Command::Skill { skill, target };
@@ -377,7 +407,21 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
 /// Price of one effect on one full application of the skill.
 fn effect_points(effect: &Effect, at: &Situation, targets: i32) -> i32 {
     match *effect {
-        Effect::Damage { power, .. } | Effect::Drain { power, .. } => power * targets,
+        Effect::Damage { power, element, .. } | Effect::Drain { power, element, .. } => {
+            // Same weighting resolve.rs applies to the real hit (issue #22):
+            // resistance scales what actually lands, not the number the skill
+            // declares. Extended to Drain as well as Damage, since
+            // compute_damage prices both identically in resolve.rs -- leaving
+            // Drain out would just move this exact blindness to a different
+            // effect kind rather than close it.
+            let resist = at
+                .target_resist
+                .get(&element)
+                .copied()
+                .unwrap_or(0)
+                .clamp(MIN_RESISTANCE, MAX_RESISTANCE);
+            power * targets * (100 - resist) / 100
+        }
         // See status_points: the support branch owns healing.
         Effect::Heal { .. } => WORTHLESS,
         Effect::Status {
@@ -552,6 +596,7 @@ mod tests {
             enemies: 2,
             allies: 1,
             baseline: 100,
+            target_resist: Resistances::new(),
         }
     }
 
@@ -721,6 +766,23 @@ mod tests {
             best_action(&db, &list, &healthy(0)).as_deref(),
             Some("guard")
         );
+    }
+
+    /// Issue #22: a target's resistance now discounts (or amplifies) how much
+    /// a Damage effect is worth, the same way resolve.rs's compute_damage
+    /// already treats the real hit.
+    #[test]
+    fn a_resisted_element_is_priced_lower_than_an_unresisted_one() {
+        let physical = skill("jab", TargetKind::OneEnemy, 0, vec![damage(100)]);
+        let mut resisted = healthy(0);
+        resisted.target_resist.insert(Element::Physical, 25);
+        let mut neutral = healthy(0);
+        neutral.target_resist.insert(Element::Physical, 0);
+
+        let resisted_score = score_action(&physical, &resisted).unwrap();
+        let neutral_score = score_action(&physical, &neutral).unwrap();
+        assert!(resisted_score < neutral_score);
+        assert_eq!(resisted_score, neutral_score * 75 / 100);
     }
 
     /// Issue #27: emerald_snare's share of Kakyoin's turns falls as the
