@@ -65,8 +65,8 @@
 //! `data/skills.json` keeps deciding behaviour.
 
 use crate::data::{
-    AiProfile, Database, Effect, Id, Resistances, SkillDef, StatusKind, TargetKind,
-    MAX_RESISTANCE, MIN_RESISTANCE,
+    AiProfile, Database, Effect, Id, Resistances, SkillDef, StatusKind, TargetKind, MAX_RESISTANCE,
+    MIN_RESISTANCE,
 };
 use crate::resolve::BASIC_ATTACK_ID;
 use crate::state::BattleState;
