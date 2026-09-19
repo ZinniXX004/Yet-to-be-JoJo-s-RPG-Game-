@@ -277,6 +277,19 @@ prediction scorecards for how each number was reached are in
   were checked, not assumed: `matchup.dancer_rush` 70% -> 77%,
   `matchup.weaver_gambit` 73% -> 69%, `matchup.bell_race` 68% -> 66%. All seven
   bands still hold. Full numbers in `docs/BALANCE-LOG.md`.
+- **`score_action` weighs `Effect::Damage`/`Effect::Drain` by the target's
+  `def` too, mirroring `compute_damage`'s full shape** (#33): `power * atk /
+  100`, floored against `def / 2`, then `#22`'s resistance weighting. Also
+  adds a cheap authoring warning in `validate_data.py` for a paid skill under
+  100 power (Option 1) -- it already caught `skill.tempo_halt` alongside the
+  issue's named `skill.emerald_snare`. The scorer fix alone broke three
+  bands (`matchup.assassin_ambush`, `matchup.dancer_rush`,
+  `matchup.weaver_gambit`) once `skill.guard_stance` -- repriced in #29
+  against a scorer that could not see defence -- became disproportionately
+  attractive against now-honestly-discounted damage skills.
+  `npc.iron_brawler`'s `def` retuned 48 -> 15 by measurement to recover all
+  three. `matchup.thug_solo` stayed bit-identical throughout. Full
+  before/after numbers and the diagnosis in `docs/BALANCE-LOG.md`.
 
 ### Fixed
 

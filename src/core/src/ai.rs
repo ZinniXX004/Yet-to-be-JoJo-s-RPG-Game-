@@ -141,6 +141,12 @@ struct Situation {
     /// `effect_points` can weight `Effect::Damage`/`Effect::Drain` by it
     /// (issue #22) without the scorer ever picking a target itself.
     target_resist: Resistances,
+    /// The `def` stat of that same hostile target, zero when none applies.
+    /// `effect_points` subtracts this the same way `compute_damage` does
+    /// (issue #33): the flat toll after atk scaling, not a fraction of
+    /// power. Zero is a safe default for a self/ally-only decision, since
+    /// no shipped skill fires a Damage/Drain effect at a non-hostile target.
+    target_def: i32,
 }
 
 /// Picks a command for `actor`. Takes `&mut BattleState` because the RNG lives
@@ -211,6 +217,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                 allies: ally_count,
                 baseline,
                 target_resist: st.combatants[hostile].resist.clone(),
+                target_def: st.combatants[hostile].def(),
             };
             if let Some(skill) = best_action(db, &skills, &situation) {
                 let target = resolved_target(db, &skill, actor, hostile);
@@ -230,6 +237,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                     allies: ally_count,
                     baseline,
                     target_resist: st.combatants[hostile].resist.clone(),
+                    target_def: st.combatants[hostile].def(),
                 };
                 if let Some(skill) = best_action(db, &skills, &situation) {
                     let target = resolved_target(db, &skill, actor, hostile);
@@ -408,19 +416,29 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
 fn effect_points(effect: &Effect, at: &Situation, targets: i32) -> i32 {
     match *effect {
         Effect::Damage { power, element, .. } | Effect::Drain { power, element, .. } => {
-            // Same weighting resolve.rs applies to the real hit (issue #22):
-            // resistance scales what actually lands, not the number the skill
-            // declares. Extended to Drain as well as Damage, since
-            // compute_damage prices both identically in resolve.rs -- leaving
-            // Drain out would just move this exact blindness to a different
-            // effect kind rather than close it.
+            // Mirrors compute_damage in resolve.rs (issue #33), not just a
+            // resistance weighting on raw power (issue #22's fix, extended
+            // here rather than replaced): the flat defence toll is
+            // subtracted after atk scaling, so a low-power skill can
+            // collapse toward the floor against a high-defence target in a
+            // way power-only pricing never saw. Same floor-at-1 in both
+            // places compute_damage floors, same order of operations.
+            // Variance and crit are still left out -- this prices the
+            // expected floor of a hit, not a specific roll.
+            let base = power * at.atk / 100;
+            let after_def = (base - at.target_def / 2).max(1);
             let resist = at
                 .target_resist
                 .get(&element)
                 .copied()
                 .unwrap_or(0)
                 .clamp(MIN_RESISTANCE, MAX_RESISTANCE);
-            power * targets * (100 - resist) / 100
+            let after_resist = if resist != 0 {
+                (after_def * (100 - resist) / 100).max(1)
+            } else {
+                after_def
+            };
+            after_resist * targets
         }
         // See status_points: the support branch owns healing.
         Effect::Heal { .. } => WORTHLESS,
@@ -597,6 +615,7 @@ mod tests {
             allies: 1,
             baseline: 100,
             target_resist: Resistances::new(),
+            target_def: 0,
         }
     }
 
@@ -628,7 +647,7 @@ mod tests {
     fn a_skill_the_actor_cannot_pay_for_is_not_a_candidate() {
         let expensive = skill("expensive", TargetKind::OneEnemy, 30, vec![damage(200)]);
         assert_eq!(score_action(&expensive, &healthy(29)), None);
-        assert_eq!(score_action(&expensive, &healthy(30)), Some(200));
+        assert_eq!(score_action(&expensive, &healthy(30)), Some(240));
     }
 
     #[test]
@@ -699,12 +718,12 @@ mod tests {
     #[test]
     fn an_area_attack_is_worth_its_power_once_per_target() {
         let volley = skill("volley", TargetKind::AllEnemies, 24, vec![damage(110)]);
-        assert_eq!(score_action(&volley, &healthy(24)), Some(220));
+        assert_eq!(score_action(&volley, &healthy(24)), Some(264));
         let alone = Situation {
             enemies: 1,
             ..healthy(24)
         };
-        assert_eq!(score_action(&volley, &alone), Some(110));
+        assert_eq!(score_action(&volley, &alone), Some(132));
     }
 
     #[test]
@@ -718,7 +737,7 @@ mod tests {
                 element: Element::Psychic,
             }],
         );
-        assert_eq!(score_action(&drain, &healthy(12)), Some(120));
+        assert_eq!(score_action(&drain, &healthy(12)), Some(144));
     }
 
     /// The defect this commit exists for. 60 prevented HP is worth fewer power
@@ -870,8 +889,9 @@ mod tests {
             baseline: 140,
             ..healthy(45)
         };
-        // 140 * 6 * 3 / 12 = 210 denied, plus 60 damage on each of three.
-        assert_eq!(score_action(&halt, &against_three), Some(390));
+        // 140 * 6 * 3 / 12 = 210 denied, plus 72 damage (60 power at atk 120)
+        // on each of three.
+        assert_eq!(score_action(&halt, &against_three), Some(426));
     }
 
     #[test]
@@ -882,8 +902,9 @@ mod tests {
             22,
             vec![damage(140), status(StatusKind::Stun, 0, 1, 40)],
         );
-        // 140 damage plus 40% of one denied 100-point action.
-        assert_eq!(score_action(&slam, &healthy(22)), Some(180));
+        // 168 damage (140 power at atk 120) plus 40% of one denied
+        // 100-point action.
+        assert_eq!(score_action(&slam, &healthy(22)), Some(208));
     }
 
     #[test]
@@ -894,9 +915,9 @@ mod tests {
             16,
             vec![damage(150), status(StatusKind::Bleed, 25, 3, 60)],
         );
-        // 75 HP over three turns is 62 power points at atk 120, of which 60%
-        // is expected to land.
-        assert_eq!(score_action(&flare, &healthy(16)), Some(187));
+        // 180 damage (150 power at atk 120), plus 75 HP over three turns
+        // converted to 62 power points, of which 60% is expected to land.
+        assert_eq!(score_action(&flare, &healthy(16)), Some(217));
     }
 
     /// The exchange rate between SP and points, spelled out on the repertoire
@@ -908,13 +929,14 @@ mod tests {
         let candidates: Vec<&SkillDef> = skills.iter().collect();
         let at = healthy(80);
 
-        assert_eq!(free_points(&candidates, &at), 100);
-        // Pricing the lock, the alternative is the barrage: 95 / 18 = 5.
-        assert_eq!(best_other_rate(&candidates, &at, "halt", 100), 5);
-        // Pricing the barrage, the alternative is the lock: 120 / 45 = 2.
-        assert_eq!(best_other_rate(&candidates, &at, "rush", 100), 2);
-        // A skill with no paid alternative is charged nothing.
-        assert_eq!(best_other_rate(&candidates, &at, "rush", 195), 0);
+        assert_eq!(free_points(&candidates, &at), 120);
+        // Pricing the lock, the alternative is the barrage: (234 - 120) / 18 = 6.
+        assert_eq!(best_other_rate(&candidates, &at, "halt", 120), 6);
+        // Pricing the barrage, the alternative is the lock: (244 - 120) / 45 = 2.
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 120), 2);
+        // A skill with no paid alternative is charged nothing -- 244 is the
+        // lock's own score, so nothing left can outbid it.
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 244), 0);
     }
 
     /// The measured defect, as a unit test. 45 SP on a tempo lock is two and a
