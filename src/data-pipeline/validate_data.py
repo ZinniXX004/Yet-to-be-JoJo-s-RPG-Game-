@@ -338,6 +338,16 @@ def validate_skills(rows: list[dict[str, Any]], filename: str,
         if int(row.get("sp_cost") or 0) == 0 and total_power > 130:
             report.warn(where, f"free skill with total power {total_power}"
                                " dominates the basic attack")
+        # Issue #33, option 1: a paid skill whose only damage effect is
+        # weaker than the free basic attack (power 100) used to be invisible
+        # to this validator, because nothing here priced power against a
+        # target's defence the way the AI scorer now does. This does not
+        # replicate that arithmetic -- it is a cheap, def-blind tripwire for
+        # authoring a skill this shape again, not a substitute for measuring
+        # one that already shipped.
+        if (int(row.get("sp_cost") or 0) > 0 and 0 < total_power < 100):
+            report.warn(where, f"paid skill with total power {total_power}"
+                               " is weaker than the free basic attack (100)")
     return ids, elements_dealt
 
 

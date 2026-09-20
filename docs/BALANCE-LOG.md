@@ -1788,6 +1788,131 @@ fix having no effect here.
 - [x] `matchup.assassin_ambush` win rate re-measured and recorded above
 - [x] `matchup.dio_boss` win rate re-measured and recorded above
 
+## Issue #33 -- the scorer learns the defence toll, and Iron Brawler gets retuned
+
+**A rules change, and it opens a new comparability boundary.** `ai.rs` is
+touched directly (Option 3 from the issue), plus `src/data-pipeline/validate_data.py`
+gets a cheap authoring tripwire (Option 1). Unlike #22, this one did not stay
+inside its own numbers: three bands broke and needed a real content retune
+to close, not just a re-measurement.
+
+### The problem, restated precisely
+
+`score_action` priced `Effect::Damage`/`Effect::Drain` as raw `power`, scaled
+by `#22`'s resistance weighting. `resolve.rs`'s `compute_damage` has always
+subtracted a flat defence toll *after* scaling `power` by the attacker's
+`atk` -- `max(power * atk / 100 - def / 2, 1)` -- and the scorer never did
+either half of that. A power-75 skill and a power-100 skill scored
+75-points-cheaper-than-100 to the AI, when the real gap after atk scaling
+and a real target's defence could be far larger, or could vanish the
+75-power skill into the floor entirely.
+
+### What changed, part 1: the scorer (Option 3)
+
+`Situation` gained `target_def: i32` -- the `def` stat of whichever hostile
+target `choose` already picked this turn, zero when none applies, populated
+the same way and at the same point as `#22`'s `target_resist` (after the
+hostile pick, same RNG position, verified again via
+`same_seed_produces_identical_logs`). `effect_points` now computes
+`base = power * atk / 100`, floors `base - def / 2` at 1, then applies
+`#22`'s resistance weighting to that floored result, then the target-count
+multiplier -- the same shape and the same two floors `compute_damage` uses,
+not a new approximation.
+
+This was flagged in the issue itself as the largest of the three options,
+written before #22 landed: "the largest change... would alter every existing
+AI test's arithmetic." That part held -- seven of the existing `ai.rs` tests
+needed their expected numbers recalculated, because `atk` had never entered
+the scorer's arithmetic at all before this, even for a target with zero
+defence. All seven were fixed by recomputing the new formula by hand and
+confirming against the compiler's own output, not by rewriting the tests'
+intent.
+
+### What changed, part 2: the validator (Option 1)
+
+`validate_data.py` now warns when a paid skill's only damage effect is under
+100 power (the free `skill.strike`'s power), mirroring the existing
+free-skill-dominates check already in the same function. Deliberately dumb:
+it does not know that `skill.tempo_halt`'s real value is mostly its
+`tempo_lock`, so it warns on that too, alongside the issue's named example,
+`skill.emerald_snare`. Both are accepted as correct warnings, not false
+positives -- the check was never meant to weigh a skill's other effects, only
+to catch this specific shape on sight during authoring.
+
+### The behaviour this actually produced, and why a data-only re-measurement was not enough
+
+Re-measuring with no content changes broke three bands, not zero:
+
+| Encounter | Before #33 | Scorer fix alone | Band | Status |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 | ok, bit-identical |
+| `matchup.assassin_ambush` | 54% | 36% | 45..90 | **OUT, -9** |
+| `matchup.dio_boss` | 69% | 60% | 35..75 | ok |
+| `matchup.dancer_rush` | 77% | 58% | 60..90 | **OUT, -2** |
+| `matchup.weaver_gambit` | 69% | 41% | 58..86 | **OUT, -17** |
+| `matchup.bell_race` | 66% | 54% | 48..80 | ok |
+| `matchup.diavolo_boss` | 33% | 27% | 25..55 | ok |
+
+The mechanism, traced rather than assumed: `Josuke`'s `skill.guard_stance`
+(repriced in #29 against a scorer that could not see defence at all) went
+from single digits to **60% of his turns in `matchup.diavolo_boss`**, because
+every damage-dealing alternative got honestly discounted while
+`guard_stance`'s own value, priced through an unrelated code path, did not
+move. Reverting `guard_stance` to its pre-#29 numbers recovered some ground
+(`weaver_gambit` 41% -> 46%) but left all three bands broken -- the shift was
+not guard_stance alone.
+
+The three broken encounters are the four that include `npc.iron_brawler` minus
+the one that does not break (`matchup.bell_race`). Iron Brawler's `def` (48)
+is not the highest in the roster -- `npc.requiem_bell`'s is (60) -- so this is
+not simply "whichever enemy has the most defence." `matchup.bell_race`'s
+median fight length (17-18 turns) is the shortest of the four; the three that
+broke run longer (21-28), giving more turns for the discount to compound.
+Recorded as the best available explanation, not a fully closed one -- the
+exact mechanism by which fight length interacts with the discount was not
+traced turn-by-turn the way #27's was.
+
+### Retune: `npc.iron_brawler` `def` 48 -> 15
+
+Converged on by measurement, the same way `matchup.diavolo_boss` was sized:
+48 (unchanged) left three bands broken; 35 recovered two of three;
+25 left `weaver_gambit` one point short (57%, needs 58); 20 cleared all
+seven but landed `weaver_gambit` exactly on its floor (58%), too fragile to
+ship; 15 was the first value with comfortable margin on every previously-broken
+band and was kept rather than pushed further toward 10, which measured
+almost identically.
+
+### Re-measured, 300 seeds, final state
+
+| Encounter | Before #33 | Final (scorer + retune) | Band | Status |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 | ok, bit-identical |
+| `matchup.assassin_ambush` | 54% | 58% | 45..90 | ok |
+| `matchup.dio_boss` | 69% | 60% | 35..75 | ok |
+| `matchup.dancer_rush` | 77% | 75% | 60..90 | ok |
+| `matchup.weaver_gambit` | 69% | 67% | 58..86 | ok |
+| `matchup.bell_race` | 66% | 66% | 48..80 | ok |
+| `matchup.diavolo_boss` | 33% | 27% | 25..55 | ok |
+
+All seven inside their declared band. `matchup.thug_solo` bit-identical, as
+every control in this file has been since #22 established the expectation.
+
+### Acceptance criteria
+
+- [x] `score_action` weighs `Effect::Damage`/`Effect::Drain` by the target's
+      defence, mirroring `compute_damage`'s formula shape
+- [x] `validate_data.py` warns on a paid skill below `strike`'s power
+      (Option 1)
+- [x] All seven encounters re-measured; three that broke were retuned, not
+      silently redeclared
+- [x] `matchup.thug_solo` remains bit-identical
+- [ ] Option 2 (repricing `skill.emerald_snare` directly) intentionally not
+      done here -- deferred per the decision to fix the scorer first and
+      revisit content only if still warranted after. Still warranted:
+      `emerald_snare` is still below 100 power and still trips the new
+      validator warning. Left as a candidate for its own future pass, now
+      informed by a scorer that can actually see what it is worth.
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
