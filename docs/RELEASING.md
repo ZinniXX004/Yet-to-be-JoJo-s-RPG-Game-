@@ -183,7 +183,14 @@ These are manual, one-time, and cannot be committed to the repo:
    (the release workflow requests `contents: write` at the job level; the
    repository setting must permit it).
 3. **Dependabot:** enabled via [`.github/dependabot.yml`](../.github/dependabot.yml);
-   confirm alerts are on in *Settings → Code security*.
+   confirm alerts are on in *Settings → Code security*. GitHub reads that file
+   from the **default branch** only, and opens security updates against the
+   default branch whatever `target-branch` says. While `main` is the default,
+   Dependabot therefore proposes changes to `main` and bypasses `development`
+   (PRs #48 and #52). Setting *Settings → General → Default branch* to
+   `development` fixes both; it also makes `development` the base a new pull
+   request proposes by default. Branch protection on `main`, tags and releases
+   are unaffected.
 4. **Issue labels:** the taxonomy in [TRIAGE.md](TRIAGE.md) has to exist in
    *Issues → Labels* before the issue forms can apply it.
 

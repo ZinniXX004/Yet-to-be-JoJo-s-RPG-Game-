@@ -3,11 +3,27 @@
 # Weekly rather than daily: on a solo project, a daily PR firehose gets ignored,
 # and ignored automation is worse than none. Grouped so that one review covers
 # one ecosystem.
+#
+# target-branch: development, for both ecosystems. Without it Dependabot opens
+# pull requests against the default branch, and main only ever accepts
+# development (docs/RELEASING.md). PRs #48 and #52 went to main that way and were
+# stale on arrival: development already carried the action bumps #48 proposed
+# and a newer godot than the one #52 started from.
+#
+# Two GitHub rules limit what this file can do, both from the Dependabot docs:
+#  - This file is read from the DEFAULT branch only. While the default branch is
+#    main, an edit here takes effect when it reaches main, not when it lands on
+#    development.
+#  - target-branch governs version updates only. Security updates are always
+#    opened against the default branch.
+# Making development the repository's default branch removes both limits; see
+# docs/RELEASING.md section 4.
 
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /src
+    target-branch: development
     schedule:
       interval: weekly
       day: monday
@@ -20,6 +36,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
       day: monday
