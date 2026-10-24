@@ -674,12 +674,13 @@ and `--mirror` is what said so rather than a human remembering to diff.
       3->4). The mirror guard from #30/#31 caught a real omission before
       merge: `pc.polnareff`'s probe entry needed the same skill added, and
       `--mirror` is what said so.)*
-- [ ] `matchup.diavolo_boss` rebalanced away from its band's floor *(27%
+- [x] `matchup.diavolo_boss` rebalanced away from its band's floor *(27%
       against 25..55 after #33: two points, under one standard error at 300
-      seeds, so the next rules change would turn the gate red for a reason
-      unrelated to it. Decided 2026-10-24: rebalance before tagging `0.4.0`,
-      measured in the same run as #24, since a change to `skill.restore`
-      moves this fight too)*
+      seeds. Measured with #24 in one entry: `restore` kept at 140 because it
+      moves `dio_boss` to its ceiling first, and `npc.diavolo` `hp` 3400 ->
+      3200 puts the fight at 38%, median 79 turns. The probes also found
+      `guard_stance` chosen often at a net cost and `emerald_snare` still
+      underpowered; fixing either moves this fight again)*
 - [ ] Floating damage numbers, status icons, legible tempo readout
 - [ ] A recorded playthrough of both boss fights, console clean
 
@@ -756,11 +757,11 @@ Issue handling, labels and the reproduction a balance report must contain are in
   battle against a party spending 98 to 137 each, on a pool of 200 that refills
   at 4 per turn. Still to be filed as its own issue rather than folded into step
   5, because it is a rules question and step 5 is content.
-- **`skill.restore` at potency 140 has never been evaluated against a
-  measurement.** It was nerfed from 230 in `0.3.0` against an inferred 950 HP per
-  battle. Three measurements now exist: 1088 in the three-person boss fight, 1123
-  at `riposte` power 85, and **1091** in the shipped four-person fight. Issue
-  #24, and it is no longer blocked on data.
+- **~~`skill.restore` at potency 140 has never been evaluated against a
+  measurement.~~ Evaluated in #24 and kept.** +20 potency moves `dio_boss` by
+  6.7 points and +40 puts it on its 75% ceiling, so 140 stays; the healer
+  returns 1193 HP per battle against Dio and 1096 against Diavolo. See
+  `BALANCE-LOG.md`.
 
 ### Explicitly not in `0.4.0`
 

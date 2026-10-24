@@ -51,10 +51,10 @@ with Godot 4 doing nothing but showing you what happened.**
 > (`pc.polnareff`, #15), three new enemies (#16), and a second boss
 > (`npc.diavolo`, #17). The two skills nothing could choose were repriced
 > (#29), and the scorer now weighs damage against the target's resistance and
-> defence (#22, #33). Left before `0.4.0`: the on-screen presentation (#18),
-> two follow-ups in the harness and the healer's numbers (#24, #25), and a
-> Diavolo rebalance — #33 moved the fight to 27%, two points above its band's
-> floor, which is too close to call a band. Plan in
+> defence (#22, #33). #33 left the Diavolo fight two points above its band's
+> floor; it is back at 38% after a measured `hp` change, and the healer was
+> measured and kept (#24). Left before `0.4.0`: the on-screen presentation
+> (#18). Plan in
 > [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in
 > [BALANCE-LOG.md](docs/BALANCE-LOG.md).
@@ -179,7 +179,8 @@ cd src
 cargo run -q -p rpg-core --bin balance
 ```
 
-Current measurement, over 300 seeds per encounter, at `7f958aa` (after #33):
+Current measurement, over 300 seeds per encounter, after #33 and the #24
+Diavolo rebalance:
 
 | Encounter | Win rate | Declared band | Median length |
 | --- | --- | --- | --- |
@@ -189,7 +190,7 @@ Current measurement, over 300 seeds per encounter, at `7f958aa` (after #33):
 | `matchup.dancer_rush` | 75% | 60..90 | 22 turns |
 | `matchup.weaver_gambit` | 67% | 58..86 | 29 turns |
 | `matchup.bell_race` | 66% | 48..80 | 19 turns |
-| `matchup.diavolo_boss` | 27% | 25..55 | 82 turns |
+| `matchup.diavolo_boss` | 38% | 25..55 | 79 turns |
 
 The binary exits non-zero when any encounter leaves its band, so it is both a
 tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under
