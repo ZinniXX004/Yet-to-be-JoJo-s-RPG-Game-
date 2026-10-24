@@ -22,12 +22,26 @@ extends Control
 ##
 ## Event note: every case below reads fields by *name*, never by position, so
 ## a new field on an existing event cannot break this script. A new event
-## *kind* can: unrecognised kinds fall to the catch-all and dump raw JSON into
-## the log. When rpg-core gains a variant, it needs a case here.
+## *kind* can: unrecognised kinds fall to the catch-all, dump raw JSON into
+## the log and push a warning. When rpg-core gains a variant, it needs a case
+## here; the headless smoke test fails on that warning until it has one.
+##
+## Command line, everything after `--` on the Godot command line:
+##   --encounter=<id>  an encounter from data/matchups.json (default
+##                     matchup.dio_boss), so the screen plays the same fights
+##                     the balance harness measures instead of a roster
+##                     hard-coded here, which had drifted from every one of them
+##   --seed=<n>        replay one battle exactly; default is the clock
+##   --autoplay        the AI plays the party too
+##   --quit-on-end     exit when the battle ends: 0 for any outcome, 1 if the
+##                     battle could not be set up or advanced
+## tools/godot_smoke.py combines all four to play every encounter in CI.
 
 const DATA_DIR := "res://data"
-const PARTY := ["pc.jotaro", "pc.josuke", "pc.kakyoin"]
-const FOES := ["npc.dio", "npc.flame_assassin"]
+const DEFAULT_ENCOUNTER := "matchup.dio_boss"
+# Seeds reach Rust through GDScript's JSON, whose numbers are doubles; above
+# 2^53 a seed would change on the way and the battle would not replay.
+const MAX_SEED := 9007199254740992
 
 # Command::Attack and Command::Guard always resolve to these ids in
 # rpg-core regardless of a combatant's skill list (see resolve.rs). Every
@@ -49,6 +63,14 @@ var _skills_by_id: Dictionary = {}
 var _event_queue: Array = []
 var _animating: bool = false
 
+var _encounter_id: String = DEFAULT_ENCOUNTER
+var _seed: int = -1
+var _autoplay: bool = false
+var _quit_on_end: bool = false
+var _event_delay: float = EVENT_DELAY_SECONDS
+var _party: Array = []
+var _foes: Array = []
+
 var _log: RichTextLabel
 var _tempo_label: Label
 var _status_row_container: HBoxContainer
@@ -60,42 +82,132 @@ var _result_label: Label
 
 func _ready() -> void:
 	_build_ui()
+	if not _parse_args():
+		return
 
 	if not ClassDB.class_exists("BattleSession"):
-		push_error("GDExtension not loaded. Build rpg-bridge and copy the library into res://bin/.")
+		_fail("GDExtension not loaded. Build rpg-bridge and copy the library into res://bin/ (docs/DEVELOPMENT.md, section 3).")
 		return
 
 	_session = ClassDB.instantiate("BattleSession")
 
-	var skills: Array = _load_json("%s/skills.json" % DATA_DIR)
+	var stands: Variant = _load_content("stands.json")
+	var skills: Variant = _load_content("skills.json")
+	var combatants: Variant = _load_content("combatants.json")
+	var matchups: Variant = _load_content("matchups.json")
+	if stands == null or skills == null or combatants == null or matchups == null:
+		return
+
 	for skill in skills:
 		if skill is Dictionary and skill.has("id"):
 			_skills_by_id[skill["id"]] = skill
 
+	var encounter: Dictionary = _find_encounter(matchups, _encounter_id)
+	if encounter.is_empty():
+		return
+	_party = encounter.get("party", [])
+	_foes = encounter.get("foes", [])
+
+	if _seed < 0:
+		_seed = int(Time.get_unix_time_from_system())
+
 	var config := {
-		"seed": int(Time.get_unix_time_from_system()),
-		"stands": _load_json("%s/stands.json" % DATA_DIR),
+		"seed": _seed,
+		"stands": stands,
 		"skills": skills,
-		"combatants": _load_json("%s/combatants.json" % DATA_DIR),
-		"party": PARTY,
-		"foes": FOES,
+		"combatants": combatants,
+		"party": _party,
+		"foes": _foes,
 	}
 
 	var created: Dictionary = _call_bridge("create", [JSON.stringify(config)])
 	if not created.get("ok", false):
-		push_error("battle creation failed: %s" % created.get("error", "unknown"))
+		_fail("battle creation failed: %s" % created.get("error", "unknown"))
 		return
 
-	_log_line("Seed %d. %s vs %s." % [config["seed"], _pretty_names(PARTY), _pretty_names(FOES)])
+	_log_line("%s [%s], seed %d. %s vs %s." % [
+		String(encounter.get("name", _encounter_id)), _encounter_id, _seed,
+		_pretty_names(_party), _pretty_names(_foes),
+	])
 	_build_status_rows()
 	await _advance()
+
+
+func _parse_args() -> bool:
+	var seed_text := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--encounter="):
+			_encounter_id = arg.trim_prefix("--encounter=")
+		elif arg.begins_with("--seed="):
+			seed_text = arg.trim_prefix("--seed=")
+		elif arg == "--autoplay":
+			_autoplay = true
+		elif arg == "--quit-on-end":
+			_quit_on_end = true
+		else:
+			push_warning("ignoring unknown argument '%s'" % arg)
+
+	# Validated after the loop, so --quit-on-end is known however the
+	# arguments were ordered and a bad seed exits instead of hanging.
+	if not seed_text.is_empty():
+		if not seed_text.is_valid_int() or seed_text.to_int() < 0 or seed_text.to_int() >= MAX_SEED:
+			_fail("--seed must be a whole number from 0 to 2^53 - 1, got '%s'" % seed_text)
+			return false
+		_seed = seed_text.to_int()
+
+	# Nobody watches a headless run, and a pause per event would turn a
+	# hundred-turn boss fight into minutes of sleeping in CI.
+	if DisplayServer.get_name() == "headless":
+		_event_delay = 0.0
+	return true
+
+
+func _load_content(file_name: String) -> Variant:
+	var path := "%s/%s" % [DATA_DIR, file_name]
+	if not FileAccess.file_exists(path):
+		_fail("%s is missing. src/game/data/ is not in git; run tools/sync_data.ps1 or tools/sync_data.sh from the repository root." % path)
+		return null
+	var parsed: Variant = _load_json(path)
+	if not parsed is Array:
+		_fail("%s did not parse as a JSON array." % path)
+		return null
+	return parsed
+
+
+func _find_encounter(matchups: Array, id: String) -> Dictionary:
+	var known: Array = []
+	for matchup in matchups:
+		if not matchup is Dictionary:
+			continue
+		var matchup_id := String(matchup.get("id", ""))
+		if matchup_id == id:
+			return matchup
+		known.append(matchup_id)
+	_fail("unknown encounter '%s'. Known: %s" % [id, ", ".join(known)])
+	return {}
+
+
+func _fail(message: String) -> void:
+	push_error(message)
+	if _log != null:
+		_log_line("[color=red]%s[/color]" % message)
+	if _quit_on_end:
+		get_tree().quit(1)
+
+
+func _finish(outcome: String) -> void:
+	# One machine-readable line per battle. tools/godot_smoke.py requires it,
+	# so a battle that silently never ended cannot pass for one that did.
+	print("[battle] finished encounter=%s seed=%d outcome=%s" % [_encounter_id, _seed, outcome])
+	if _quit_on_end:
+		get_tree().quit(0)
 
 
 func _advance() -> void:
 	while not _finished:
 		var result: Dictionary = _call_bridge("advance", [])
 		if not result.get("ok", false):
-			push_error("advance failed: %s" % result.get("error", "unknown"))
+			_fail("advance failed: %s" % result.get("error", "unknown"))
 			return
 
 		await _animate(result.get("events", []))
@@ -105,15 +217,19 @@ func _advance() -> void:
 		if phase.get("phase", "") == "finished":
 			_finished = true
 			_show_result(String(phase.get("outcome", "unknown")))
+			_finish(String(phase.get("outcome", "unknown")))
 			return
 
 		var actor: int = int(phase.get("actor", -1))
-		if _is_party_member(actor):
+		if _is_party_member(actor) and not _autoplay:
 			_awaiting_actor = actor
 			_show_command_menu(actor)
 			return
 
 		var ai_result: Dictionary = _call_bridge("step_with_ai", [])
+		if not ai_result.get("ok", false):
+			_fail("step_with_ai failed: %s" % ai_result.get("error", "unknown"))
+			return
 		await _animate(ai_result.get("events", []))
 		_refresh_status_panel()
 
@@ -239,7 +355,8 @@ func _animate(events: Array) -> void:
 	while not _event_queue.is_empty():
 		var event: Dictionary = _event_queue.pop_front()
 		_render_event(event)
-		await get_tree().create_timer(EVENT_DELAY_SECONDS).timeout
+		if _event_delay > 0.0:
+			await get_tree().create_timer(_event_delay).timeout
 	_animating = false
 
 
@@ -312,6 +429,7 @@ func _render_event(event: Dictionary) -> void:
 		"battle_ended":
 			pass
 		_:
+			push_warning("unhandled event kind '%s': battle_view.gd needs a case for it" % kind)
 			_log_line(JSON.stringify(event))
 
 
