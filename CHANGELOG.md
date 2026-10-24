@@ -147,6 +147,27 @@ and nothing more.
   replaces `.git/hooks` wholesale, so the directory also carries the four Git
   LFS hooks; leaving them out would have broken LFS without an error.
 
+- **A `godot` CI job and `tools/godot_smoke.py`**: the first automated check
+  on the Godot layer. Godot 4.7.1 is downloaded at a pinned version and checked
+  against its published SHA-512, the bridge is built and installed, `data/` is
+  synced, the project imported, and every encounter in `data/matchups.json` is
+  played to an outcome headless through the real bridge. The job fails on a
+  non-zero exit, on a battle that never reports finishing, and on any `ERROR` or
+  `WARNING` on the console. `tools/check.*` run the same script when `GODOT`
+  points at a Godot binary. It does not see the screen; presentation still
+  closes on a recorded playthrough.
+- **Command-line arguments for the battle scene**, after `--`:
+  `--encounter=<id>`, `--seed=<n>`, `--autoplay` and `--quit-on-end`. A seed
+  can now be replayed on screen, which a defect report needs, and the smoke test
+  is built from the same four flags rather than a separate test scene.
+- **`.github/workflows/pr-guard.yml`**: fails a pull request into `main` that
+  does not come from `development` of this repository, reported as the check
+  `main accepts development only`. Rulesets cannot condition on a pull
+  request's source branch, so "main only takes development" had been a habit,
+  not a rule. It also runs on `edited`, because retargeting an open pull
+  request is an edit. It has to be added to `protect-main`'s required checks to
+  bind (`RELEASING.md` section 4).
+
 ### Changed
 
 - **The AI scores actions instead of ranking damage** (#9). `ai::best_offensive`
@@ -328,6 +349,27 @@ prediction scorecards for how each number was reached are in
   repeating a list, and asks for balance figures to move in the same PR as
   the change that moved them.
 
+- **The battle scene plays a declared encounter.** `battle_view.gd` had its
+  own hard-coded roster — Jotaro, Josuke and Kakyoin against Dio and the Flame
+  Assassin — which matched no entry in `data/matchups.json` once Polnareff
+  joined `matchup.dio_boss` in step 5, so nothing measured the fight a player
+  saw. It now reads `matchups.json` (synced like the rest of `data/`) and
+  defaults to `matchup.dio_boss`, four against two.
+- **Setup and bridge failures in the scene are reported, not swallowed.** A
+  missing content file names the sync script; an unknown encounter lists the
+  known ones; a failed `step_with_ai` is no longer ignored. With
+  `--quit-on-end` each exits with code 1. An event kind with no case pushes a
+  warning, which turns the long-standing rule in the file's header into
+  something CI enforces.
+- **macOS joins the `core` and `bridge` CI matrices.** `release.yml` has
+  shipped a macOS archive since `0.1.0`, and a release tag was the first time
+  that platform was ever built.
+- **Releases go through pull requests on both branches.** `protect-development`
+  now refuses direct pushes as `protect-main` always did, so the version bump
+  in `RELEASING.md` happens on `chore/release-X.Y.Z` and reaches `development`
+  by pull request before `development` goes to `main`. Section 4 documents both
+  rulesets and the default branch.
+
 ### Fixed
 
 - **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
@@ -478,9 +520,13 @@ Carried forward from `0.3.0` except where noted:
   The gate is green, but the next change to the rules is likely to turn it red
   for reasons that have nothing to do with that change. To be rebalanced before
   `0.4.0` is tagged.
-- **No CI job runs Godot.** Scenes and GDScript are checked only by playing
-  them, which is how the stale `src/game/data/` went unnoticed. A headless
-  smoke test is the next piece of work.
+- **CI runs Godot headless, which is not the same as playing it.** The
+  `godot` job proves every encounter loads and finishes with a clean console;
+  it cannot tell whether the screen is right, which is why #18 still closes on
+  a recorded playthrough. It also retries the first `--import` once: on a
+  project with no `.godot/` folder, Godot 4.7.1 with this extension aborts
+  while shutting down after an otherwise complete import. The retry happens
+  only when the extension was registered, and the second run must be clean.
 
 ## [0.3.0] - 2026-07-29
 
