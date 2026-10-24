@@ -168,6 +168,24 @@ and nothing more.
   request is an edit. It has to be added to `protect-main`'s required checks to
   bind (`RELEASING.md` section 4).
 
+- **The battle screen shows what the log says** (#18). Floating numbers rise
+  over a combatant's card for every hit, critical hit, heal, damage or
+  recovery from a status, miss and resisted status, each built from that one
+  event's own amount, so every number on screen is a number in the log.
+  Status badges on each card show the active statuses with their remaining
+  turns, and a `LOCK` badge while a combatant's tempo is frozen. The tempo
+  panel replaces the one-line readout: a bar per combatant filling toward the
+  threshold the scheduler acts at, ordered the way `Battle::ready_actor`
+  breaks ties, with downed combatants kept and marked down so the panel no
+  longer shrinks to one name late in a fight.
+- **`BattleSession.constants()`** in the bridge: `{ ok, tempo_threshold }`.
+  The tempo panel reads the threshold from the core instead of a `1000`
+  copied into GDScript, which would have been a second definition of a rule.
+  A library built before this method fails loudly with a rebuild message
+  rather than drawing against a wrong number.
+- **Recording a playthrough** with Godot's Movie Maker mode is documented in
+  `DEVELOPMENT.md` section 3.3; `recordings/` and `*.avi` are gitignored.
+
 ### Changed
 
 - **The AI scores actions instead of ranking damage** (#9). `ai::best_offensive`
@@ -553,6 +571,17 @@ Carried forward from `0.3.0` except where noted:
   project with no `.godot/` folder, Godot 4.7.1 with this extension aborts
   while shutting down after an otherwise complete import. The retry happens
   only when the extension was registered, and the second run must be clean.
+- **Status badges are text.** `ATK+ 3`, `SPD- 2`, `BLEED 4` and so on, coloured
+  by kind, until the project has art; the asset pipeline is still undecided.
+- **HP and SP bars move once per action, not once per event.** They are drawn
+  from the state snapshot after an action's events have played, while the
+  floating numbers appear event by event, so a bar can lag its own number by a
+  moment. Updating them per event would mean computing intermediate HP in
+  GDScript, which the presentation rules forbid.
+- **The tempo panel shows tempo, not a forecast.** It orders combatants by
+  current tempo, which is exactly who acts next among those already at the
+  threshold, but who reaches it first from below also depends on effective
+  speed, and recomputing that here would duplicate `Combatant::spd`.
 
 ## [0.3.0] - 2026-07-29
 

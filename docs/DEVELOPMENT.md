@@ -246,6 +246,26 @@ down, after the import has finished, when the GDExtension is present (seen with
 Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
 the extension was registered, and the second run has to exit cleanly.
 
+### 3.3 Recording a playthrough
+
+Godot's Movie Maker mode writes every rendered frame to a file at a fixed frame
+rate, so a battle can be recorded without screen-capture software and replayed
+exactly from its seed. An `.avi` file is Motion JPEG; a `.png` path writes one
+numbered image per frame instead.
+
+```bat
+mkdir recordings
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game --write-movie recordings\dio_boss_seed7.avi --fixed-fps 10 -- --encounter=matchup.dio_boss --seed=7
+```
+
+Play it by hand as usual; the recording runs alongside. Add `--autoplay
+--quit-on-end` after the `--` for an unattended recording that stops at the
+result. Keep the console output with the recording: the seed, the result line
+and the absence of `ERROR` and `WARNING` are what make it evidence (#18). A
+hundred-turn boss fight at 10 fps is in the order of a hundred megabytes, so
+`recordings/` and `*.avi` are gitignored; attach screenshots or a cut-down clip
+to a pull request instead.
+
 ### Iteration loop
 
 ```powershell

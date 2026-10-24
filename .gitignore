@@ -49,6 +49,10 @@ Thumbs.db
 *.apk
 *.aab
 
+# ---------- Movie Maker recordings (docs/DEVELOPMENT.md section 3.3) ----------
+/recordings/
+*.avi
+
 # ---------- Balance harness output ----------
 # Written by `cargo run -p rpg-core --bin balance -- --json > ../balance-report.json`.
 # A saved report describes one working copy at one moment; the branch it is
