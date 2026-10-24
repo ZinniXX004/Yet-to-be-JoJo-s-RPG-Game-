@@ -179,6 +179,14 @@ impl CombatantStats {
         divide_rounded(self.healing_done, i64::from(self.battles))
     }
 
+    /// SP spent per battle, rounded half up like every other per-battle
+    /// column. The harness binary used to divide this one itself with integer
+    /// division, which truncated where its neighbours rounded and broke the
+    /// binary's own rule that it derives no statistics (#25).
+    pub fn sp_spent_per_battle(&self) -> i64 {
+        divide_rounded(self.sp_spent, i64::from(self.battles))
+    }
+
     pub fn survival_percent(&self) -> i32 {
         percent(self.survived, self.battles)
     }
@@ -484,6 +492,26 @@ mod tests {
         let unplayed = stats();
         assert_eq!(
             unplayed.healing_done_per_battle(),
+            0,
+            "a combatant with no battles must not divide by zero"
+        );
+    }
+
+    /// #25: `sp/b` rounds like `dealt/b`, `taken/b` and `heal/b` beside it.
+    /// 1250 SP over 4 battles is 312.5, which truncation reported as 312.
+    #[test]
+    fn sp_is_averaged_per_battle_and_rounds_half_up_like_its_neighbours() {
+        let mut spender = stats();
+        spender.battles = 4;
+        spender.sp_spent = 1250;
+        assert_eq!(spender.sp_spent_per_battle(), 313);
+
+        spender.sp_spent = 1249;
+        assert_eq!(spender.sp_spent_per_battle(), 312);
+
+        let unplayed = stats();
+        assert_eq!(
+            unplayed.sp_spent_per_battle(),
             0,
             "a combatant with no battles must not divide by zero"
         );

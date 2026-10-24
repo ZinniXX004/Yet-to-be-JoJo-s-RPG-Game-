@@ -308,7 +308,7 @@ fn print_matchup(matchup: &MatchupReport) {
             stats.damage_dealt_per_battle(),
             stats.damage_received_per_battle(),
             stats.healing_done_per_battle(),
-            stats.sp_spent / i64::from(stats.battles.max(1)),
+            stats.sp_spent_per_battle(),
             stats.attack_rolls,
             stats.miss_percent(),
             stats.survival_percent()

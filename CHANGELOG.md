@@ -423,6 +423,13 @@ prediction scorecards for how each number was reached are in
   `docs/roadmap-m3-checklist`, which was never merged. Both now match a
   re-measurement at `7f958aa`, identical to the final table in `BALANCE-LOG.md`.
 
+- **`sp/b` truncated while every column beside it rounded** (#25). The
+  harness binary divided `sp_spent` by the battle count itself, against its own
+  rule that it derives no statistics, and integer division biased the column
+  low by up to one point. It now comes from `CombatantStats::sp_spent_per_battle`
+  through the same half-up rounding as `dealt/b`, `taken/b` and `heal/b`. No
+  win rate moves and no RNG is drawn; only some `sp/b` figures rise by one.
+
 ### Known limitations
 
 Carried forward from `0.3.0` except where noted:
