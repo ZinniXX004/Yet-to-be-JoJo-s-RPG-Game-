@@ -36,6 +36,20 @@ extends Control
 ##   --quit-on-end     exit when the battle ends: 0 for any outcome, 1 if the
 ##                     battle could not be set up or advanced
 ## tools/godot_smoke.py combines all four to play every encounter in CI.
+##
+## What the screen shows, and where each number comes from (#18):
+##   - Floating numbers over a combatant's card: one per damaged, healed,
+##     status_damaged, status_healed, missed and status_resisted event, with
+##     the event's own amount. Nothing is summed, rounded or predicted here, so
+##     every number on screen is a number in the log.
+##   - Status badges on each card: the state snapshot's `statuses`, with
+##     `remaining` (turns of that combatant's own left), plus a LOCK badge
+##     while `tempo_lock` is above zero.
+##   - The tempo panel: each combatant's `tempo` against the scheduler's
+##     threshold, read from the bridge rather than copied into this file, in the
+##     order Battle::ready_actor breaks ties (higher tempo first, then the lower
+##     index). Downed combatants stay in the panel, marked down, so it no longer
+##     collapses to one name late in a fight -- correct, but it read as a bug.
 
 const DATA_DIR := "res://data"
 const DEFAULT_ENCOUNTER := "matchup.dio_boss"
@@ -55,6 +69,28 @@ const GUARD_ID := "skill.guard_stance"
 const BINARY_STATUSES := ["stun"]
 
 const EVENT_DELAY_SECONDS := 0.45
+const FLOAT_SECONDS := 1.1
+const FLOAT_RISE_PIXELS := 42.0
+
+# Badge text and colour per status kind. Text only until the project has art;
+# the remaining duration is appended at render time.
+const STATUS_BADGES := {
+	"atk_up": ["ATK+", Color(0.45, 0.85, 0.45)],
+	"def_up": ["DEF+", Color(0.45, 0.85, 0.45)],
+	"spd_up": ["SPD+", Color(0.45, 0.85, 0.45)],
+	"atk_down": ["ATK-", Color(0.95, 0.45, 0.40)],
+	"def_down": ["DEF-", Color(0.95, 0.45, 0.40)],
+	"spd_down": ["SPD-", Color(0.95, 0.45, 0.40)],
+	"bleed": ["BLEED", Color(0.85, 0.25, 0.30)],
+	"regen": ["REGEN", Color(0.35, 0.85, 0.80)],
+	"stun": ["STUN", Color(0.95, 0.85, 0.30)],
+}
+const LOCK_COLOR := Color(0.70, 0.55, 0.95)
+const DAMAGE_COLOR := Color(1.0, 1.0, 1.0)
+const CRIT_COLOR := Color(1.0, 0.82, 0.25)
+const STATUS_DAMAGE_COLOR := Color(0.85, 0.35, 0.45)
+const HEAL_COLOR := Color(0.45, 0.95, 0.50)
+const MISS_COLOR := Color(0.70, 0.70, 0.70)
 
 var _session: RefCounted = null
 var _awaiting_actor: int = -1
@@ -71,8 +107,15 @@ var _event_delay: float = EVENT_DELAY_SECONDS
 var _party: Array = []
 var _foes: Array = []
 
+var _tempo_threshold: int = 0
+var _current_actor: int = -1
+var _float_stack: Dictionary = {}
+
 var _log: RichTextLabel
-var _tempo_label: Label
+var _tempo_title: Label
+var _tempo_row: HBoxContainer
+var _tempo_entries: Dictionary = {}
+var _float_layer: Control
 var _status_row_container: HBoxContainer
 var _status_rows: Dictionary = {}
 var _command_box: HBoxContainer
@@ -90,6 +133,14 @@ func _ready() -> void:
 		return
 
 	_session = ClassDB.instantiate("BattleSession")
+	if not _session.has_method("constants"):
+		_fail("the GDExtension in res://bin/ predates BattleSession.constants(); rebuild rpg-bridge and copy it again (docs/DEVELOPMENT.md, section 3).")
+		return
+	var constants: Dictionary = _call_bridge("constants", [])
+	_tempo_threshold = int(constants.get("tempo_threshold", 0))
+	if not constants.get("ok", false) or _tempo_threshold <= 0:
+		_fail("bridge constants unusable: %s" % JSON.stringify(constants))
+		return
 
 	var stands: Variant = _load_content("stands.json")
 	var skills: Variant = _load_content("skills.json")
@@ -366,6 +417,7 @@ func _render_event(event: Dictionary) -> void:
 		"battle_started":
 			pass
 		"turn_started":
+			_current_actor = int(event.get("actor", -1))
 			_log_line("[b]%s's turn.[/b]" % _name(event.get("actor")))
 		"turn_skipped":
 			_log_line("%s's turn is skipped (%s)." % [_name(event.get("actor")), event.get("reason", "")])
@@ -377,6 +429,7 @@ func _render_event(event: Dictionary) -> void:
 			_log_line("  (%d SP spent)" % int(event.get("amount", 0)))
 		"missed":
 			_log_line("%s's attack misses %s." % [_name(event.get("actor")), _name(event.get("target"))])
+			_spawn_float(int(event.get("target", -1)), "miss", MISS_COLOR, 16)
 		"damaged":
 			var element: String = String(event.get("element", "physical"))
 			var suffix: String = " (%s)" % element if element != "physical" else ""
@@ -385,11 +438,18 @@ func _render_event(event: Dictionary) -> void:
 				_name(event.get("actor")), _name(event.get("target")),
 				int(event.get("amount", 0)), suffix, crit,
 			])
+			if event.get("crit", false):
+				_spawn_float(int(event.get("target", -1)), "-%d!" % int(event.get("amount", 0)), CRIT_COLOR, 26)
+			else:
+				_spawn_float(int(event.get("target", -1)), "-%d" % int(event.get("amount", 0)), DAMAGE_COLOR, 20)
 		"status_damaged":
 			_log_line("%s takes %d damage from %s." % [
 				_name(event.get("target")), int(event.get("amount", 0)),
 				_status_name(String(event.get("status", ""))),
 			])
+			_spawn_float(int(event.get("target", -1)), "-%d %s" % [
+				int(event.get("amount", 0)), String(event.get("status", "")),
+			], STATUS_DAMAGE_COLOR, 16)
 		"healed":
 			# The event now names a healer, so a drain's self-heal and a heal
 			# cast on someone else can finally read as the different actions
@@ -402,6 +462,7 @@ func _render_event(event: Dictionary) -> void:
 				_log_line("%s restores %d HP to %s." % [
 					_name(healer), int(event.get("amount", 0)), _name(healed),
 				])
+			_spawn_float(healed, "+%d" % int(event.get("amount", 0)), HEAL_COLOR, 20)
 		"status_healed":
 			# The mirror of status_damaged: recovery with no actor, so the
 			# condition is named instead of anyone acting.
@@ -409,6 +470,9 @@ func _render_event(event: Dictionary) -> void:
 				_name(event.get("target")), int(event.get("amount", 0)),
 				_status_name(String(event.get("status", ""))),
 			])
+			_spawn_float(int(event.get("target", -1)), "+%d %s" % [
+				int(event.get("amount", 0)), String(event.get("status", "")),
+			], HEAL_COLOR, 16)
 		"status_applied":
 			var status: String = String(event.get("status", ""))
 			if BINARY_STATUSES.has(status):
@@ -420,6 +484,7 @@ func _render_event(event: Dictionary) -> void:
 				])
 		"status_resisted":
 			_log_line("%s resists %s." % [_name(event.get("target")), _status_name(String(event.get("status", "")))])
+			_spawn_float(int(event.get("target", -1)), "resist", MISS_COLOR, 16)
 		"status_expired":
 			_log_line("%s's %s fades." % [_name(event.get("target")), _status_name(String(event.get("status", "")))])
 		"tempo_locked":
@@ -469,14 +534,24 @@ func _build_status_rows() -> void:
 		sp_label.add_theme_font_size_override("font_size", 12)
 		card.add_child(sp_label)
 
+		# Wraps inside the card's width, so five badges do not widen the row.
+		var badges := HFlowContainer.new()
+		badges.add_theme_constant_override("h_separation", 4)
+		badges.add_theme_constant_override("v_separation", 2)
+		badges.custom_minimum_size = Vector2(0, 18)
+		card.add_child(badges)
+
 		_status_row_container.add_child(card)
 		_status_rows[index] = {
+			"card": card,
 			"name_label": name_label,
 			"hp_bar": hp_bar,
 			"hp_label": hp_label,
 			"sp_bar": sp_bar,
 			"sp_label": sp_label,
+			"badges": badges,
 		}
+		_add_tempo_entry(index, String(combatant.get("name", "?")))
 
 	_refresh_status_panel()
 
@@ -498,20 +573,29 @@ func _refresh_status_panel() -> void:
 		row["sp_bar"].value = sp
 		row["sp_label"].text = "SP %d / %d" % [sp, max_sp]
 		row["name_label"].modulate = Color(1, 1, 1, 0.4) if hp <= 0 else Color(1, 1, 1, 1)
+		_refresh_badges(row["badges"], combatant)
 
-	_refresh_tempo_label(combatants)
+	_refresh_tempo_panel(combatants)
 
 
-func _refresh_tempo_label(combatants: Array) -> void:
+func _refresh_tempo_panel(combatants: Array) -> void:
+	# Living combatants in the scheduler's own tie-break order, then the
+	# downed ones, which stay visible so the panel never shrinks to one name.
 	var living: Array = []
+	var downed: Array = []
 	for index in combatants.size():
+		if not _tempo_entries.has(index):
+			continue
 		var combatant: Dictionary = combatants[index]
+		var item := {
+			"index": index,
+			"tempo": int(combatant.get("tempo", 0)),
+			"lock": int(combatant.get("tempo_lock", 0)),
+		}
 		if int(combatant.get("hp", 0)) > 0:
-			living.append({
-				"index": index,
-				"name": String(combatant.get("name", "?")),
-				"tempo": int(combatant.get("tempo", 0)),
-			})
+			living.append(item)
+		else:
+			downed.append(item)
 
 	living.sort_custom(func(a, b):
 		if a["tempo"] == b["tempo"]:
@@ -519,11 +603,123 @@ func _refresh_tempo_label(combatants: Array) -> void:
 		return a["tempo"] > b["tempo"]
 	)
 
-	var parts: Array = []
-	for entry in living:
-		parts.append("%s (%d)" % [entry["name"], entry["tempo"]])
+	var slot := 0
+	for entry in living + downed:
+		var widgets: Dictionary = _tempo_entries[entry["index"]]
+		_tempo_row.move_child(widgets["box"], slot)
+		slot += 1
+		var is_down: bool = downed.has(entry)
+		var bar: ProgressBar = widgets["bar"]
+		bar.max_value = _tempo_threshold
+		bar.value = 0 if is_down else min(entry["tempo"], _tempo_threshold)
+		var value_label: Label = widgets["value"]
+		if is_down:
+			value_label.text = "down"
+		elif entry["lock"] > 0:
+			value_label.text = "%d / %d  locked %d" % [entry["tempo"], _tempo_threshold, entry["lock"]]
+		else:
+			value_label.text = "%d / %d" % [entry["tempo"], _tempo_threshold]
+		var name_label: Label = widgets["name"]
+		var marker := "> " if entry["index"] == _current_actor and not is_down else ""
+		name_label.text = marker + String(widgets["base_name"])
+		widgets["box"].modulate = Color(1, 1, 1, 0.4) if is_down else Color(1, 1, 1, 1)
 
-	_tempo_label.text = "Tempo order: %s" % ", ".join(parts) if not parts.is_empty() else "Tempo order: --"
+	_tempo_title.text = "Tempo -- a combatant acts on reaching %d" % _tempo_threshold
+
+
+func _add_tempo_entry(index: int, display_name: String) -> void:
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(110, 0)
+
+	var name_label := Label.new()
+	name_label.text = display_name
+	name_label.add_theme_font_size_override("font_size", 12)
+	box.add_child(name_label)
+
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 8)
+	box.add_child(bar)
+
+	var value_label := Label.new()
+	value_label.add_theme_font_size_override("font_size", 11)
+	box.add_child(value_label)
+
+	_tempo_row.add_child(box)
+	_tempo_entries[index] = {
+		"box": box,
+		"name": name_label,
+		"base_name": display_name,
+		"bar": bar,
+		"value": value_label,
+	}
+
+
+func _refresh_badges(container: HFlowContainer, combatant: Dictionary) -> void:
+	for child in container.get_children():
+		child.queue_free()
+	if int(combatant.get("hp", 0)) <= 0:
+		return
+	for status in combatant.get("statuses", []):
+		if not status is Dictionary:
+			continue
+		var kind := String(status.get("kind", ""))
+		var spec: Array = STATUS_BADGES.get(kind, [kind.to_upper(), Color(0.8, 0.8, 0.8)])
+		var remaining := int(status.get("remaining", 0))
+		var badge := _make_badge("%s %d" % [spec[0], remaining], spec[1])
+		badge.tooltip_text = "%s, potency %d, %d of its own turns left" % [
+			_status_name(kind), int(status.get("potency", 0)), remaining,
+		]
+		container.add_child(badge)
+	var lock := int(combatant.get("tempo_lock", 0))
+	if lock > 0:
+		var lock_badge := _make_badge("LOCK %d" % lock, LOCK_COLOR)
+		lock_badge.tooltip_text = "tempo frozen for %d more ticks" % lock
+		container.add_child(lock_badge)
+
+
+func _make_badge(text: String, color: Color) -> Label:
+	var badge := Label.new()
+	badge.text = text
+	badge.add_theme_font_size_override("font_size", 11)
+	badge.add_theme_color_override("font_color", color)
+	badge.mouse_filter = Control.MOUSE_FILTER_PASS
+	return badge
+
+
+func _spawn_float(target: int, text: String, color: Color, font_size: int) -> void:
+	# The text is built by the caller from one event's own fields. This
+	# function only decides where it appears and how it fades.
+	if not _status_rows.has(target):
+		return
+	var card: Control = _status_rows[target]["card"]
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	label.add_theme_constant_override("outline_size", 5)
+	_float_layer.add_child(label)
+
+	# Numbers that land on the same card in quick succession stack upward
+	# instead of overprinting each other.
+	var stack: int = _float_stack.get(target, 0)
+	_float_stack[target] = stack + 1
+	var origin: Vector2 = card.global_position - _float_layer.global_position
+	# Starts over the HP bar, not the name, so the card stays readable.
+	label.position = origin + Vector2(card.size.x * 0.55, card.size.y * 0.4 - 20.0 * stack)
+
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y - FLOAT_RISE_PIXELS, FLOAT_SECONDS)
+	tween.tween_property(label, "modulate:a", 0.0, FLOAT_SECONDS * 0.5).set_delay(FLOAT_SECONDS * 0.5)
+	tween.chain().tween_callback(_on_float_done.bind(target, label))
+
+
+func _on_float_done(target: int, label: Label) -> void:
+	label.queue_free()
+	_float_stack[target] = max(int(_float_stack.get(target, 1)) - 1, 0)
 
 
 func _show_result(outcome: String) -> void:
@@ -560,9 +756,14 @@ func _build_ui() -> void:
 	root_box.add_theme_constant_override("separation", 10)
 	margin.add_child(root_box)
 
-	_tempo_label = Label.new()
-	_tempo_label.text = "Tempo order: --"
-	root_box.add_child(_tempo_label)
+	_tempo_title = Label.new()
+	_tempo_title.text = "Tempo"
+	_tempo_title.add_theme_font_size_override("font_size", 12)
+	root_box.add_child(_tempo_title)
+
+	_tempo_row = HBoxContainer.new()
+	_tempo_row.add_theme_constant_override("separation", 10)
+	root_box.add_child(_tempo_row)
 
 	_status_row_container = HBoxContainer.new()
 	_status_row_container.add_theme_constant_override("separation", 16)
@@ -587,6 +788,14 @@ func _build_ui() -> void:
 	_result_label.add_theme_font_size_override("font_size", 28)
 	_result_label.visible = false
 	root_box.add_child(_result_label)
+
+	# Added last so floating numbers draw above every card; it ignores the
+	# mouse so it never steals a click meant for a button underneath.
+	_float_layer = Control.new()
+	_float_layer.anchor_right = 1.0
+	_float_layer.anchor_bottom = 1.0
+	_float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_float_layer)
 
 
 func _log_line(text: String) -> void:

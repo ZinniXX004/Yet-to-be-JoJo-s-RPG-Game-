@@ -681,7 +681,13 @@ and `--mirror` is what said so rather than a human remembering to diff.
       3200 puts the fight at 38%, median 79 turns. The probes also found
       `guard_stance` chosen often at a net cost and `emerald_snare` still
       underpowered; fixing either moves this fight again)*
-- [ ] Floating damage numbers, status icons, legible tempo readout
+- [x] Floating damage numbers, status icons, legible tempo readout *(#18:
+      every floating number is one event's own amount, badges come from the
+      state snapshot's `statuses` and `tempo_lock`, and the tempo panel fills
+      toward the scheduler's threshold read through the bridge. Text badges
+      until the project has art. Checked in rendered frames from a Movie Maker
+      recording against the log of the same seed; the playthrough below is
+      still the acceptance)*
 - [ ] A recorded playthrough of both boss fights, console clean
 
 ### Planned changes, by file

@@ -246,6 +246,37 @@ down, after the import has finished, when the GDExtension is present (seen with
 Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
 the extension was registered, and the second run has to exit cleanly.
 
+### 3.3 Recording a playthrough
+
+Godot's Movie Maker mode writes every rendered frame to a file at a fixed frame
+rate, so a battle can be recorded without screen-capture software and replayed
+exactly from its seed. An `.avi` file is Motion JPEG; a `.png` path writes one
+numbered image per frame instead.
+
+```bat
+mkdir recordings
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game --write-movie "%CD%\recordings\dio_boss_seed7.avi" --fixed-fps 10 -- --encounter=matchup.dio_boss --seed=7 > recordings\dio_boss_seed7.log 2>&1
+findstr /C:"ERROR" /C:"WARNING" recordings\dio_boss_seed7.log
+```
+
+**The movie path has to be absolute.** `--path` makes Godot resolve relative
+paths from the project folder, so `recordings\dio_boss_seed7.avi` means
+`src\game\recordings\dio_boss_seed7.avi`, which does not exist. Movie Maker
+then cannot open its file, logs `ERR_CANT_OPEN` once and `ERR_UNCONFIGURED`
+for every frame after it, and the game itself plays on as if nothing were
+wrong: the first recording for #18 produced 34 000 such lines and no video.
+`%CD%` expands to the current folder in CMD; in PowerShell write
+`"$PWD\recordings\dio_boss_seed7.avi"`. The console redirect is not affected,
+because the shell opens that file before Godot starts.
+
+Play it by hand as usual; the recording runs alongside. Add `--autoplay
+--quit-on-end` after the `--` for an unattended recording that stops at the
+result. Keep the console output with the recording: the seed, the result line
+and the absence of `ERROR` and `WARNING` are what make it evidence (#18), which
+is why the `findstr` line above must print nothing. A hundred-turn boss fight at
+10 fps is in the order of a hundred megabytes, so `recordings/` and `*.avi` are
+gitignored; attach screenshots or a cut-down clip to a pull request instead.
+
 ### Iteration loop
 
 ```powershell

@@ -18,7 +18,7 @@
 //! JSON has no integer type. See [`rpg_core::json_compat`].
 
 use godot::prelude::*;
-use rpg_core::{json_compat, Battle, Command};
+use rpg_core::{json_compat, Battle, Command, TEMPO_THRESHOLD};
 
 struct RpgBridge;
 
@@ -157,5 +157,22 @@ impl BattleSession {
             Ok(json) => GString::from(&json),
             Err(error) => error_json(&error.to_string()),
         }
+    }
+
+    /// Fixed numbers of the rules that the presentation needs to draw against
+    /// but must not restate: `{ ok, tempo_threshold }`.
+    ///
+    /// The tempo panel fills each combatant's bar toward the value the
+    /// scheduler actually acts at. Copying `1000` into GDScript would be a
+    /// second definition of a rule, the kind that drifts silently the first
+    /// time the core changes it. Works before `create`, since it reads no
+    /// battle.
+    #[func]
+    fn constants(&self) -> GString {
+        let payload = serde_json::json!({
+            "ok": true,
+            "tempo_threshold": TEMPO_THRESHOLD,
+        });
+        json_to_gstring(&payload)
     }
 }
