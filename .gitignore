@@ -9,6 +9,14 @@ export_presets.cfg
 # Compiled GDExtension binaries are build output, not source
 src/game/bin/
 
+# Content copied into res:// by tools/sync_data.*; /data is the only source.
+# This line arrived late: the directory was committed in 0.1.0 while the sync
+# scripts and DEVELOPMENT.md already called it gitignored, and the committed
+# copy then froze at six combatants and eleven skills while /data grew to twelve
+# and eighteen. The Godot project silently played 0.1.0 content through all of
+# M2 and M3, and no CI job could see it.
+src/game/data/
+
 # ---------- Rust ----------
 # Match target/ at any depth (workspace members each have one)
 **/target/

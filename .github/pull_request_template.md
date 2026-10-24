@@ -18,18 +18,10 @@ fails without the fix.
 
 ## Local gate
 
-Run from `src/` unless noted. Tick what you actually ran; do not tick what CI
-will run for you.
+- [ ] `tools/check.ps1` (or `sh tools/check.sh`) passes in full, not only `-Fast`
 
-- [ ] `cargo fmt --all --check`
-- [ ] `cargo clippy -p rpg-core --all-targets --all-features -- -D warnings`
-- [ ] `cargo clippy -p rpg-bridge --all-targets -- -D warnings`
-- [ ] `cargo test -p rpg-core --all-targets --all-features`
-- [ ] `cargo deny check`
-- [ ] `python src\data-pipeline\validate_data.py` (from the repo root)
-- [ ] `typos` (from the repo root)
-
-Not runnable locally, will run in CI: the `links` job (lychee).
+It runs every CI job except the markdown link check, including the probe mirror
+check and `typos` that the old hand-written list here left out.
 
 ## Rules boundary
 
@@ -50,5 +42,8 @@ green is not a fix.
 ## Docs
 
 - [ ] `CHANGELOG.md` updated under `## [Unreleased]`
+- [ ] If any win rate moved: the README table, `docs/ROADMAP.md` and
+      `docs/BALANCE-LOG.md` carry the new figures **in this PR**, not a later
+      `docs/*` branch (the README table was six encounters stale by #33)
 - [ ] Every relative link I added points at a file that exists on this branch
 - [ ] No version number left behind (`README.md`, `docs/`, workflow examples)
