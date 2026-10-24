@@ -229,6 +229,18 @@ sh tools/check.sh          # Linux, macOS, Git Bash
 sh tools/check.sh --fast
 ```
 
+From `cmd.exe` (a prompt reading `C:\...>` rather than `PS C:\...>`), typing
+`.\tools\check.ps1` does not run the script: `cmd.exe` cannot execute `.ps1`
+files and either opens it in an editor or does nothing, with no error, so the
+gate looks as if it passed. Call PowerShell explicitly; the same applies to the
+sync script:
+
+```bat
+powershell -ExecutionPolicy Bypass -File tools\check.ps1
+powershell -ExecutionPolicy Bypass -File tools\check.ps1 -Fast
+powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1
+```
+
 Both run every step even after one fails and finish with a list of what failed,
 the way independent CI jobs would. `cargo-deny` runs if it is installed and is
 skipped otherwise, since it fetches the advisory database over the network.

@@ -105,6 +105,12 @@ function Invoke-Typos {
 }
 
 # Every cargo step runs inside src\ and returns to the root, even on failure.
+#
+# Callers must write clippy's separator as '--', quoted. PowerShell treats a
+# bare -- as its own end-of-parameters marker when calling a function and
+# removes it before the function sees $args, so cargo then receives
+# `clippy ... -D warnings` and rejects -D as an unknown cargo argument. That
+# exact failure is how this script's first version was caught.
 function Invoke-Cargo {
     Push-Location (Join-Path $root 'src')
     try { & cargo @args } finally { Pop-Location }
@@ -127,7 +133,7 @@ Invoke-Step 'spelling (typos)' { Invoke-Typos }
 
 if (-not $Fast) {
     # --- job: core ---
-    Invoke-Step 'core: clippy' { Invoke-Cargo clippy -p rpg-core --all-targets --all-features -- -D warnings }
+    Invoke-Step 'core: clippy' { Invoke-Cargo clippy -p rpg-core --all-targets --all-features '--' -D warnings }
     Invoke-Step 'core: tests' { Invoke-Cargo test -p rpg-core --all-targets --all-features }
     Invoke-Step 'core: docs' { Invoke-Cargo doc -p rpg-core --no-deps }
 
@@ -135,7 +141,7 @@ if (-not $Fast) {
     Invoke-Step 'balance: every encounter inside its band' { Invoke-Cargo run -q -p rpg-core --bin balance }
 
     # --- job: bridge ---
-    Invoke-Step 'bridge: clippy' { Invoke-Cargo clippy -p rpg-bridge --all-targets -- -D warnings }
+    Invoke-Step 'bridge: clippy' { Invoke-Cargo clippy -p rpg-bridge --all-targets '--' -D warnings }
     Invoke-Step 'bridge: build' { Invoke-Cargo build -p rpg-bridge }
 
     # --- job: supply chain (optional locally) ---
