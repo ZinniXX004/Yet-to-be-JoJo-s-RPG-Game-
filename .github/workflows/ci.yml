@@ -3,7 +3,13 @@
 # Design notes:
 #  - Windows is a first-class CI target because that is the primary development
 #    machine. A Linux-only pipeline would let Windows-specific breakage (path
-#    separators, line endings, DLL naming) reach main unnoticed.
+#    separators, line endings, DLL naming) reach main unnoticed. macOS is in the
+#    core and bridge matrices for the same reason: release.yml ships a macOS
+#    archive, and until this matrix included it, a release tag was the first
+#    time anything was built for that platform.
+#  - The godot job is the only automated check on the Godot layer. It plays
+#    every declared encounter headless through the real bridge; see
+#    tools/godot_smoke.py for what that does and does not prove.
 #  - clippy runs with -D warnings. A lint that is merely reported is a lint that
 #    accumulates.
 #  - Every job is cheap and independent, so a failure points at one cause.
@@ -99,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: src
@@ -155,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: src
@@ -179,6 +185,46 @@ jobs:
         run: cargo clippy -p rpg-bridge --all-targets -- -D warnings
       - name: Build cdylib
         run: cargo build -p rpg-bridge
+
+  godot:
+    name: godot smoke (headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # The engine the project is developed and played on, confirmed locally as
+      # 4.7.1.stable.official.a13da4feb. tools/godot_smoke.py reads this line to
+      # warn when a local Godot differs, so it is the single place to bump.
+      GODOT_VERSION: "4.7.1-stable"
+      # From the release's SHA512-SUMS.txt for Godot_v4.7.1-stable_linux.x86_64.zip.
+      # A download that does not match is not run.
+      GODOT_SHA512: "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install libclang
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - name: Resolved toolchain
+        working-directory: src
+        run: rustup show active-toolchain && cargo --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: godot-ubuntu-latest
+      - name: Download Godot (pinned, checksum-verified)
+        run: |
+          zip="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/$zip" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${zip}"
+          echo "${GODOT_SHA512}  $RUNNER_TEMP/$zip" | sha512sum -c -
+          unzip -q "$RUNNER_TEMP/$zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}_linux.x86_64" >> "$GITHUB_ENV"
+      # Builds the bridge, syncs data/ into res://data, imports the project and
+      # autoplays one battle per encounter. Fails on a non-zero exit, a battle
+      # that never reaches an outcome, or any ERROR or WARNING on the console.
+      - name: Every encounter plays to an outcome in Godot
+        run: python tools/godot_smoke.py
 
   audit:
     name: supply chain
@@ -238,7 +284,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [format, content, core, balance, bridge, audit, spelling, links]
+    needs: [format, content, core, balance, bridge, godot, audit, spelling, links]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

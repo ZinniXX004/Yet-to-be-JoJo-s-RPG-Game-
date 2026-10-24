@@ -15,7 +15,9 @@
 # cannot. When a job is added to ci.yml, add it here in the same commit.
 #
 # Not reproduced: the lychee link check (network-bound; see DEVELOPMENT.md).
-# cargo-deny runs only if installed, because it also needs the network.
+# cargo-deny runs only if installed, because it also needs the network. The
+# Godot smoke test runs only if a Godot binary is found ($GODOT, or godot on
+# PATH), because Godot is not installed into the repository.
 #
 # Windows: run from Git Bash, or use tools/check.ps1 from PowerShell.
 
@@ -114,6 +116,13 @@ if [ "$fast" -eq 0 ]; then
   # --- job: bridge ----------------------------------------------------------
   step "bridge: clippy" sh -c 'cd src && cargo clippy -p rpg-bridge --all-targets -- -D warnings'
   step "bridge: build" sh -c 'cd src && cargo build -p rpg-bridge'
+
+  # --- job: godot smoke (optional locally) ----------------------------------
+  if [ -n "${GODOT:-}" ] || command -v godot > /dev/null 2>&1; then
+    step "godot: every encounter plays to an outcome" run_py tools/godot_smoke.py
+  else
+    printf '\n==> godot smoke: skipped (set GODOT to the Godot binary; CI still runs it)\n'
+  fi
 
   # --- job: supply chain (optional locally) ---------------------------------
   if command -v cargo-deny > /dev/null 2>&1; then

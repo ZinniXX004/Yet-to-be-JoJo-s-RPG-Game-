@@ -49,6 +49,15 @@ Automation refuses to publish if steps 2 and 3 are skipped, by design. The
 commands are written for the next release, `0.4.0`; substitute the version you
 are actually cutting.
 
+Neither `development` nor `main` accepts a direct push (section 4), so steps 2
+to 4 happen on a branch of their own, created from an up-to-date `development`:
+
+```bat
+git switch development
+git pull
+git switch -c chore/release-0.4.0
+```
+
 1. **CI green on `development`, and the local gate green on your machine.** No
    exceptions, including the optional-looking jobs. The two are not the same
    check: a green tick on `development` describes the last commit CI saw, so a
@@ -80,14 +89,19 @@ are actually cutting.
    tool rewrites `Cargo.lock` in the same pass. Hand-editing the manifest leaves
    the lockfile stale, and the mismatch surfaces later as a confusing diff.
 
-4. **Commit and merge.**
+4. **Commit, then merge twice.**
 
-   ```powershell
-   git add src/Cargo.toml src/Cargo.lock
+   ```bat
+   git add src/Cargo.toml src/Cargo.lock CHANGELOG.md
    git commit -m "chore(release): 0.4.0"
-   git push origin development
-   # open a PR into main, let CI pass, merge
+   git push -u origin chore/release-0.4.0
    ```
+
+   Open a pull request from `chore/release-0.4.0` into `development` and merge
+   it once `ci` is green. Then open a pull request from `development` into
+   `main`. GitHub proposes `development` as the base, because it is the
+   default branch, so pick `main` by hand. That pull request needs `ci` and
+   `main accepts development only` green before it can merge.
 
 5. **Tag from `main` and push the tag.**
 
@@ -177,8 +191,20 @@ explicit rather than accidental.
 
 These are manual, one-time, and cannot be committed to the repo:
 
-1. **Branch protection on `main`:** require the status check named `ci` (the
-   aggregate job), require a PR, disallow force pushes.
+1. **Rulesets** (*Settings → Rules → Rulesets*), both targeting a branch by
+   name rather than "the default branch", so changing the default branch moves
+   neither:
+   - `protect-main` on `refs/heads/main`: restrict deletions, block force
+     pushes, require a pull request, require the status checks `ci` and
+     `main accepts development only`, the latter reported by
+     [`.github/workflows/pr-guard.yml`](../.github/workflows/pr-guard.yml),
+     because a ruleset cannot restrict which branch a pull request comes from.
+     Requiring branches to be up to date is on.
+   - `protect-development` on `refs/heads/development`: the same, minus the
+     pull-request source check, and with up-to-date branches **off**, so a
+     topic branch does not need rebasing every time another one merges.
+   - *Default branch*: `development`, so new pull requests target it, a fresh
+     clone starts on it and Dependabot reads its configuration from it.
 2. **Actions permissions:** allow `GITHUB_TOKEN` to write contents for releases
    (the release workflow requests `contents: write` at the job level; the
    repository setting must permit it).

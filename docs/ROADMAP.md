@@ -249,8 +249,11 @@ number.
    below).**
 6. **Then the presentation defects** carried from M1: floating damage numbers,
    status icons with durations, and a tempo readout that stays legible when one
-   combatant is left. These cannot be verified by CI -- no job in this repository
-   runs Godot -- so each is closed by a recorded playthrough, exactly as M1 was.
+   combatant is left. CI now plays every declared encounter headless in Godot
+   (the `godot` job), which catches a scene that fails to load, a battle that
+   never reaches an outcome and an event kind the screen has no case for. It
+   cannot judge what the screen shows, so each item still closes on a recorded
+   playthrough, exactly as M1 was.
 
 ### Step 1 as measured
 
@@ -720,9 +723,9 @@ rather than rediscovered.
 | **A scored buff is still declined** even after step 1 | Zero unreachable skills was the goal, and a buff remains unchosen | **Fired, as predicted.** `skill.rage_focus` returns 0.8 of a hit for the price of one; declining it is correct on wrong numbers. Fix is in `data/skills.json`, issue #29 |
 | **A skill is authored that the AI structurally cannot select** | A new skill never appears in any report and no amount of repricing changes that | **Nearly fired in step 5 and caught by reading `ai.rs` before writing content.** `is_candidate` admits only `OneEnemy`, `AllEnemies` and `SelfOnly`, so an ally-facing buff can never fill an action slot at any price. The original design for the fourth character was exactly that and was abandoned |
 | **Adding a field to `Event` breaks every exhaustive match** | Compile errors across the crate and the bridge | **Fired and contained in step 3.** The field was the easy half; the new *variant* was the risk this row did not name |
-| **A new `Event` variant is silently unhandled by the presentation layer** | Nothing fails to compile; the Godot log prints raw JSON where a sentence should be | **Fired in step 3 and caught before merge**, by reading `battle_view.gd` rather than trusting that a compiling bridge means a correct one. GDScript matches on a string and reads fields by name, so it cannot fail loudly. A note now sits in that file's header stating the rule |
+| **A new `Event` variant is silently unhandled by the presentation layer** | Nothing fails to compile; the Godot log prints raw JSON where a sentence should be | **Fired in step 3 and caught before merge**, by reading `battle_view.gd` rather than trusting that a compiling bridge means a correct one. GDScript matches on a string and reads fields by name, so it cannot fail loudly. A note now sits in that file's header stating the rule, **and since the `godot` CI job the catch-all pushes a warning that fails the build**, so the rule no longer depends on someone reading the file |
 | **A roster change silently invalidates a comparison** | Two win rates for the same matchup id that describe different fights | **Fired in step 5.** Adding one party member moved every figure in `matchup.dio_boss` and changed which skills Dio chose. Comparability boundary 6. A content edit that changes who is standing in a fight is a boundary even though no code changed |
-| **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | Every UI item closes on a recorded playthrough, with the console output kept |
+| **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | **Fired, and found in a review rather than a playthrough:** the committed `src/game/data/` had stayed at `0.1.0` content and `battle_view.gd` fought a roster no encounter declared, through all of M2 and M3. Partly closed by the `godot` CI job, which plays every encounter headless through the real bridge with a clean console required. What the screen looks like still closes on a recorded playthrough, with the console output kept |
 | **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | **Not fired.** Step 4 uses `1..=300`; the previous list reached 75025. Both are far below the ceiling. Keep every seed well below 2^53, or pass it across the boundary as a string |
 
 Issue handling, labels and the reproduction a balance report must contain are in

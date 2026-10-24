@@ -13,7 +13,9 @@
     add it to both in the same commit.
 
     Not reproduced: the lychee link check (network-bound). cargo-deny runs only
-    if installed.
+    if installed. The Godot smoke test runs only if a Godot binary is found
+    ($env:GODOT, or godot on PATH), because Godot is not installed into the
+    repository.
 
     Windows PowerShell 5.1 compatible; pwsh is not required.
 
@@ -143,6 +145,15 @@ if (-not $Fast) {
     # --- job: bridge ---
     Invoke-Step 'bridge: clippy' { Invoke-Cargo clippy -p rpg-bridge --all-targets '--' -D warnings }
     Invoke-Step 'bridge: build' { Invoke-Cargo build -p rpg-bridge }
+
+    # --- job: godot smoke (optional locally) ---
+    if ($env:GODOT -or (Get-Command godot -ErrorAction SilentlyContinue)) {
+        Invoke-Step 'godot: every encounter plays to an outcome' { Invoke-Python tools/godot_smoke.py }
+    }
+    else {
+        Write-Host ''
+        Write-Host '==> godot smoke: skipped (set GODOT to the Godot binary; CI still runs it)'
+    }
 
     # --- job: supply chain (optional locally) ---
     if (Get-Command cargo-deny -ErrorAction SilentlyContinue) {
