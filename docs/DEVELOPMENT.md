@@ -49,7 +49,7 @@ library and the synced content, both gitignored.
 | --- | --- | --- |
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
-| `typos-cli` | `cargo install typos-cli --locked` | Same spellcheck CI runs |
+| `typos-cli` | `cargo install typos-cli --version 1.49.0 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
 | LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
@@ -211,21 +211,50 @@ rebuild at all: edit `data/*.json`, re-run the sync script, restart the scene.
 
 ## 4. Checks to run before pushing
 
-These are exactly what CI runs. Running them locally turns a 6-minute red
-pipeline into a 30-second local failure.
+One command runs what CI runs. It is a script rather than a list because the
+list this section used to hold had drifted from CI: it left out the probe mirror
+check and called `typos` optional, and those two plus `rustfmt` account for
+all five CI failures recorded between late July and September 2026 (#22, #29,
+#33, `feat/ai-scored-choice`, `feat/more-enemies`). The step-by-step commands live in
+[`tools/check.ps1`](../tools/check.ps1) and [`tools/check.sh`](../tools/check.sh);
+when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
-cd src
-cargo fmt --all --check
-cargo clippy -p rpg-core  --all-targets --all-features -- -D warnings
-cargo clippy -p rpg-bridge --all-targets -- -D warnings
-cargo test  -p rpg-core --all-targets --all-features
-cargo doc   -p rpg-core --no-deps
-cargo deny check advisories bans licenses sources   # optional tool
-cd ..
-python src/data-pipeline/validate_data.py
-typos                                              # optional tool
+.	ools\check.ps1          # full gate: run before opening a pull request
+.	ools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
 ```
+
+```sh
+sh tools/check.sh          # Linux, macOS, Git Bash
+sh tools/check.sh --fast
+```
+
+Both run every step even after one fails and finish with a list of what failed,
+the way independent CI jobs would. `cargo-deny` runs if it is installed and is
+skipped otherwise, since it fetches the advisory database over the network.
+
+`typos` is required, and its version matters: dictionaries change between
+releases, and PR #36 went red on a dictionary update alone. The scripts read the
+version CI pins from `ci.yml` and warn when yours differs. To match it:
+
+```powershell
+cargo install typos-cli --version 1.49.0 --locked   # the pin in ci.yml at the time of writing
+```
+
+### 4.1 Pre-push hook (once per clone)
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The hook runs the fast gate before every push and refuses the push if it fails;
+`git push --no-verify` overrides it for one push. It deliberately skips clippy
+and the tests, because a hook slow enough to be annoying is a hook that gets
+bypassed; the full gate stays a deliberate step before a pull request.
+
+`core.hooksPath` replaces `.git/hooks` entirely, so [`.githooks/`](../.githooks)
+also carries the Git LFS hooks that `git lfs install` normally writes there.
+Do not delete those files: LFS would stop working without any error.
 
 One CI job cannot be reproduced locally without extra tooling: the Markdown link
 check. It resolves every URL in every `.md` file over the network, so it fails
