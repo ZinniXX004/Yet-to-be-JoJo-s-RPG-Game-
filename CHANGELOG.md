@@ -132,6 +132,21 @@ and nothing more.
   battles — alive at battle's end in 8% of them, against 21-32% for the rest
   of the party — known and accepted, not a defect.
 
+- **`tools/check.ps1` and `tools/check.sh`**: the local gate as one command,
+  running every CI job except the markdown link check, and `-Fast`/`--fast`
+  for the three checks that take seconds. All five CI failures recorded between
+  late July and September 2026 were one of those three — the probe mirror in
+  #29 and #33, `rustfmt` in #22 and on `feat/ai-scored-choice`, `typos` on
+  `feat/more-enemies` — and none of them needed CI to catch it. The hand-written list in `DEVELOPMENT.md` had omitted
+  `--mirror` and called `typos` optional, so "run the local checks" no longer
+  meant "run what CI runs". The `typos` version CI pins is read from `ci.yml`
+  and a mismatch is warned about, because PR #36 went red on a dictionary
+  update alone.
+- **`.githooks/pre-push`**, opt-in with `git config core.hooksPath .githooks`:
+  runs the fast gate and refuses the push if it fails. `core.hooksPath`
+  replaces `.git/hooks` wholesale, so the directory also carries the four Git
+  LFS hooks; leaving them out would have broken LFS without an error.
+
 ### Changed
 
 - **The AI scores actions instead of ranking damage** (#9). `ai::best_offensive`
@@ -291,6 +306,28 @@ prediction scorecards for how each number was reached are in
   three. `matchup.thug_solo` stayed bit-identical throughout. Full
   before/after numbers and the diagnosis in `docs/BALANCE-LOG.md`.
 
+- **Dependabot targets `development`** (`target-branch` on both ecosystems).
+  It had been opening pull requests against `main`, which only ever takes
+  `development`: #48 proposed action bumps `development` already had, and #52
+  started from a `godot` older than the one `development` pins. Two GitHub
+  rules still apply and are written into the file and `RELEASING.md`: the
+  configuration is read from the default branch only, and security updates
+  always target the default branch. Making `development` the default branch is
+  what fully closes the gap.
+- **`src/game/data/` is no longer tracked.** Every document and both sync
+  scripts already described it as generated and gitignored; it was neither.
+  The committed copy dated from `0.1.0` — six combatants and eleven skills
+  against `data/`'s twelve and eighteen — so the Godot project played content
+  two milestones old while CI measured the current game. `tools/sync_data.*`
+  is now the only way content reaches `res://data`. One transitional cost,
+  verified on a scratch clone: until this reaches `main`, checking out `main`
+  or any branch that still tracks the directory silently replaces the synced
+  files with that branch's stale copy, and switching back deletes them. Run the
+  sync script after any checkout that crosses that boundary.
+- **The pull request template** points at the gate script instead of
+  repeating a list, and asks for balance figures to move in the same PR as
+  the change that moved them.
+
 ### Fixed
 
 - **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
@@ -337,6 +374,12 @@ prediction scorecards for how each number was reached are in
   names the condition and no actor at all. A regression test asserts both halves:
   that `StatusHealed` is present, and that no `Healed` event is emitted anywhere
   in a regeneration tick.
+
+- **The README balance table and the M3 checklist were stale.** The README
+  still showed six of seven encounters at their pre-#22/#33 figures, and the
+  ROADMAP still listed #17 and #29 as open: the commit ticking them off sat on
+  `docs/roadmap-m3-checklist`, which was never merged. Both now match a
+  re-measurement at `7f958aa`, identical to the final table in `BALANCE-LOG.md`.
 
 ### Known limitations
 
@@ -430,6 +473,14 @@ Carried forward from `0.3.0` except where noted:
   `strike` deals 26, on 70% of his turns. Filed as #33 and deliberately not
   fixed in M3, because repricing `emerald_snare` would move
   `matchup.assassin_ambush`, the control for the entire content-addition step.
+- **`matchup.diavolo_boss` sits two points above its band's floor** — 27%
+  against 25..55 after #33, which is under one standard error at 300 seeds.
+  The gate is green, but the next change to the rules is likely to turn it red
+  for reasons that have nothing to do with that change. To be rebalanced before
+  `0.4.0` is tagged.
+- **No CI job runs Godot.** Scenes and GDScript are checked only by playing
+  them, which is how the stale `src/game/data/` went unnoticed. A headless
+  smoke test is the next piece of work.
 
 ## [0.3.0] - 2026-07-29
 

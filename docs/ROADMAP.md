@@ -188,10 +188,11 @@ thrown knives `skill.riposte` arrived with the fourth character, and issue #16 a
 content on top of an AI that cannot use part of it would multiply the blind spot
 instead of closing it.
 
-> **The two declined skills are still declined, and step 5 has not yet touched
-> them.** Issue #15 added a reachable skill; it did not reprice the unreachable
-> ones. Tracked as issue #29, which is the citation this document and
-> `BALANCE-LOG.md` both got wrong for two milestones by naming #15 and #16.
+> **Resolved by #29 (PR #47).** Issue #15 added a reachable skill; it did not
+> reprice the unreachable ones, and this document and `BALANCE-LOG.md` both
+> cited #15 and #16 for that work for two milestones before #29 was named.
+> `skill.guard_stance` and `skill.rage_focus` are now chosen in some fights and
+> not others, which is what a priced option should look like.
 
 ### Order of work, and why this order
 
@@ -241,7 +242,11 @@ number.
    a log entry: a third playable character, three more enemies to reach six, and
    a second boss fight. `skill.guard_stance` and `skill.rage_focus` are repriced
    here, because that is where the unreachable-skill criterion is actually met.
-   **In progress -- the character and the three enemies are delivered; the second boss (issue #17) and the repricing (issue #29) remain. See the results below.**
+   **Delivered -- the character (#15), three enemies (#16), the second boss
+   (#17, PR #43) and the repricing (#29, PR #47). #22 and #33 followed as scorer
+   fixes and moved every band except `thug_solo`; `matchup.diavolo_boss` ended
+   two points above its floor and is rebalanced before the tag (checklist
+   below).**
 6. **Then the presentation defects** carried from M1: floating damage numbers,
    status icons with durations, and a tempo readout that stays legible when one
    combatant is left. These cannot be verified by CI -- no job in this repository
@@ -651,10 +656,27 @@ and `--mirror` is what said so rather than a human remembering to diff.
       *(seven, not six. Issue #16 added the Blade Dancer, Hex Weaver and
       Requiem Bell one per commit, each with its own declared encounter:
       `dancer_rush` 70%, `weaver_gambit` 77%, `bell_race` 68%)*
-- [ ] Second boss fight with its own band *(issue #17)*
-- [ ] `skill.guard_stance` and `skill.rage_focus` repriced *(issue #29 -- split
+- [x] Second boss fight with its own band *(issue #17 -- `npc.diavolo`, King
+      Crimson simplified to its "erase time" ability via the existing
+      `tempo_lock` primitive; Epitaph has no engine equivalent and was not
+      attempted. `matchup.diavolo_boss` measured 40% at merge, band 25..55, the
+      lowest declared band in the project; #29 took it to 33% and #33 to 27%)*
+- [x] `skill.guard_stance` and `skill.rage_focus` repriced *(issue #29 -- split
       out of the first checklist line, which was ticking a criterion it did not
-      meet)*
+      meet. Turned out to be three separate things: `is_candidate` widened to
+      admit `OneAlly`/`AllAllies` -- `resolved_target` already defaulted
+      non-hostile skills to the caster, so no ally-selection logic had to be
+      invented; `guard_stance` repriced (`duration` 2->3); `rage_focus`
+      assigned to `pc.polnareff` and repriced (`potency` 40->35, `duration`
+      3->4). The mirror guard from #30/#31 caught a real omission before
+      merge: `pc.polnareff`'s probe entry needed the same skill added, and
+      `--mirror` is what said so.)*
+- [ ] `matchup.diavolo_boss` rebalanced away from its band's floor *(27%
+      against 25..55 after #33: two points, under one standard error at 300
+      seeds, so the next rules change would turn the gate red for a reason
+      unrelated to it. Decided 2026-10-24: rebalance before tagging `0.4.0`,
+      measured in the same run as #24, since a change to `skill.restore`
+      moves this fight too)*
 - [ ] Floating damage numbers, status icons, legible tempo readout
 - [ ] A recorded playthrough of both boss fights, console clean
 
@@ -716,8 +738,9 @@ Issue handling, labels and the reproduction a balance report must contain are in
   property of a two-person party and does not hold at four.
 - **The Iron Brawler hits at an effective 157 against Dio's 160.** The third
   playable character and the second boss both change the frame this sits in, so
-  the decision waits for them rather than being taken twice. Half of that frame
-  now exists; the second boss is issue #17.
+  the decision waits for them rather than being taken twice. Both now exist
+  (#15, #17), and #33 has since retuned the Brawler's `def` 48 -> 15; the
+  attack figure is reviewed with the Diavolo rebalance rather than on its own.
 - **Kakyoin is the weakest link in both encounters it appears in**, and step 5
   found the mechanism rather than another excuse. 177 damage per battle in the
   four-person boss fight against Jotaro's 1186, on the **highest SP spend in the

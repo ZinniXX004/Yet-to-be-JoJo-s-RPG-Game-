@@ -49,9 +49,12 @@ with Godot 4 doing nothing but showing you what happened.**
 > widened from twelve to 300 so a measurement actually means something.
 > Content followed once the ground stopped moving — a fourth party member
 > (`pc.polnareff`, #15), three new enemies (#16), and a second boss
-> (`npc.diavolo`, #17). Left: `skill.guard_stance` and `skill.rage_focus`
-> still can't be chosen at any price (#29), and the scorer still can't tell
-> a good trade from a bad one against the target's defence (#33). Plan in
+> (`npc.diavolo`, #17). The two skills nothing could choose were repriced
+> (#29), and the scorer now weighs damage against the target's resistance and
+> defence (#22, #33). Left before `0.4.0`: the on-screen presentation (#18),
+> two follow-ups in the harness and the healer's numbers (#24, #25), and a
+> Diavolo rebalance — #33 moved the fight to 27%, two points above its band's
+> floor, which is too close to call a band. Plan in
 > [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in
 > [BALANCE-LOG.md](docs/BALANCE-LOG.md).
@@ -176,17 +179,17 @@ cd src
 cargo run -q -p rpg-core --bin balance
 ```
 
-Current measurement, over 300 seeds per encounter:
+Current measurement, over 300 seeds per encounter, at `7f958aa` (after #33):
 
 | Encounter | Win rate | Declared band | Median length |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | 3 turns |
-| `matchup.assassin_ambush` | 53% | 45..90 | 21 turns |
-| `matchup.dio_boss` | 68% | 35..75 | 49 turns |
-| `matchup.dancer_rush` | 70% | 60..90 | 22 turns |
-| `matchup.weaver_gambit` | 77% | 58..86 | 26 turns |
-| `matchup.bell_race` | 68% | 48..80 | 17 turns |
-| `matchup.diavolo_boss` | 40% | 25..55 | 72 turns |
+| `matchup.assassin_ambush` | 58% | 45..90 | 23 turns |
+| `matchup.dio_boss` | 60% | 35..75 | 56 turns |
+| `matchup.dancer_rush` | 75% | 60..90 | 22 turns |
+| `matchup.weaver_gambit` | 67% | 58..86 | 29 turns |
+| `matchup.bell_race` | 66% | 48..80 | 19 turns |
+| `matchup.diavolo_boss` | 27% | 25..55 | 82 turns |
 
 The binary exits non-zero when any encounter leaves its band, so it is both a
 tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under
