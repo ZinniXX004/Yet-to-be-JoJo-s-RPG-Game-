@@ -224,7 +224,7 @@
     "name": "Diavolo",
     "team": "foe",
     "stats": {
-      "hp": 3400,
+      "hp": 3200,
       "sp": 220,
       "atk": 190,
       "def": 95,

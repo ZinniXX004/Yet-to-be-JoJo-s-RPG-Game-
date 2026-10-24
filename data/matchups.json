@@ -1922,7 +1922,7 @@
   {
     "id": "matchup.diavolo_boss",
     "name": "Full party vs Diavolo",
-    "description": "Second boss (#17). Solo encounter, same four-person party as matchup.dio_boss -- no new comparability boundary. King Crimson simplified to its 'erase time' ability only (TempoLock); Epitaph (precognition) has no engine primitive and was not attempted. Kakyoin's low def makes him disproportionately the first to fall (alive in ~8% of battles vs 21-32% for the rest of the party) -- known and accepted, not a defect. Measured at 40% win rate, median 72 turns, longest 101 of 500.",
+    "description": "Second boss (#17). Solo encounter, same four-person party as matchup.dio_boss -- no new comparability boundary. King Crimson simplified to its 'erase time' ability only (TempoLock); Epitaph (precognition) has no engine primitive and was not attempted. Kakyoin's low def makes him disproportionately the first to fall (alive at the end of ~11% of battles vs 22-30% for the rest of the party) -- known and accepted, not a defect. Measured at 40% when added; #29 and #33 took it to 27%, two points above the floor, and npc.diavolo hp 3400 -> 3200 (the #24 entry in docs/BALANCE-LOG.md) re-centred it at 38%, median 79 turns, longest 106 of 500.",
     "party": [
       "pc.jotaro",
       "pc.josuke",

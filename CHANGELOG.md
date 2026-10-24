@@ -370,6 +370,17 @@ prediction scorecards for how each number was reached are in
   by pull request before `development` goes to `main`. Section 4 documents both
   rulesets and the default branch.
 
+- **`npc.diavolo` `hp` 3400 -> 3200, and `skill.restore` stays at 140** (#24).
+  #33 had left `matchup.diavolo_boss` at 27% against a 25..55 band. Probes of
+  ten single-number variants, with predictions written first (three of ten
+  right), showed `restore` is the strongest lever on `dio_boss` -- +40 potency
+  puts it on its 75% ceiling -- so the healer is kept and #24 closes as a
+  measured decision. Of three Diavolo-only levers, `hp` is the one that also
+  shortens the fight: 38% now, median 79 turns instead of 82, longest 106
+  instead of 124. The other six encounters reproduce bit for bit. Dio's
+  `blood_drain` was considered in the same entry and left alone: 60 HP per
+  battle against 2052 taken. Full record in `docs/BALANCE-LOG.md`.
+
 ### Fixed
 
 - **`miss%` was misses divided by actions** (#8). An accuracy roll happens once
@@ -522,11 +533,19 @@ Carried forward from `0.3.0` except where noted:
   `strike` deals 26, on 70% of his turns. Filed as #33 and deliberately not
   fixed in M3, because repricing `emerald_snare` would move
   `matchup.assassin_ambush`, the control for the entire content-addition step.
-- **`matchup.diavolo_boss` sits two points above its band's floor** — 27%
-  against 25..55 after #33, which is under one standard error at 300 seeds.
-  The gate is green, but the next change to the rules is likely to turn it red
-  for reasons that have nothing to do with that change. To be rebalanced before
-  `0.4.0` is tagged.
+- **~~`matchup.diavolo_boss` sits two points above its band's floor~~** —
+  27% against 25..55 after #33. **Resolved** by the `hp` change above: 38%.
+- **`skill.guard_stance` is chosen often and costs the party.** Josuke spends
+  47% of his turns on it against Dio and 59% against Diavolo; at duration 2,
+  where it is almost never chosen, `dio_boss` rises from 60 to 70 and
+  `diavolo_boss` from 27 to 33. The scorer overprices the damage a guard
+  prevents. Not fixed here: it is a pricing question in `ai.rs` with a data
+  workaround that moves four encounters.
+- **`skill.emerald_snare` at power 75 still halves Kakyoin.** At power 100 his
+  damage against Diavolo more than doubles and six encounters rise by seven to
+  nine points. Deferred from #33 and again here, because it moves the M3
+  control. Fixing either of these two raises `matchup.diavolo_boss` again,
+  which will then need re-centring.
 - **CI runs Godot headless, which is not the same as playing it.** The
   `godot` job proves every encounter loads and finishes with a clean console;
   it cannot tell whether the screen is right, which is why #18 still closes on

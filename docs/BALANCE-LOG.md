@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through `0.4.0` step 7 is
-**one hundred and seventeen predictions, fifty-seven of them wrong**. The
+the fact is a rationalisation, and the running record through the #24 entry is
+**one hundred and twenty-seven predictions, sixty-four of them wrong**. The
 scorecards are kept per entry so the rate is visible rather than asserted. That
 is the argument for the harness, not against it -- the same wrong guesses shipped
 as content, unmeasured, would have been indistinguishable from design.
@@ -1912,6 +1912,147 @@ every control in this file has been since #22 established the expectation.
       `emerald_snare` is still below 100 power and still trips the new
       validator warning. Left as a candidate for its own future pass, now
       informed by a scorer that can actually see what it is worth.
+
+## Issue #24 and the Diavolo rebalance -- the healer stays at 140, the boss gets shorter
+
+**A content change of one number: `npc.diavolo` `hp` 3400 -> 3200.** It opens a
+comparability boundary for `matchup.diavolo_boss` **only**: the other six
+encounters were re-measured and reproduce bit for bit, which is what makes the
+scope a measured claim. `skill.restore` stays at 140, and that is #24's
+decision, recorded here with the measurement behind it. Dio's `blood_drain` is
+left alone, also measured.
+
+### Why one entry
+
+#24 asked whether `skill.restore` at 140 is right now that healing is measured.
+Separately, #33 left `matchup.diavolo_boss` at 27% against a 25..55 band: two
+points, under one standard error at 300 seeds, so the next change anywhere
+near this fight would turn the gate red for reasons unrelated to it. A change to
+`restore` moves both boss fights and nothing else -- Josuke fights only in those
+two -- so the two questions could not be answered in separate runs without one
+answer silently depending on the other.
+
+All variants below ran as probe overrides of copies of `data/` (`--skills`,
+`--combatants`, `--stands`); shipped content was not touched until a decision
+existed. Each variant changes exactly one number.
+
+### Predictions, written before the runs
+
+Mechanism assumed: `Effect::Heal` is priced `WORTHLESS` by `score_action`, and
+the support triage rule decides *when* Josuke heals, so `restore`'s power should
+change how much is healed rather than how often. "Right" below means the right
+direction and within two points.
+
+| Variant | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| `restore` 140 -> 180 | dio 65, diavolo 32, other five bit-identical | dio **75.0**, diavolo 38.3, others identical | wrong |
+| `restore` 140 -> 230 | dio 71, diavolo 38 | dio **82.7** (out of band), diavolo 47.3 | wrong |
+| `emerald_snare` power 75 -> 100 | ambush 62, dio 63, diavolo 30, others +3 | ambush 65.3, dio 68.0, diavolo 36.0, dancer 83.3, weaver 75.7, bell 72.7 | wrong (direction right, effect two to three times larger) |
+| `emerald_snare` power 75 -> 110 | as above, +1 to +2 more | ambush 69.3, dio 72.3, diavolo 40.0, dancer 85.0 | wrong |
+| `guard_stance` duration 3 -> 2 | Josuke's guard share ~30%; diavolo 24, dio 58, weaver 66 | Josuke's guard share **0%**; diavolo **32.7**, dio **69.7**, weaver **72.3** | wrong (wrong direction) |
+| `crimson_rage` power 130 -> 120 | diavolo 33, others bit-identical | diavolo 32.0, others identical | right |
+| `blood_drain` untouched | Dio heal/b about 60, under 5% of what he takes | 60 per battle against 2052 dealt to him by the party | right |
+| `npc.diavolo` hp 3300 | 33, median ~80 | 30.3, median 80 | wrong |
+| `npc.diavolo` hp 3250 | 36, median ~79 | 33.0, median 79 | wrong |
+| `npc.diavolo` hp 3200 | 39, median ~78 | 37.7, median 79 | right |
+
+Measured without a prediction, so not scored: `restore` 160 (dio 66.7, diavolo
+34.0); Josuke without `guard_stance` (identical to the duration-2 row for both
+boss fights, others untouched); `crimson_rage` 115 and 110 (36.0, 38.0);
+Diavolo `atk` 180 and 175 (34.7, 41.3); Diavolo `hp` 3100, 2900 and 2700
+(44.7, 54.3, 69.3).
+
+**Scorecard: three of ten.** The heal mechanism held -- `restore`'s share of
+Josuke's turns barely moved with its power (40% -> 37% -> 31% in `dio_boss`) --
+and the magnitude it implied did not: forty points of potency moved `dio_boss`
+by fifteen.
+
+### Decision 1 (#24) -- `skill.restore` stays at 140
+
+The healer is the strongest single lever measured on `dio_boss`. +20 potency
+moves it by 6.7 points, +40 puts it exactly on its 75% ceiling, and the
+pre-`0.3.0` value of 230 takes it out of band. At 140, `dio_boss` sits at 60%
+against a centre of 55. Raising `restore` to rescue Diavolo would have traded one
+band on its floor for another on its ceiling. The `0.3.0` nerf was sized against
+an inferred 950 HP per battle; the measured figure at 140 is now 1193 in
+`dio_boss` and 1096 in `diavolo_boss`, and that is the amount this decision
+keeps.
+
+### Decision 2 -- Dio's `blood_drain` is not changed
+
+#24 asked for the boss's self-heal to be considered with the healer, so that
+nerfing one and ignoring the other was not two decisions taken as one. At
+shipped numbers Dio heals 60 per battle while the party deals him 2052, about
+3%. The 183 that #24 was filed against was a twelve-seed reading under the
+pre-#9 rules. There is nothing here worth a boundary.
+
+### Decision 3 -- Diavolo's `hp` 3400 -> 3200
+
+Three Diavolo-only levers were measured, and each leaves the other six
+encounters bit-identical: `crimson_rage` power (120, 115, 110 -> 32.0, 36.0,
+38.0), `atk` (180, 175 -> 34.7, 41.3) and `hp` (3300 down to 2700). `hp` is the
+only one that also shortens the fight: median 82 -> 79 turns, longest 124 ->
+106, where the other two left the median at 85-86. At 3200 the fight measures
+37.7%, 12.7 points (about 4.5 standard errors) above the floor and 17.3 below
+the ceiling.
+
+**Is this band-fitting?** It is a boss's own number moved to put its fight back
+in the middle of a band it was designed for, after a scorer fix moved it, and
+it is done knowing the cause rather than instead of finding it. The cause is
+the next section, and it is recorded because it will move this fight again.
+
+### What the probes found that this entry deliberately does not fix
+
+1. **`skill.guard_stance` is chosen often and costs the party.** Since #29
+   repriced it to duration 3, Josuke uses it on 47% of his turns against Dio
+   and 59% against Diavolo, and Jotaro on 17% in `weaver_gambit`. At duration
+   2 it falls to 0% everywhere except 4% of Jotaro's turns in
+   `weaver_gambit`, and the fights it left get easier, not harder:
+   `dio_boss` 60 -> 70, `diavolo_boss` 27 -> 33, `weaver_gambit` 67 -> 72,
+   `assassin_ambush` 58 -> 60, the rest within a point. Removing it from Josuke
+   alone gives the same two boss figures. The scorer prices the damage a guard
+   prevents above what the turn spent on it would have bought. That is #33's
+   lesson again in another unit -- a share of turns is not evidence a skill is
+   good. Reverting to duration 2 is a possible data fix and keeps the skill
+   barely reachable, but it moves four encounters at once and puts `dio_boss`
+   five points under its ceiling, and it would leave the mispricing in
+   `ai.rs` in place. Candidate issue, with both routes on it.
+2. **`skill.emerald_snare` at power 75 still costs Kakyoin most of his damage.**
+   At 100 his `dealt/b` against Diavolo goes from 128 to 304 and six encounters
+   rise by seven to nine points; at 110, `dancer_rush` reaches 85 against a
+   ceiling of 90. This is #33's deferred Option 2 with numbers on it. It moves
+   `assassin_ambush`, the M3 control, so it is its own entry. Candidate issue.
+3. **Consequence for the band set today.** Fixing either of the above raises
+   `matchup.diavolo_boss` again -- by roughly six and nine points if they add
+   -- and it will need re-centring when they land. Written down now so that
+   is a scheduled step and not a surprise.
+
+The Iron Brawler question carried in from M2 ("hits at an effective 157 against
+Dio's 160") was deferred to this rebalance. #33 has since cut its `def` from 48
+to 15 and nothing measured here argues for touching its attack; it stays
+deferred, on purpose.
+
+### Re-measured, shipped content, 300 seeds
+
+| Encounter | Before | After | Band | Median turns |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 | 3, bit-identical |
+| `matchup.assassin_ambush` | 58% | 58% | 45..90 | 23, bit-identical |
+| `matchup.dio_boss` | 60% | 60% | 35..75 | 56, bit-identical |
+| `matchup.dancer_rush` | 75% | 75% | 60..90 | 22, bit-identical |
+| `matchup.weaver_gambit` | 67% | 67% | 58..86 | 29, bit-identical |
+| `matchup.bell_race` | 66% | 66% | 48..80 | 19, bit-identical |
+| `matchup.diavolo_boss` | 27% | **38%** | 25..55 | 82 -> 79 (longest 124 -> 106) |
+
+### Acceptance (#24)
+
+- [x] A decision recorded with the prediction written before the run -- no
+      change to `restore`
+- [x] If it changes, `data/skills.json` only -- it did not; the one data edit
+      in this entry is Diavolo's `hp` in `data/combatants.json`, which is D3
+- [x] All bands re-measured; the boundary is declared and scoped to
+      `matchup.diavolo_boss`
+- [x] Dio's `blood_drain` considered in the same entry
 
 ## Known limitations of the harness itself
 
