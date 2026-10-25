@@ -12,21 +12,42 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-M3 in progress: process work, the accounting fix, the rules fix the whole
-milestone was ordered around, and now the attribution fix. The AI no longer
-picks the biggest affordable attack; it scores every option in one unit and pays
-for SP at what that SP would have bought instead. A turn now returns a little SP
-to whoever took it, which is the first time SP is a renewable resource in this
-project. Elemental resistances now modify damage: the data schema already
-carried the field; `resolve.rs` just never read it. And healing is finally
-credited to whoever performed it, which turns the party's healer from a row of
-zeroes into the second-largest contributor in the boss fight.
+## [0.4.0] - 2026-10-25
+
+M3. Content depth. The roster grew from three playable characters and four
+foes, one of them a boss, to four playable characters and eight foes, two of
+them bosses (#15, #16, #17), and from three encounters to seven, all authored
+in `data/` alone. Every encounter declares the win rate it is supposed to
+produce, and the harness now measures it over 300 seeds instead of twelve. All
+eighteen skills are chosen by the AI in at least one encounter; `0.3.0`
+shipped eleven, of which it could choose eight.
+
+The content came last on purpose. The rules were fixed first: the AI scores
+every option in one unit and pays for SP at what that SP would have bought
+instead, and a turn returns a little SP to whoever took it, the first time SP
+is renewable in this project (#9). Elemental resistances modify damage (#10),
+the scorer weighs damage against the target's resistance and defence (#22,
+#33), miss accounting was corrected (#8), and healing is credited to whoever
+performed it (#11). The battle screen now shows what the log says -- floating
+numbers, status badges and a tempo panel (#18) -- CI plays every encounter
+through the real bridge in headless Godot, and both boss fights were recorded
+end to end with a clean console.
+
+| Encounter | Win rate | Declared band | Median length |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 58% | 45..90 | 23 turns |
+| `matchup.dio_boss` | 60% | 35..75 | 56 turns |
+| `matchup.dancer_rush` | 75% | 60..90 | 22 turns |
+| `matchup.weaver_gambit` | 67% | 58..86 | 29 turns |
+| `matchup.bell_race` | 66% | 48..80 | 19 turns |
+| `matchup.diavolo_boss` | 38% | 25..55 | 79 turns |
 
 **Every win rate published in `0.3.0` is void.** Three of the four rules-level
 changes below touch `ai.rs`, `battle.rs` or `state.rs`, so the same seed no
 longer produces the same battle. The numbers are not worse or better than the
-old ones; they are not comparable to them. The re-measured series is at the end
-of this section.
+old ones; they are not comparable to them. The table above is what this
+release measures; the series that led to it is under *Changed*.
 
 **Healing attribution (#11) is not one of those changes.** It adds a field, a
 variant and a column, and draws no RNG. Every figure measured after step 2
@@ -167,6 +188,12 @@ and nothing more.
   not a rule. It also runs on `edited`, because retargeting an open pull
   request is an edit. It has to be added to `protect-main`'s required checks to
   bind (`RELEASING.md` section 4).
+- **The release workflow refuses a tag that is not on `main`.** Its `verify`
+  job checks out the full history and requires the tagged commit to be an
+  ancestor of `main` before anything is built. `RELEASING.md` always said to
+  tag `main`, but nothing enforced it: a tag push is not a pull request, so
+  neither branch ruleset applies to it. A dry run now also prints the release
+  notes it would have published to the run's summary.
 
 - **The battle screen shows what the log says** (#18). Floating numbers rise
   over a combatant's card for every hit, critical hit, heal, damage or
@@ -387,6 +414,24 @@ prediction scorecards for how each number was reached are in
   in `RELEASING.md` happens on `chore/release-X.Y.Z` and reaches `development`
   by pull request before `development` goes to `main`. Section 4 documents both
   rulesets and the default branch.
+- **`RELEASING.md` merges `main` back before releasing, and tags `origin/main`
+  without checking it out.** Every release reaches `main` as a merge commit
+  that `development` never gets -- three of them by this release -- so the pull
+  request from `development` into `main` is always behind its base, which
+  `protect-main`'s up-to-date rule can hold, and *Update branch* would then
+  push to `development`, which only takes pull requests. The release branch
+  now merges `origin/main` first, which changes no file. Tagging `origin/main`
+  directly avoids checking out a local `main` from before `src/game/data/` was
+  untracked, which overwrites the synced content with the stale committed copy.
+- **Release notes say what an archive is for.** The download section claimed
+  each archive contained its checksums (they sit beside it) and said to drop
+  the library into `src/game/bin/`, which leaves the project without `data/`.
+  It now names the platforms -- Apple Silicon only on macOS -- says to copy
+  `bin/` and `data/` into `src/game/` of the same tag, and how to clear macOS's
+  quarantine flag from a library that is not notarised.
+- **`docs/TRIAGE.md` no longer says the issue forms wait for `main`.** Forms
+  are read from the default branch, which has been `development` since the
+  change in `RELEASING.md` section 4, so they were already live.
 
 - **`npc.diavolo` `hp` 3400 -> 3200, and `skill.restore` stays at 140** (#24).
   #33 had left `matchup.diavolo_boss` at 27% against a 25..55 band. Probes of
@@ -463,7 +508,8 @@ prediction scorecards for how each number was reached are in
 
 Carried forward from `0.3.0` except where noted:
 
-- **Two skills are still unreachable.** `skill.guard_stance` at potency 60 and
+- **~~Two skills are still unreachable.~~ Resolved by #29, below.**
+  `skill.guard_stance` at potency 60 and
   `skill.rage_focus` at potency 40 for 10 SP are both correctly declined — the
   score says they are worth less than hitting something, and two tests pin that
   conclusion at the numbers the game currently ships. This is now a content
@@ -485,7 +531,8 @@ Carried forward from `0.3.0` except where noted:
   restored, and there is no matching column for HP a combatant received, so the
   party's damage taken still reads as if none of it was undone. The events now
   carry enough to compute it; nothing consumes them yet.
-- **The AI is resistance-blind.** `score_action` prices `Effect::Damage` from
+- **~~The AI is resistance-blind.~~ Resolved by #22, under *Changed*.**
+  `score_action` prices `Effect::Damage` from
   its `power` field without consulting the target's resistance table, so the AI
   does not prefer psychic skills against the Iron Brawler's psychic vulnerability
   and does not avoid physical skills against its physical resistance. The measured
@@ -566,11 +613,12 @@ Carried forward from `0.3.0` except where noted:
   which will then need re-centring.
 - **CI runs Godot headless, which is not the same as playing it.** The
   `godot` job proves every encounter loads and finishes with a clean console;
-  it cannot tell whether the screen is right, which is why #18 still closes on
-  a recorded playthrough. It also retries the first `--import` once: on a
-  project with no `.godot/` folder, Godot 4.7.1 with this extension aborts
-  while shutting down after an otherwise complete import. The retry happens
-  only when the extension was registered, and the second run must be clean.
+  it cannot tell whether the screen is right, which is why #18 closed on a
+  recorded playthrough of both boss fights. It also retries the first
+  `--import` once: on a project with no `.godot/` folder, Godot 4.7.1 with
+  this extension aborts while shutting down after an otherwise complete
+  import. The retry happens only when the extension was registered, and the
+  second run must be clean.
 - **Status badges are text.** `ATK+ 3`, `SPD- 2`, `BLEED 4` and so on, coloured
   by kind, until the project has art; the asset pipeline is still undecided.
 - **HP and SP bars move once per action, not once per event.** They are drawn
@@ -880,7 +928,8 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases/tag/v0.1.0
