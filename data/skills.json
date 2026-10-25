@@ -90,15 +90,15 @@
   {
     "id": "skill.emerald_snare",
     "name": "Emerald Snare",
-    "description": "Ranged binding attack that slows the target. Power 75 sits below the free basic attack, so for Kakyoin's atk 78 this trades damage away for the slow rather than adding one to the other; see the riposte note and the issue it points at.",
-    "sp_cost": 15,
+    "description": "Ranged binding attack that slows the target: a strike that also slows. Power 100, not the 75 it shipped with, which sat below the free basic attack and cost Kakyoin most of his damage (issue #61). 20 SP, not 15: at 15 a power-100 snare out-earned Emerald Splash per SP even against the two-foe line Splash hits harder, and Splash went unused.",
+    "sp_cost": 20,
     "target": "one_enemy",
     "accuracy": 92,
     "tempo_cost": 1000,
     "effects": [
       {
         "kind": "damage",
-        "power": 75,
+        "power": 100,
         "element": "psychic",
         "variance": 6
       },

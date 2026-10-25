@@ -101,7 +101,7 @@
     "name": "Dio",
     "team": "foe",
     "stats": {
-      "hp": 1400,
+      "hp": 1650,
       "sp": 160,
       "atk": 130,
       "def": 82,
@@ -224,14 +224,14 @@
     "name": "Diavolo",
     "team": "foe",
     "stats": {
-      "hp": 3200,
+      "hp": 2900,
       "sp": 220,
       "atk": 190,
       "def": 95,
       "spd": 90,
       "will": 110
     },
-    "resistances": {
+    "resist": {
       "physical": 20,
       "psychic": 15
     },
