@@ -26,8 +26,8 @@ Milestone mapping, from [ROADMAP.md](ROADMAP.md):
 | M0 scaffold + core | `0.1.0` | Simulation tested and deterministic | Released |
 | M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Released |
 | M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
-| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | In progress |
-| M4 polish | `1.0.0` | Exportable build with audio, art and UX | Planned |
+| M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Released |
+| M4 polish | `1.0.0` | Exportable build with audio, art and UX | Next |
 
 **One tag per fixation.** If work is not worth a changelog entry, it is not worth
 a tag.
@@ -45,17 +45,17 @@ how projects end up with one release and no history.
 
 ## 2. Release checklist
 
-Automation refuses to publish if steps 2 and 3 are skipped, by design. The
-commands are written for the next release, `0.4.0`; substitute the version you
-are actually cutting.
+Automation refuses to publish if steps 2 and 3 are skipped, or if the tag from
+step 7 is not on `main`, by design. The commands are for `cmd.exe` and written
+for the next release, `0.4.0`; substitute the version you are actually cutting.
 
 Neither `development` nor `main` accepts a direct push (section 4), so steps 2
-to 4 happen on a branch of their own, created from an up-to-date `development`:
+to 5 happen on a branch of their own. Create it from the remote `development`,
+so that a local copy which is behind cannot leak into the release:
 
 ```bat
-git switch development
-git pull
-git switch -c chore/release-0.4.0
+git fetch origin
+git switch -c chore/release-0.4.0 origin/development
 ```
 
 1. **CI green on `development`, and the local gate green on your machine.** No
@@ -73,12 +73,17 @@ git switch -c chore/release-0.4.0
    fails without it.
 3. **Bump the workspace version.**
 
-   ```powershell
+   ```bat
    cd src
-   cargo set-version 0.4.0    # requires cargo-edit
-   cargo test -p rpg-core --all-targets   # also refreshes Cargo.lock, which is committed
+   cargo set-version 0.4.0
+   cargo test -p rpg-core --all-targets
    cd ..
    ```
+
+   `cargo set-version` comes from cargo-edit (`cargo install cargo-edit`); the
+   test run also refreshes `Cargo.lock`, which is committed. `cmd.exe` has no
+   trailing `#` comments -- it passes them to the command as arguments -- so
+   the block carries none.
 
    The workflow compares the tag against `src/Cargo.toml` and aborts on a
    mismatch. That check exists because a tag that disagrees with the manifest is
@@ -89,11 +94,34 @@ git switch -c chore/release-0.4.0
    tool rewrites `Cargo.lock` in the same pass. Hand-editing the manifest leaves
    the lockfile stale, and the mismatch surfaces later as a confusing diff.
 
-4. **Commit, then merge twice.**
+4. **Commit.**
 
    ```bat
    git add src/Cargo.toml src/Cargo.lock CHANGELOG.md
    git commit -m "chore(release): 0.4.0"
+   ```
+
+5. **Merge `main` back into the branch.**
+
+   ```bat
+   git merge --no-ff origin/main -m "chore(release): bring main's release merges back into development"
+   git diff --stat HEAD~1 HEAD
+   ```
+
+   The second command must print nothing. `main` only ever receives
+   `development`, so this merge changes no file; it adds history. Each release
+   reaches `main` as a merge commit that `development` never gets, so without
+   this step `development` falls one more commit behind `main` with every
+   release -- three by `0.4.0`. A pull request whose head is behind its base
+   can be held by `protect-main`'s up-to-date rule, and *Update branch* would
+   then try to push to `development`, which only takes pull requests.
+
+   If the diff is not empty, `main` holds a change `development` does not.
+   Find out why before going further.
+
+6. **Push, then merge twice.**
+
+   ```bat
    git push -u origin chore/release-0.4.0
    ```
 
@@ -103,23 +131,43 @@ git switch -c chore/release-0.4.0
    default branch, so pick `main` by hand. That pull request needs `ci` and
    `main accepts development only` green before it can merge.
 
-5. **Tag from `main` and push the tag.**
+7. **Tag `main` and push the tag.**
 
-   ```powershell
-   git checkout main
-   git pull origin main
-   git tag -a v0.4.0 -m "v0.4.0 - content pass"
+   ```bat
+   git fetch origin
+   git log -1 --oneline origin/main
+   git tag -a v0.4.0 origin/main -m "v0.4.0 - content depth"
    git push origin v0.4.0
-   git checkout development
    ```
 
-   Tag `main`, never `development`. The tag is what the release archives are
+   `git log` should show the merge of the pull request from `development`. Tag
+   `origin/main` directly rather than checking `main` out: a local `main` from
+   before `0.4.0` still tracks `src/game/data/`, and checking it out overwrites
+   the synced content with that stale copy. The tag is what the archives are
    built from, so it has to point at the commit that passed the protected
-   branch's checks.
+   branch's checks, and the release workflow refuses a tag whose commit is not
+   on `main`.
 
-6. **Verify the published release.** Confirm three archives (Windows, Linux,
+8. **Verify the published release.** Confirm three archives (Windows, Linux,
    macOS), a `.sha256` beside each, and release notes matching the changelog
-   section.
+   section. To check a download on Windows, run
+   `certutil -hashfile <archive> SHA256` and compare the hash it prints with
+   the one in the archive's `.sha256` file.
+
+9. **Clean up.**
+
+   ```bat
+   git switch development
+   git pull
+   git branch -d chore/release-0.4.0
+   git push origin --delete chore/release-0.4.0
+   git fetch origin main:main
+   ```
+
+   The last line moves the local `main` up to the release without checking it
+   out, so a later `git switch main` cannot restore files `main` no longer
+   tracks. Then close the milestone in *Issues → Milestones* and create the
+   next one.
 
 ### Two failures that are not yours
 
@@ -152,6 +200,15 @@ Do not move a published tag. Delete the release and the tag, fix forward, and
 tag the next patch version. A rewritten tag breaks every checksum anyone already
 downloaded.
 
+A tag the release workflow refused -- not on `main`, or not matching the
+manifest -- published nothing, so it can be deleted and cut again at the right
+commit:
+
+```bat
+git push origin --delete refs/tags/v0.4.0
+git tag -d v0.4.0
+```
+
 ---
 
 ## 3. What a release contains
@@ -171,11 +228,16 @@ jojo-rpg-v0.4.0-x86_64-pc-windows-msvc.zip
 
 Plus `librpg_bridge.so` (Linux, `x86_64-unknown-linux-gnu`) and
 `librpg_bridge.dylib` (macOS, `aarch64-apple-darwin`) archives, each with a
-SHA-256 checksum file.
+SHA-256 checksum file beside it. There is no Intel macOS build. The macOS
+library is not signed with a Developer ID or notarised, so macOS may refuse a
+copy downloaded through a browser until its quarantine flag is cleared with
+`xattr -dr com.apple.quarantine bin`; the release notes say so.
 
-An archive is a library and its content, not a game. Shipping something a
-non-developer can double-click needs a headless Godot export, and that is M4
-work scheduled for `1.0.0`.
+An archive is a library and its content, not a game. Its `bin/` and `data/` go
+into `src/game/` of a checkout of the same tag, and its descriptor is the same
+file as `src/game/rpg.gdextension`. Shipping something a non-developer can
+double-click needs a headless Godot export, and that is M4 work scheduled for
+`1.0.0`.
 
 The release job re-runs `cargo test -p rpg-core --release` before packaging.
 Release-profile builds enable LTO, which changes optimisation; testing only debug
@@ -199,7 +261,8 @@ These are manual, one-time, and cannot be committed to the repo:
      `main accepts development only`, the latter reported by
      [`.github/workflows/pr-guard.yml`](../.github/workflows/pr-guard.yml),
      because a ruleset cannot restrict which branch a pull request comes from.
-     Requiring branches to be up to date is on.
+     Requiring branches to be up to date is on, which is why step 5 of
+     section 2 merges `main` back before the release pull request.
    - `protect-development` on `refs/heads/development`: the same, minus the
      pull-request source check, and with up-to-date branches **off**, so a
      topic branch does not need rebasing every time another one merges.

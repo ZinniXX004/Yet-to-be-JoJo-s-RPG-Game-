@@ -34,7 +34,7 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status: `0.3.0` released. `0.4.0` (M3, content depth) well underway.**
+> **Status: `0.4.0` released (M3, content depth). Next: `1.0.0` (M4, polish).**
 > `0.2.0` got one battle playable start to finish in Godot 4.7.1, console
 > clean. `0.3.0` made the numbers accountable: every encounter declares the
 > win rate it's supposed to produce, a headless harness measures the real
@@ -43,7 +43,7 @@ with Godot 4 doing nothing but showing you what happened.**
 > left on autopilot, the party actually won that same fight 92% of the time,
 > with two of three encounters sitting outside their intended range.
 >
-> `0.4.0` started by closing the hole those measurements were taken through:
+> `0.4.0` began by closing the hole those measurements were taken through:
 > the rules got fixed (miss accounting, elemental resistance, a scored AI in
 > place of a damage-only one, healing finally counted), and the seed list
 > widened from twelve to 300 so a measurement actually means something.
@@ -53,8 +53,10 @@ with Godot 4 doing nothing but showing you what happened.**
 > (#29), and the scorer now weighs damage against the target's resistance and
 > defence (#22, #33). #33 left the Diavolo fight two points above its band's
 > floor; it is back at 38% after a measured `hp` change, and the healer was
-> measured and kept (#24). Left before `0.4.0`: the on-screen presentation
-> (#18). Plan in
+> measured and kept (#24). The battle screen now shows what the log says --
+> floating numbers, status badges and a tempo panel (#18) -- and both boss
+> fights were recorded end to end with a clean console. `1.0.0` is about a
+> stranger being able to play it: a standalone export, audio and art. Plan in
 > [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in
 > [BALANCE-LOG.md](docs/BALANCE-LOG.md).
@@ -161,9 +163,13 @@ required. If your execution policy blocks the script, run
 affects one process and changes no machine-wide setting. On Linux and macOS,
 run `sh tools/sync_data.sh`.
 
-Prebuilt libraries for Windows, Linux and macOS are attached to every
-[release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases) with
-SHA-256 checksums.
+Prebuilt libraries for Windows and Linux (x86_64) and macOS (Apple Silicon
+only) are attached to every
+[release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases),
+each with a SHA-256 checksum. An archive replaces building the library
+yourself: copy its `bin/` and `data/` folders into `src/game/` of a checkout of
+the same tag, then open the project. It is a library and its content, not a
+standalone game; that arrives with `1.0.0`.
 
 ---
 

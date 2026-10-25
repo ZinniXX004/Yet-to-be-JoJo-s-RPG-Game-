@@ -173,10 +173,10 @@ slowly.
 Four things about `.github/ISSUE_TEMPLATE/` are not obvious, and three of them
 look like bugs the first time you meet them.
 
-**They only take effect from the default branch.** The forms live on
-`development` right now, so *New issue* will still show a blank box until
-`0.4.0` is merged into `main`. Nothing is broken in the meantime; the feature
-simply is not live yet. The same applies to `pull_request_template.md`.
+**They only take effect from the default branch.** That is `development`, set
+in [RELEASING.md](RELEASING.md) section 4, so an edit to a form or to
+`pull_request_template.md` is live as soon as its pull request merges there.
+It does not wait for a release to reach `main`.
 
 **A form is a questionnaire, not a wrapper.** Each `id` in the YAML becomes a
 `### heading` in the issue body, with the answer underneath. That is why the

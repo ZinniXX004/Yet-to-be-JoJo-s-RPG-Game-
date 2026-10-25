@@ -12,8 +12,8 @@ checked against each other.
 | M0 Foundation | `0.1.0` | Simulation tested, deterministic, reaching Godot | Released |
 | M1 Playable battle loop | `0.2.0` | One battle playable start to finish | Released |
 | M2 Balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
-| M3 Content depth | `0.4.0` | Full roster, statuses and elemental resistances | In progress |
-| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds | Planned |
+| M3 Content depth | `0.4.0` | Full roster, statuses and elemental resistances | Released |
+| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds | Next |
 
 ## M0 - Foundation (done)
 
@@ -155,11 +155,30 @@ rounds of guessing.
 
 ---
 
-## M3 - Content depth (in progress, `0.4.0`)
+## M3 - Content depth (done, `0.4.0`)
 
 **Exit criterion:** three playable characters, six enemies and two boss fights,
 authored purely in `data/`, with every encounter declaring a win-rate band that
 the harness measures and CI enforces.
+
+**Met.** Four playable characters, six regular enemies and two bosses, authored
+in `data/` alone, fight across seven encounters that each declare a win-rate
+band. The harness plays every encounter over 300 seeds, and the `balance` CI job
+fails the build when a measured rate leaves its band. The addition below holds
+too: all eighteen skills are chosen by the AI in at least one encounter. Both
+boss fights were recorded end to end in Godot 4.7.1 on 2026-10-25 at seed 7 --
+the Dio fight played by hand, the Diavolo fight on `--autoplay` -- and both logs
+end in `party_wins` with no `ERROR` or `WARNING` line (#18, PR #57).
+
+| Encounter | Win rate | Declared band | Median length |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 58% | 45..90 | 23 turns |
+| `matchup.dio_boss` | 60% | 35..75 | 56 turns |
+| `matchup.dancer_rush` | 75% | 60..90 | 22 turns |
+| `matchup.weaver_gambit` | 67% | 58..86 | 29 turns |
+| `matchup.bell_race` | 66% | 48..80 | 19 turns |
+| `matchup.diavolo_boss` | 38% | 25..55 | 79 turns |
 
 One addition to the original criterion, and it is not negotiable: **no skill may
 be unreachable.** `0.3.0` shipped eleven skills of which the AI could choose
@@ -688,7 +707,13 @@ and `--mirror` is what said so rather than a human remembering to diff.
       until the project has art. Checked in rendered frames from a Movie Maker
       recording against the log of the same seed; the playthrough below is
       still the acceptance)*
-- [ ] A recorded playthrough of both boss fights, console clean
+- [x] A recorded playthrough of both boss fights, console clean *(seed 7 for
+      both, recorded with Movie Maker in Godot 4.7.1 on 2026-10-25: Dio played
+      by hand, Diavolo on `--autoplay`, both ending `party_wins` with no `ERROR`
+      or `WARNING` line in either log. The first attempt produced no video,
+      because the documented `--write-movie` path was relative and `--path`
+      resolves it from `src/game`; `DEVELOPMENT.md` section 3.3 now uses an
+      absolute path. PR #57)*
 
 ### Planned changes, by file
 
@@ -732,7 +757,7 @@ rather than rediscovered.
 | **Adding a field to `Event` breaks every exhaustive match** | Compile errors across the crate and the bridge | **Fired and contained in step 3.** The field was the easy half; the new *variant* was the risk this row did not name |
 | **A new `Event` variant is silently unhandled by the presentation layer** | Nothing fails to compile; the Godot log prints raw JSON where a sentence should be | **Fired in step 3 and caught before merge**, by reading `battle_view.gd` rather than trusting that a compiling bridge means a correct one. GDScript matches on a string and reads fields by name, so it cannot fail loudly. A note now sits in that file's header stating the rule, **and since the `godot` CI job the catch-all pushes a warning that fails the build**, so the rule no longer depends on someone reading the file |
 | **A roster change silently invalidates a comparison** | Two win rates for the same matchup id that describe different fights | **Fired in step 5.** Adding one party member moved every figure in `matchup.dio_boss` and changed which skills Dio chose. Comparability boundary 6. A content edit that changes who is standing in a fight is a boundary even though no code changed |
-| **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | **Fired, and found in a review rather than a playthrough:** the committed `src/game/data/` had stayed at `0.1.0` content and `battle_view.gd` fought a roster no encounter declared, through all of M2 and M3. Partly closed by the `godot` CI job, which plays every encounter headless through the real bridge with a clean console required. What the screen looks like still closes on a recorded playthrough, with the console output kept |
+| **Godot layer regressions** invisible to CI | Nothing fails; the game misbehaves when played | **Fired, and found in a review rather than a playthrough:** the committed `src/game/data/` had stayed at `0.1.0` content and `battle_view.gd` fought a roster no encounter declared, through all of M2 and M3. Partly closed by the `godot` CI job, which plays every encounter headless through the real bridge with a clean console required. What the screen looks like closed on a recorded playthrough of both boss fights, with the console output kept (#18, PR #57) |
 | **The 2^53 seed ceiling** resurfaces when seeds are widened | A battle launched from GDScript does not replay | **Not fired.** Step 4 uses `1..=300`; the previous list reached 75025. Both are far below the ceiling. Keep every seed well below 2^53, or pass it across the boundary as a string |
 
 Issue handling, labels and the reproduction a balance report must contain are in
