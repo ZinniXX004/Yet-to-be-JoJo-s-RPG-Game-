@@ -12,6 +12,86 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+Every win rate except `matchup.thug_solo`'s moved: a scorer fix, a skill
+reprice, a resistance table that never loaded, and two bosses re-centred, each
+measured on its own with the prediction written first. The figures and the
+scorecard are in the 0.4.1 entry of
+[docs/BALANCE-LOG.md](docs/BALANCE-LOG.md).
+
+| Encounter | Win rate | Declared band | Median length |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 69% | 45..90 | 22 turns |
+| `matchup.dio_boss` | 61% | 35..75 | 52 turns |
+| `matchup.dancer_rush` | 85% | 60..90 | 20 turns |
+| `matchup.weaver_gambit` | 81% | 58..86 | 26 turns |
+| `matchup.bell_race` | 75% | 48..80 | 17 turns |
+| `matchup.diavolo_boss` | 39% | 25..55 | 73 turns |
+
+### Added
+
+- **The validator rejects keys the game does not read** (#62).
+  `validate_data.py` knows every key each kind of object may carry and
+  reports any other one, for every object at once, with a file and an index;
+  run on `0.4.0`'s data it names `"resistances"` on `npc.diavolo`. The
+  `provenance` block `docs/DATA-SOURCES.md` reserves is accepted on skills,
+  stands and combatants.
+
+### Changed
+
+- **A guard is priced over the hits aimed at its holder** (#60).
+  `status_points` counted every living enemy as one hit on the guarding
+  combatant per round; enemies spread their attacks over the whole living
+  party, so the price is now divided by the number of living allies. Josuke
+  guarded on 47% of his turns against Dio and 59% against Diavolo; it is 10%
+  in both now, and `guard_stance` stays reachable. Two unit tests pin the
+  divisor and the decision it changes. A rules change: every encounter with
+  more than one party member moved.
+- **`skill.emerald_snare` is a strike that also slows** (#61): power
+  75 -> 100, SP 15 -> 20. At 75 it sat below the free `strike` and cost Kakyoin
+  most of his damage; at 100 and 15 SP it made `skill.emerald_splash`
+  unreachable, which 20 SP undoes. Kakyoin deals 208 per battle against Dio
+  (77 before), and the validator's paid-below-free warning on the snare is
+  gone.
+- **Both bosses re-centred.** `npc.dio` `hp` 1400 -> 1650 brings
+  `matchup.dio_boss` back from 76% to 61%; `npc.diavolo` `hp` 3200 -> 2900,
+  with its resistance table now loading, puts `matchup.diavolo_boss` at 39%.
+  Each is where its fight stood in `0.4.0`.
+- **The task form's milestone list** offers the 0.4.x patch line instead of
+  `0.4.0`, which has shipped.
+- **`docs/BALANCE-LOG.md`'s "Current status"** had described issue #16 since
+  August; it shows 0.4.1 now, and its list of comparability boundaries names
+  the ones since #16 that were only declared in their own entries.
+- **`docs/DATA-SOURCES.md`** no longer says the validator ignores unknown keys,
+  and says where the reserved `provenance` block stands: accepted by the
+  validator, not declared in the structs, dropped by the loader.
+
+### Fixed
+
+- **Diavolo's resistance table never loaded** (#62). `npc.diavolo`
+  declared `"resistances"`; the field is `resist`. serde dropped the key and the
+  validator only inspected `resist`, so the boss fought every battle measured
+  since #17 with no table while the data said physical 20, psychic 15. On its
+  own the table takes `matchup.diavolo_boss` from 38% to 9%. The #22 entry in
+  `BALANCE-LOG.md` read the unmoved Diavolo row as the fix not reaching that
+  fight; there was no table to reach, and the row now says so.
+
+### Known limitations
+
+- **`score_action` still mixes units** (#63). Since #33 damage is priced
+  in HP while defensive and action-valued effects are priced in power units --
+  the defect #9 fixed once. Pricing damage in power units, a one-line change,
+  sends four encounters out of their bands, so it needs its own milestone and
+  its own retune.
+- **The game still loads a key it does not read.** The validator, which CI
+  runs, is the only check that notices one; the loader drops it, as it
+  dropped Diavolo's table. Making the loader refuse it, and declaring
+  `provenance` in the structs, changes what the content files may contain,
+  so it is planned for 0.5.0 rather than shipped in a patch.
+- **The Iron Brawler fights sit close to their ceilings.** `dancer_rush` 85%,
+  `weaver_gambit` 81% and `bell_race` 75% are each inside their band by less
+  than a point at the 95% interval's upper end.
+
 ## [0.4.0] - 2026-10-25
 
 M3. Content depth. The roster grew from three playable characters and four

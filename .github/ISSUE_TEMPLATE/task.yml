@@ -15,7 +15,7 @@ body:
     attributes:
       label: Milestone
       options:
-        - M3 (0.4.0) - the content pass
+        - M3 patch (0.4.x) - fixes and re-centring after the content pass
         - M4 (1.0.0) - the shipping pass
         - Unplanned, proposing it now
     validations:

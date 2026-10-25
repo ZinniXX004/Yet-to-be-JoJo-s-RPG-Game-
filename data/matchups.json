@@ -640,7 +640,7 @@
   {
     "id": "matchup.dio_boss",
     "name": "Full party vs Dio and the Flame Assassin",
-    "description": "The encounter that is actually playable in Godot today, and the one the first manual playthrough lost with Dio still on 389 of 1520 HP. Its band is the M2 exit criterion in numeric form. The party is four from issue #15 onward; the band below was argued for three, and if the measurement now sits above it the band is what has to be re-argued, not widened to fit.",
+    "description": "The encounter that is actually playable in Godot today, and the one the first manual playthrough lost with Dio still on 389 of 1520 HP. Its band is the M2 exit criterion in numeric form. The party is four from issue #15 onward; the band below was argued for three, and if the measurement now sits above it the band is what has to be re-argued, not widened to fit. 0.4.1 priced Josuke's guard over the hits actually aimed at him and made emerald_snare a strike that also slows (#60, #61), which lifted this fight to 76%, out of its band; npc.dio hp 1400 -> 1650 puts it back at 61%.",
     "party": [
       "pc.jotaro",
       "pc.josuke",
@@ -1922,7 +1922,7 @@
   {
     "id": "matchup.diavolo_boss",
     "name": "Full party vs Diavolo",
-    "description": "Second boss (#17). Solo encounter, same four-person party as matchup.dio_boss -- no new comparability boundary. King Crimson simplified to its 'erase time' ability only (TempoLock); Epitaph (precognition) has no engine primitive and was not attempted. Kakyoin's low def makes him disproportionately the first to fall (alive at the end of ~11% of battles vs 22-30% for the rest of the party) -- known and accepted, not a defect. Measured at 40% when added; #29 and #33 took it to 27%, two points above the floor, and npc.diavolo hp 3400 -> 3200 (the #24 entry in docs/BALANCE-LOG.md) re-centred it at 38%, median 79 turns, longest 106 of 500.",
+    "description": "Second boss (#17). Solo encounter, same four-person party as matchup.dio_boss -- no new comparability boundary. King Crimson simplified to its 'erase time' ability only (TempoLock); Epitaph (precognition) has no engine primitive and was not attempted. Kakyoin's low def makes him disproportionately the first to fall (alive at the end of ~6% of battles vs 20-33% for the rest of the party at 0.4.1) -- known and accepted, not a defect. Measured at 40% when added; #29 and #33 took it to 27%, two points above the floor, and npc.diavolo hp 3400 -> 3200 (the #24 entry in docs/BALANCE-LOG.md) re-centred it at 38%, median 79 turns, longest 106 of 500. Until 0.4.1 Diavolo's resistance table sat under a key the loader ignored, so none of those figures had it (#62); with the table loading, and the guard and snare fixes in, hp 3200 -> 2900 puts the fight at 39%.",
     "party": [
       "pc.jotaro",
       "pc.josuke",
