@@ -7,7 +7,8 @@ Catching it in CI is cheaper.
 
 Checks performed:
   1. Every file parses as JSON and is a top-level list of objects.
-  2. Required keys are present and correctly typed.
+  2. Required keys are present and correctly typed, and no key is present
+     that the core does not read (`provenance` excepted; see ALLOWED_KEYS).
   3. Enum-valued fields use values the Rust core actually accepts.
   4. Cross-file references resolve (stand -> skills, combatant -> stand/skills,
      matchup -> combatants).
@@ -75,6 +76,33 @@ STATUSES = {
 }
 EFFECT_KINDS = {"damage", "heal", "drain", "status", "tempo_lock"}
 STAT_KEYS = {"hp", "sp", "atk", "def", "spd", "will"}
+
+# Every key each kind of object may carry, mirroring the serde structs in
+# src/core/src/data.rs and src/core/src/sim.rs, plus `provenance`, which
+# docs/DATA-SOURCES.md reserves on skills, stands and combatants. Anything else
+# is an error. The core itself still drops a key it does not know -- serde's
+# default -- so until it refuses one too, this is the only check that notices.
+#
+# Why it exists: npc.diavolo declared its resistance table as "resistances"
+# from issue #17 until 0.4.1. serde dropped the key, check_resistances below
+# only ever looks at "resist", and the boss fought every measured battle with
+# no table while the data said physical 20, psychic 15.
+ALLOWED_KEYS = {
+    "skills": {"id", "name", "description", "sp_cost", "target", "accuracy",
+               "tempo_cost", "effects", "provenance"},
+    "stands": {"id", "name", "description", "bonus", "skills", "provenance"},
+    "combatants": {"id", "name", "team", "stats", "stand", "skills", "ai",
+                   "resist", "provenance"},
+    "matchups": {"id", "name", "description", "party", "foes", "seeds", "band",
+                 "max_turns"},
+}
+EFFECT_KEYS = {
+    "damage": {"kind", "power", "element", "variance"},
+    "drain": {"kind", "power", "element"},
+    "heal": {"kind", "power"},
+    "status": {"kind", "status", "potency", "duration", "chance"},
+    "tempo_lock": {"kind", "ticks"},
+}
 
 # The four content files, in the order they must be validated: later ones
 # reference ids defined by earlier ones.
@@ -237,6 +265,15 @@ def check_enum(row: dict[str, Any], key: str, allowed: set[str], where: str,
         )
 
 
+def check_keys(row: dict[str, Any], allowed: set[str], where: str,
+               report: Report) -> None:
+    """Errors on any key outside ALLOWED_KEYS, which the core would drop."""
+    unknown = sorted(set(row) - allowed)
+    if unknown:
+        report.error(where, f"unknown keys {unknown}: the core would drop them"
+                            f" without a word (allowed: {sorted(allowed)})")
+
+
 def check_stats(block: Any, where: str, report: Report) -> None:
     if not isinstance(block, dict):
         report.error(where, "'stats' must be an object")
@@ -292,6 +329,7 @@ def validate_skills(rows: list[dict[str, Any]], filename: str,
     elements_dealt: set[str] = set()
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
+        check_keys(row, ALLOWED_KEYS["skills"], where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         check_int(row, "sp_cost", where, report, required=False, low=0)
@@ -314,6 +352,7 @@ def validate_skills(rows: list[dict[str, Any]], filename: str,
             if kind not in EFFECT_KINDS:
                 report.error(e_where, f"unknown effect kind {kind!r}")
                 continue
+            check_keys(effect, EFFECT_KEYS[kind], e_where, report)
             if kind in ("damage", "drain"):
                 check_int(effect, "power", e_where, report, required=True, low=0)
                 check_enum(effect, "element", ELEMENTS, e_where, report)
@@ -358,6 +397,7 @@ def validate_stands(rows: list[dict[str, Any]], filename: str,
     referenced: set[str] = set()
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
+        check_keys(row, ALLOWED_KEYS["stands"], where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         bonus = row.get("bonus", {})
@@ -390,6 +430,7 @@ def validate_combatants(rows: list[dict[str, Any]], filename: str,
     teams: dict[str, int] = {"party": 0, "foe": 0}
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
+        check_keys(row, ALLOWED_KEYS["combatants"], where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         check_enum(row, "team", TEAMS, where, report)
@@ -470,6 +511,7 @@ def validate_matchups(rows: list[dict[str, Any]], filename: str,
 
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
+        check_keys(row, ALLOWED_KEYS["matchups"], where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         if not isinstance(row.get("description", ""), str):
