@@ -12,7 +12,9 @@
 //! guard are ordinary data entries; the only thing the code knows is their id.
 
 use crate::command::Command;
-use crate::data::{Database, Effect, Element, SkillDef, StatusKind, TargetKind};
+use crate::data::{
+    Database, Effect, Element, SkillDef, StatusKind, TargetKind, MAX_RESISTANCE, MIN_RESISTANCE,
+};
 use crate::event::Event;
 use crate::state::{BattleState, TEMPO_THRESHOLD};
 
@@ -192,17 +194,22 @@ fn apply_effect(
             element,
             variance,
         } => {
-            let (amount, crit) = compute_damage(st, actor, target, power, variance);
+            let (amount, crit) = compute_damage(st, actor, target, power, element, variance);
             deal_damage(st, actor, target, amount, crit, element, log);
         }
         Effect::Drain { power, element } => {
-            let (amount, crit) = compute_damage(st, actor, target, power, 0);
+            let (amount, crit) = compute_damage(st, actor, target, power, element, 0);
             let dealt = deal_damage(st, actor, target, amount, crit, element, log);
             // Recovery is based on damage *actually dealt*, not on the rolled
             // amount, so overkill does not become a healing exploit.
             let recovered = heal(st, actor, dealt / 2);
             if recovered > 0 {
+                // A self-heal: the drainer is both the healer and the healed.
+                // Both fields name the same index deliberately -- it is one
+                // heal performed by one combatant, and a report must credit it
+                // once, not once per field.
                 log.push(Event::Healed {
+                    actor,
                     target: actor,
                     amount: recovered,
                 });
@@ -216,6 +223,7 @@ fn apply_effect(
             let healed = heal(st, target, amount);
             if healed > 0 {
                 log.push(Event::Healed {
+                    actor,
                     target,
                     amount: healed,
                 });
@@ -265,6 +273,12 @@ fn apply_effect(
 
 /// Integer damage model. See docs/ARCHITECTURE.md for the rationale.
 ///
+/// Order of operations, and it is load-bearing: power against attack, minus half
+/// of defence, then the target's resistance to the element, then variance, then
+/// crit. Resistance sits after defence so that it scales the damage that got
+/// through armour rather than the number the skill declared, and before variance
+/// so that the jitter is jitter on what the target really takes.
+///
 /// Stats are copied into locals before touching the RNG: the RNG lives inside
 /// `BattleState`, so holding a borrow on a combatant across the roll would not
 /// borrow-check.
@@ -273,17 +287,29 @@ fn compute_damage(
     actor: usize,
     target: usize,
     power: i32,
+    element: Element,
     variance: i32,
 ) -> (i32, bool) {
     let atk = st.combatants[actor].atk();
     let will_actor = st.combatants[actor].will();
     let def = st.combatants[target].def();
     let will_target = st.combatants[target].will();
+    // Clamped here as well as in the validator: content can reach this function
+    // through the bridge without passing the Python validator at all.
+    let resist = st.combatants[target]
+        .resistance(element)
+        .clamp(MIN_RESISTANCE, MAX_RESISTANCE);
 
     let base = power * atk / 100;
     // Floor at 1: no amount of defence makes a target immune, which keeps a
     // fight from stalling into an unwinnable state.
     let mut damage = (base - def / 2).max(1);
+
+    if resist != 0 {
+        // The floor is reapplied rather than skipped: at 100 the modifier is
+        // gone, the hit is not.
+        damage = (damage * (100 - resist) / 100).max(1);
+    }
 
     if variance > 0 {
         let variance = variance.min(99);
@@ -378,6 +404,10 @@ pub(crate) fn status_damage(
 
 /// Restores HP and returns the amount actually restored. Healing never revives:
 /// resurrection must be an explicit effect, not an accident of ordering.
+///
+/// Emits nothing. The caller knows whether the recovery came from an action or
+/// from a status, and those are two different events; deciding that here would
+/// mean this function had to guess.
 pub(crate) fn heal(st: &mut BattleState, target: usize, amount: i32) -> i32 {
     let combatant = &mut st.combatants[target];
     if !combatant.alive() || amount <= 0 {
@@ -386,4 +416,238 @@ pub(crate) fn heal(st: &mut BattleState, target: usize, amount: i32) -> i32 {
     let before = combatant.hp;
     combatant.hp = (before + amount).min(combatant.max_hp);
     combatant.hp - before
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{AiProfile, CombatantDef, Resistances, Stats, Team};
+
+    /// A zero-variance attack at perfect accuracy: the only roll left in the
+    /// pipeline is the crit, and that one lands or not identically in every run
+    /// below because the seed and the roll order are the same.
+    fn attack(id: &str, element: Element) -> SkillDef {
+        SkillDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneEnemy,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Damage {
+                power: 100,
+                element,
+                variance: 0,
+            }],
+        }
+    }
+
+    fn fighter(id: &str, team: Team, resist: Resistances, skills: &[&str]) -> CombatantDef {
+        CombatantDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            team,
+            // atk 100 and def 0 make the pre-resistance damage exactly the
+            // skill's power, so the assertions below are about one variable.
+            stats: Stats {
+                hp: 1000,
+                sp: 0,
+                atk: 100,
+                def: 0,
+                spd: 10,
+                will: 0,
+            },
+            stand: None,
+            skills: skills.iter().map(|id| id.to_string()).collect(),
+            ai: AiProfile::Aggressive,
+            resist,
+        }
+    }
+
+    fn table(element: Element, percent: i32) -> Resistances {
+        let mut resist = Resistances::new();
+        resist.insert(element, percent);
+        resist
+    }
+
+    /// Resolves one hit against a defender carrying `resist` and returns the
+    /// damage the emitted event reports.
+    fn hit(skill: &str, resist: Resistances) -> i32 {
+        let db = Database::new(
+            Vec::new(),
+            vec![
+                attack("skill.flame", Element::Fire),
+                attack("skill.jab", Element::Physical),
+            ],
+            vec![
+                fighter(
+                    "pc.attacker",
+                    Team::Party,
+                    Resistances::new(),
+                    &["skill.flame", "skill.jab"],
+                ),
+                fighter("npc.target", Team::Foe, resist, &["skill.jab"]),
+            ],
+        )
+        .expect("the test content is valid");
+
+        let party = vec!["pc.attacker".to_string()];
+        let foes = vec!["npc.target".to_string()];
+        let mut st =
+            BattleState::build(&db, &party, &foes, 7).expect("the test battle instantiates");
+        let mut log: Vec<Event> = Vec::new();
+        let command = Command::Skill {
+            skill: skill.to_string(),
+            target: 1,
+        };
+        resolve_command(&db, &mut st, 0, &command, &mut log).expect("the command is legal");
+
+        log.iter()
+            .find_map(|event| match event {
+                Event::Damaged { amount, .. } => Some(*amount),
+                _ => None,
+            })
+            .expect("an attack at 100 accuracy always lands")
+    }
+
+    #[test]
+    fn a_resisted_element_lands_for_less_and_a_vulnerable_one_for_more() {
+        let neutral = hit("skill.flame", Resistances::new());
+        // Ratios rather than literals: the crit roll is identical across the
+        // three runs, so a literal would be asserting the roll as much as the
+        // resistance, and would have to change if the seed ever did.
+        assert_eq!(
+            hit("skill.flame", table(Element::Fire, 50)) * 2,
+            neutral,
+            "50 should halve the hit"
+        );
+        assert_eq!(
+            hit("skill.flame", table(Element::Fire, -50)) * 2,
+            neutral * 3,
+            "-50 should make the hit half again as strong"
+        );
+    }
+
+    #[test]
+    fn total_resistance_removes_the_modifier_not_the_hit() {
+        assert_eq!(hit("skill.flame", table(Element::Fire, 100)), 1);
+    }
+
+    #[test]
+    fn resistance_applies_only_to_the_element_that_was_used() {
+        let neutral = hit("skill.jab", Resistances::new());
+        assert_eq!(hit("skill.jab", table(Element::Fire, 75)), neutral);
+    }
+
+    /// A support skill and a drain both name a healer, and the drain names the
+    /// same combatant twice on purpose. The report layer relies on that: it
+    /// credits `actor`, so a self-heal must arrive as one event with one actor
+    /// rather than as something a reader has to de-duplicate.
+    #[test]
+    fn a_heal_names_the_combatant_that_performed_it() {
+        fn mender(id: &str, team: Team, skills: &[&str]) -> CombatantDef {
+            let mut def = fighter(id, team, Resistances::new(), skills);
+            def.stats.will = 0;
+            def
+        }
+
+        let restore = SkillDef {
+            id: "skill.mend".to_string(),
+            name: "Mend".to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneAlly,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Heal { power: 50 }],
+        };
+        let siphon = SkillDef {
+            id: "skill.siphon".to_string(),
+            name: "Siphon".to_string(),
+            description: String::new(),
+            sp_cost: 0,
+            target: TargetKind::OneEnemy,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects: vec![Effect::Drain {
+                power: 100,
+                element: Element::Physical,
+            }],
+        };
+
+        let db = Database::new(
+            Vec::new(),
+            vec![restore, siphon],
+            vec![
+                mender("pc.healer", Team::Party, &["skill.mend", "skill.siphon"]),
+                mender("pc.ally", Team::Party, &["skill.mend"]),
+                mender("npc.victim", Team::Foe, &["skill.mend"]),
+            ],
+        )
+        .expect("the test content is valid");
+
+        let party = vec!["pc.healer".to_string(), "pc.ally".to_string()];
+        let foes = vec!["npc.victim".to_string()];
+        let mut st =
+            BattleState::build(&db, &party, &foes, 7).expect("the test battle instantiates");
+
+        // Wound the ally and the healer, so both heals have room to land.
+        st.combatants[0].hp = 500;
+        st.combatants[1].hp = 500;
+
+        let mut log: Vec<Event> = Vec::new();
+        resolve_command(
+            &db,
+            &mut st,
+            0,
+            &Command::Skill {
+                skill: "skill.mend".to_string(),
+                target: 1,
+            },
+            &mut log,
+        )
+        .expect("mending a wounded ally is legal");
+
+        let mended = log
+            .iter()
+            .find_map(|event| match event {
+                Event::Healed {
+                    actor,
+                    target,
+                    amount,
+                } => Some((*actor, *target, *amount)),
+                _ => None,
+            })
+            .expect("a heal on a wounded ally must land");
+        assert_eq!(mended.0, 0, "the caster is the healer");
+        assert_eq!(mended.1, 1, "the ally is the one healed");
+        assert!(mended.2 > 0);
+
+        let mut log: Vec<Event> = Vec::new();
+        resolve_command(
+            &db,
+            &mut st,
+            0,
+            &Command::Skill {
+                skill: "skill.siphon".to_string(),
+                target: 2,
+            },
+            &mut log,
+        )
+        .expect("draining a living foe is legal");
+
+        let drained = log
+            .iter()
+            .find_map(|event| match event {
+                Event::Healed { actor, target, .. } => Some((*actor, *target)),
+                _ => None,
+            })
+            .expect("a drain against a healthy foe recovers something");
+        assert_eq!(
+            drained,
+            (0, 0),
+            "a self-heal names the same combatant as healer and healed"
+        );
+    }
 }

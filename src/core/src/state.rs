@@ -6,12 +6,23 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::data::{AiProfile, CombatantDef, DataError, Database, Id, Stats, StatusKind, Team};
+use crate::data::{
+    AiProfile, CombatantDef, DataError, Database, Element, Id, Resistances, Stats, StatusKind, Team,
+};
 use crate::rng::Rng;
 
 /// Tempo required to act. Acting subtracts the action's cost, so a 1500-cost
 /// skill pushes the actor further back in the order than a 600-cost one.
 pub const TEMPO_THRESHOLD: u32 = 1000;
+
+/// SP returned to a combatant at the end of each of its own turns.
+///
+/// A flat amount rather than a share of the pool, and that asymmetry is
+/// deliberate: recovery is the fighter's own effort, not a dividend on power.
+/// Four points is 5% of an 80 SP party member's reserve and 2% of a 200 SP
+/// boss's, so the longer a fight runs the more it favours the side with the
+/// smaller pool -- which is the side that had already spent everything.
+pub const SP_REGEN_PER_TURN: i32 = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
@@ -36,6 +47,10 @@ pub struct Combatant {
     pub tempo: u32,
     pub tempo_lock: u32,
     pub ai: AiProfile,
+    /// Copied from the definition at instantiation. Older saves that predate
+    /// resistances deserialize into an empty table, which reads as neutral.
+    #[serde(default)]
+    pub resist: Resistances,
 }
 
 impl Combatant {
@@ -49,6 +64,31 @@ impl Combatant {
 
     pub fn status(&self, kind: StatusKind) -> Option<&Status> {
         self.statuses.iter().find(|status| status.kind == kind)
+    }
+
+    /// Resistance to `element` in percent: positive removes damage, negative
+    /// adds it, zero when the table says nothing.
+    ///
+    /// An accessor rather than a public map read, matching [`Combatant::atk`]
+    /// and friends: when a status that alters resistance is added, it is added
+    /// here and every call site inherits it.
+    pub fn resistance(&self, element: Element) -> i32 {
+        self.resist.get(&element).copied().unwrap_or(0)
+    }
+
+    /// Returns SP to this combatant and reports how much was actually recovered,
+    /// so a caller can log or account for it rather than inferring it.
+    ///
+    /// Never exceeds `max_sp`, and the dead recover nothing: a downed combatant
+    /// that quietly refilled would come back with a full kit if a revive is ever
+    /// added.
+    pub fn recover_sp(&mut self, amount: i32) -> i32 {
+        if !self.alive() || amount <= 0 {
+            return 0;
+        }
+        let recovered = amount.min(self.max_sp - self.sp).max(0);
+        self.sp += recovered;
+        recovered
     }
 
     /// Net percentage modifier from opposing buff/debuff pairs. Stacking is
@@ -199,5 +239,6 @@ fn instantiate(db: &Database, def: &CombatantDef, team: Team) -> Combatant {
         tempo: 0,
         tempo_lock: 0,
         ai: def.ai,
+        resist: def.resist.clone(),
     }
 }

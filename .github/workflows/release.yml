@@ -3,11 +3,16 @@
 # Trigger: pushing a tag shaped v0.3.0. The tag is the single source of truth for
 # a release; nothing is published from a branch. That means a release is always
 # reproducible from an immutable ref. Tags are cut from main, never from
-# development -- see docs/RELEASING.md section 2.
+# development -- see docs/RELEASING.md section 2 -- and the verify job refuses
+# a tag whose commit is not on main.
+#
+# There is also a manual trigger, which takes an existing tag. By default it does
+# everything except publish, so the packaging and artefact steps can be exercised
+# without cutting a release. Set dry_run to false only to re-publish a tag.
 #
 # Output: one archive per platform containing the GDExtension library, the
-# content data, the .gdextension descriptor and the licence, plus release notes
-# extracted from CHANGELOG.md.
+# content data, the .gdextension descriptor and the licence, a .sha256 file
+# beside each archive, and release notes extracted from CHANGELOG.md.
 #
 # Deliberately NOT published to crates.io: rpg-core is a game's internal crate,
 # not a library anyone should depend on. Publishing it would create a support
@@ -23,6 +28,10 @@ on:
       tag:
         description: "Existing tag to build (e.g. v0.3.0)"
         required: true
+      dry_run:
+        description: "Build and package only; do not touch any GitHub release"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -30,22 +39,27 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # The one place the release tag is decided. On a tag push it is the tag; on a
+  # manual run it is the tag typed into the form. Every job below reads this and
+  # never GITHUB_REF_NAME, which on a manual run is a branch name.
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
 
 jobs:
   verify:
     name: verify tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          # Full history: the last step walks from main back to the tagged
+          # commit, and a depth-1 clone holds nothing but the tagged commit.
+          fetch-depth: 0
       # A tag whose version does not match Cargo.toml is the classic release
       # mistake. Catch it before any artefact exists.
       - name: Tag must match workspace version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            tag="${tag#v}"
-          fi
+          tag="${RELEASE_TAG#v}"
           manifest=$(grep -m1 '^version' src/Cargo.toml | cut -d'"' -f2)
           echo "tag=$tag manifest=$manifest"
           if [ "$tag" != "$manifest" ]; then
@@ -54,15 +68,25 @@ jobs:
           fi
       - name: CHANGELOG must contain the version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            tag="${tag#v}"
-          fi
+          tag="${RELEASE_TAG#v}"
           grep -q "## \\[$tag\\]" CHANGELOG.md || {
             echo "::error::CHANGELOG.md has no section for $tag"
             exit 1
           }
+      # Tags are cut from main (docs/RELEASING.md section 2), the branch whose
+      # ruleset requires ci and takes pull requests from development only. A tag
+      # push is not a pull request, so neither branch ruleset applies to it: a
+      # tag on a topic branch, or on development before its pull request into
+      # main has merged, would publish code main has never seen. Refuse it here,
+      # before any artefact exists.
+      - name: Tag must point at a commit on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${RELEASE_TAG}^{commit}" FETCH_HEAD; then
+            echo "::error::${RELEASE_TAG} is not on main. Tag origin/main after the pull request into main merges (docs/RELEASING.md section 2)."
+            exit 1
+          fi
+          echo "${RELEASE_TAG} is on main"
 
   build:
     name: build (${{ matrix.target }})
@@ -82,7 +106,9 @@ jobs:
             target: aarch64-apple-darwin
             artifact: librpg_bridge.dylib
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install libclang (Linux)
         if: runner.os == 'Linux'
@@ -107,7 +133,7 @@ jobs:
       - name: Stage package
         shell: bash
         run: |
-          name="jojo-rpg-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          name="jojo-rpg-${RELEASE_TAG}-${{ matrix.target }}"
           mkdir -p "dist/$name/bin" "dist/$name/data"
           cp "src/target/${{ matrix.target }}/release/${{ matrix.artifact }}" "dist/$name/bin/"
           cp data/*.json "dist/$name/data/"
@@ -139,7 +165,7 @@ jobs:
             fi
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package-${{ matrix.target }}
           path: |
@@ -155,9 +181,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: package-*
           merge-multiple: true
@@ -166,7 +194,7 @@ jobs:
       - name: Extract release notes for this version
         id: notes
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           # Print the section for this version only, stopping at the next one.
           awk -v v="$version" '
             $0 ~ "^## \\[" v "\\]" { inside = 1; next }
@@ -176,21 +204,42 @@ jobs:
           if [ ! -s notes.md ]; then
             echo "No changelog section found for $version." > notes.md
           fi
-          {
-            echo "## Downloads"
-            echo
-            echo "Each archive contains the GDExtension library, \`data/\` content, the"
-            echo "\`.gdextension\` descriptor and checksums. Drop the library into"
-            echo "\`src/game/bin/\` to run the Godot project."
-          } >> notes.md
+          # Quoted delimiter: everything up to EOF is literal, backticks included.
+          cat >> notes.md <<'EOF'
+          ## Downloads
 
-      - uses: softprops/action-gh-release@v2
+          One archive per platform: Windows x86_64, Linux x86_64, and macOS on
+          Apple Silicon. There is no Intel macOS build. Each archive holds the
+          GDExtension library in `bin/`, the `data/` content it was tested
+          against, the `.gdextension` descriptor, the licence, the README and
+          the changelog. The `.sha256` file beside an archive is its checksum.
+
+          An archive is a library and its content, not a game to double-click; a
+          standalone build is planned for `1.0.0`. To run it, take `src/game/`
+          from this tag's source code, copy the archive's `bin/` and `data/`
+          folders into it, and open `project.godot` in Godot 4.7 (tested on
+          4.7.1).
+
+          The macOS library is not signed with a Developer ID or notarised. If
+          macOS refuses to load it after a browser download, clear the
+          quarantine flag from inside `src/game/`:
+          `xattr -dr com.apple.quarantine bin`
+          EOF
+          # A dry run publishes nothing, so show the notes it would have used.
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Skipped on a dry run, so everything above is exercised while no release is
+      # touched. The tag is passed explicitly because on a manual run github.ref
+      # is a branch, and a release must never be cut from a branch.
+      - uses: softprops/action-gh-release@v3
+        if: github.event_name == 'push' || github.event.inputs.dry_run != 'true'
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
             dist/*.zip
             dist/*.tar.gz
             dist/*.sha256
           body_path: notes.md
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           fail_on_unmatched_files: true

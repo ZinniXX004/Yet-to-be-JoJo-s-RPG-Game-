@@ -6,6 +6,13 @@
 //! heavy skill genuinely delays the next turn. That single rule is what makes
 //! speed a resource and makes tempo denial a real strategy.
 //!
+//! Resources recover with time as well: each turn returns
+//! [`SP_REGEN_PER_TURN`] to the combatant that took it, capped at that
+//! combatant's own pool. Without a trickle, SP is a one-shot budget, the
+//! correct play is to empty it in the opening exchange, and every turn after
+//! that is a basic attack -- which is how `matchup.dio_boss` came to be decided
+//! by whose hit points were larger rather than by whose skills were better.
+//!
 //! The loop is driven by the caller. [`Battle::advance`] runs until a decision
 //! is required and returns; it never blocks and never calls back into the
 //! presentation layer.
@@ -17,7 +24,7 @@ use crate::command::Command;
 use crate::data::{CombatantDef, DataError, Database, Id, SkillDef, StandDef, StatusKind, Team};
 use crate::event::Event;
 use crate::resolve;
-use crate::state::{BattleState, TEMPO_THRESHOLD};
+use crate::state::{BattleState, SP_REGEN_PER_TURN, TEMPO_THRESHOLD};
 
 /// Hard stop on scheduler ticks. Without it, a content bug (every combatant
 /// tempo-locked forever, zero-damage stalemate) would hang the game instead of
@@ -217,13 +224,19 @@ impl Battle {
         }
     }
 
-    /// Charges tempo, then ticks the actor's own statuses. Status duration is
-    /// counted per *turn of its bearer*, not per global tick, so a fast
-    /// character burns through its buffs faster. That is intentional.
+    /// Charges tempo, returns a turn's worth of SP, then ticks the actor's own
+    /// statuses. Status duration and SP recovery are both counted per *turn of
+    /// the combatant*, not per global tick, so a fast character burns through
+    /// its buffs faster and recovers its reserve faster. That is intentional:
+    /// the engine has one notion of a turn, not two.
+    ///
+    /// A turn burned to a stun recovers as well. The fighter did nothing, and
+    /// standing still is exactly when a reserve comes back.
     fn end_turn(&mut self, actor: usize, cost: u32) {
         {
             let combatant = &mut self.state.combatants[actor];
             combatant.tempo = combatant.tempo.saturating_sub(cost.max(1));
+            combatant.recover_sp(SP_REGEN_PER_TURN);
         }
         self.tick_statuses(actor);
         self.state.turn += 1;
@@ -268,10 +281,15 @@ impl Battle {
             );
         }
         if regen > 0 {
+            // The same rule, one sign over. Regeneration has no healer, so it
+            // must not be logged as `Healed` with the carrier named as its own
+            // source: that would credit healing done to a combatant that spent
+            // no turn on it, and would claim an action nobody took.
             let healed = resolve::heal(&mut self.state, actor, regen);
             if healed > 0 {
-                self.log.push(Event::Healed {
+                self.log.push(Event::StatusHealed {
                     target: actor,
+                    status: StatusKind::Regen,
                     amount: healed,
                 });
             }
@@ -312,7 +330,7 @@ impl Battle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{AiProfile, Effect, Element, Stats, TargetKind};
+    use crate::data::{AiProfile, Effect, Element, Resistances, Stats, TargetKind};
 
     fn stats(hp: i32, atk: i32, spd: i32) -> Stats {
         Stats {
@@ -351,6 +369,11 @@ mod tests {
             stand: None,
             skills: vec![resolve::BASIC_ATTACK_ID.to_string()],
             ai: AiProfile::Aggressive,
+            // Empty on purpose: every test in this module is about turn order,
+            // SP recovery or event attribution, and a resistance here would be
+            // an uncontrolled variable in all three. Resistance behaviour is
+            // tested where it is implemented, in resolve.rs.
+            resist: Resistances::new(),
         }
     }
 
@@ -401,6 +424,51 @@ mod tests {
         ));
     }
 
+    /// Recovery is per turn taken, so the combatant that acted is the only one
+    /// whose reserve moves. A tick-based trickle would quietly pay the whole
+    /// field, including whoever is standing tempo-locked.
+    #[test]
+    fn a_turn_returns_sp_to_the_actor_who_took_it_and_to_nobody_else() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        battle.state.combatants[0].sp = 0;
+        battle.state.combatants[1].sp = 0;
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+
+        assert_eq!(
+            battle.state.combatants[actor].sp, SP_REGEN_PER_TURN,
+            "the actor should recover exactly one turn's worth of SP"
+        );
+        assert_eq!(
+            battle.state.combatants[1].sp, 0,
+            "a combatant that never took a turn recovers nothing"
+        );
+    }
+
+    #[test]
+    fn recovery_never_pushes_a_pool_above_where_it_started() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        let full = battle.state.combatants[actor].max_sp;
+        battle.state.combatants[actor].sp = full;
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+
+        assert_eq!(
+            battle.state.combatants[actor].sp, full,
+            "a full pool must stay at its maximum, not drift above it"
+        );
+    }
+
     /// Regression test for a defect found in the first end-to-end run, where a
     /// bleed tick was logged as `Damaged { actor: 0, target: 0 }` -- the victim
     /// attacking itself with a physical hit it never made.
@@ -443,6 +511,48 @@ mod tests {
                 }
             )),
             "no event may claim a combatant attacked itself: {events:?}"
+        );
+    }
+
+    /// The mirror of the bleed test, and it exists for the same reason. A regen
+    /// tick restores HP with nobody acting, so logging it as `Healed` would
+    /// name the carrier as its own healer -- crediting healing done to a
+    /// combatant that spent no turn on it.
+    #[test]
+    fn regeneration_is_attributed_to_the_status_not_to_its_carrier() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        assert_eq!(actor, 0, "the fast hero should be up first");
+
+        // Wounded, so the tick has room to land: healing at full HP restores
+        // nothing and would emit no event at all.
+        battle.state.combatants[actor].hp = 100;
+        battle.state.combatants[actor].apply_status(StatusKind::Regen, 9, 3);
+        battle.take_events();
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+        let events = battle.take_events();
+
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                Event::StatusHealed {
+                    target: 0,
+                    status: StatusKind::Regen,
+                    amount: 9,
+                }
+            )),
+            "regeneration must report itself as the cause: {events:?}"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, Event::Healed { .. })),
+            "no event may credit a heal nobody performed: {events:?}"
         );
     }
 }

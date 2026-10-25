@@ -49,7 +49,7 @@ library and the synced content, both gitignored.
 | --- | --- | --- |
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
-| `typos-cli` | `cargo install typos-cli --locked` | Same spellcheck CI runs |
+| `typos-cli` | `cargo install typos-cli --version 1.49.0 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
 | LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
@@ -195,6 +195,88 @@ Initialize godot-rust (API v4.6.stable.official, runtime v4.7.1.stable.official,
 `src/game/bin/` and `src/game/data/` are gitignored: they are build output, not
 source.
 
+### 3.1 Choosing the encounter and the seed
+
+The scene plays an encounter declared in `data/matchups.json`,
+`matchup.dio_boss` unless told otherwise, so the screen and the balance harness
+fight the same battles. Arguments after a lone `--` pick another encounter,
+replay a seed, or hand the party to the AI (CMD shown; PowerShell needs `&`
+before the quoted path):
+
+```bat
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game -- --encounter=matchup.diavolo_boss --seed=7
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game -- --encounter=matchup.thug_solo --autoplay
+```
+
+| Argument | Effect |
+| --- | --- |
+| `--encounter=<id>` | Any `id` from `data/matchups.json`. An unknown id lists the known ones |
+| `--seed=<n>` | 0 to 2^53 - 1. The same encounter and seed replay the same battle. Without it the seed comes from the clock and is printed in the first log line, which is what a defect report needs ([TRIAGE.md](TRIAGE.md)) |
+| `--autoplay` | The AI plays the party as well as the foes |
+| `--quit-on-end` | Exit when the battle ends: 0 for any outcome, 1 if it could not be set up or advanced |
+
+### 3.2 Headless smoke test
+
+```bat
+py -3 tools\godot_smoke.py --godot "C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe"
+```
+
+(`python` instead of `py -3` works too, when it is a real Python and not the
+Microsoft Store stub.) It builds `rpg-bridge`, copies it into `src/game/bin`,
+syncs `data/`, imports the project, then autoplays one battle per encounter.
+It fails on a non-zero exit, a battle that never reaches an outcome, or any
+`ERROR` or `WARNING` on the Godot console, and an event kind
+`battle_view.gd` has no case for is pushed as a warning. This is the `godot`
+CI job. `tools/check.*` run it as well when `GODOT` points at a Godot binary:
+
+```bat
+set GODOT=C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe
+powershell -ExecutionPolicy Bypass -File tools\check.ps1
+```
+
+Use the `_console.exe` build, or let the script find it next to the windowed
+one: the windowed build may write nothing to a pipe, and the script reads the
+output. Close the Godot editor first; Windows will not replace a DLL that is
+loaded. The test says nothing about how the screen looks or answers the mouse;
+that still takes a playthrough.
+
+One behaviour it works around, stated so it is not mistaken for flakiness: the
+first `--import` of a project with no `.godot/` folder can abort while shutting
+down, after the import has finished, when the GDExtension is present (seen with
+Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
+the extension was registered, and the second run has to exit cleanly.
+
+### 3.3 Recording a playthrough
+
+Godot's Movie Maker mode writes every rendered frame to a file at a fixed frame
+rate, so a battle can be recorded without screen-capture software and replayed
+exactly from its seed. An `.avi` file is Motion JPEG; a `.png` path writes one
+numbered image per frame instead.
+
+```bat
+mkdir recordings
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game --write-movie "%CD%\recordings\dio_boss_seed7.avi" --fixed-fps 10 -- --encounter=matchup.dio_boss --seed=7 > recordings\dio_boss_seed7.log 2>&1
+findstr /C:"ERROR" /C:"WARNING" recordings\dio_boss_seed7.log
+```
+
+**The movie path has to be absolute.** `--path` makes Godot resolve relative
+paths from the project folder, so `recordings\dio_boss_seed7.avi` means
+`src\game\recordings\dio_boss_seed7.avi`, which does not exist. Movie Maker
+then cannot open its file, logs `ERR_CANT_OPEN` once and `ERR_UNCONFIGURED`
+for every frame after it, and the game itself plays on as if nothing were
+wrong: the first recording for #18 produced 34 000 such lines and no video.
+`%CD%` expands to the current folder in CMD; in PowerShell write
+`"$PWD\recordings\dio_boss_seed7.avi"`. The console redirect is not affected,
+because the shell opens that file before Godot starts.
+
+Play it by hand as usual; the recording runs alongside. Add `--autoplay
+--quit-on-end` after the `--` for an unattended recording that stops at the
+result. Keep the console output with the recording: the seed, the result line
+and the absence of `ERROR` and `WARNING` are what make it evidence (#18), which
+is why the `findstr` line above must print nothing. A hundred-turn boss fight at
+10 fps is in the order of a hundred megabytes, so `recordings/` and `*.avi` are
+gitignored; attach screenshots or a cut-down clip to a pull request instead.
+
 ### Iteration loop
 
 ```powershell
@@ -211,21 +293,62 @@ rebuild at all: edit `data/*.json`, re-run the sync script, restart the scene.
 
 ## 4. Checks to run before pushing
 
-These are exactly what CI runs. Running them locally turns a 6-minute red
-pipeline into a 30-second local failure.
+One command runs what CI runs. It is a script rather than a list because the
+list this section used to hold had drifted from CI: it left out the probe mirror
+check and called `typos` optional, and those two plus `rustfmt` account for
+all five CI failures recorded between late July and September 2026 (#22, #29,
+#33, `feat/ai-scored-choice`, `feat/more-enemies`). The step-by-step commands live in
+[`tools/check.ps1`](../tools/check.ps1) and [`tools/check.sh`](../tools/check.sh);
+when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
-cd src
-cargo fmt --all --check
-cargo clippy -p rpg-core  --all-targets --all-features -- -D warnings
-cargo clippy -p rpg-bridge --all-targets -- -D warnings
-cargo test  -p rpg-core --all-targets --all-features
-cargo doc   -p rpg-core --no-deps
-cargo deny check advisories bans licenses sources   # optional tool
-cd ..
-python src/data-pipeline/validate_data.py
-typos                                              # optional tool
+.	ools\check.ps1          # full gate: run before opening a pull request
+.	ools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
 ```
+
+```sh
+sh tools/check.sh          # Linux, macOS, Git Bash
+sh tools/check.sh --fast
+```
+
+From `cmd.exe` (a prompt reading `C:\...>` rather than `PS C:\...>`), typing
+`.\tools\check.ps1` does not run the script: `cmd.exe` cannot execute `.ps1`
+files and either opens it in an editor or does nothing, with no error, so the
+gate looks as if it passed. Call PowerShell explicitly; the same applies to the
+sync script:
+
+```bat
+powershell -ExecutionPolicy Bypass -File tools\check.ps1
+powershell -ExecutionPolicy Bypass -File tools\check.ps1 -Fast
+powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1
+```
+
+Both run every step even after one fails and finish with a list of what failed,
+the way independent CI jobs would. `cargo-deny` runs if it is installed and is
+skipped otherwise, since it fetches the advisory database over the network.
+
+`typos` is required, and its version matters: dictionaries change between
+releases, and PR #36 went red on a dictionary update alone. The scripts read the
+version CI pins from `ci.yml` and warn when yours differs. To match it:
+
+```powershell
+cargo install typos-cli --version 1.49.0 --locked   # the pin in ci.yml at the time of writing
+```
+
+### 4.1 Pre-push hook (once per clone)
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The hook runs the fast gate before every push and refuses the push if it fails;
+`git push --no-verify` overrides it for one push. It deliberately skips clippy
+and the tests, because a hook slow enough to be annoying is a hook that gets
+bypassed; the full gate stays a deliberate step before a pull request.
+
+`core.hooksPath` replaces `.git/hooks` entirely, so [`.githooks/`](../.githooks)
+also carries the Git LFS hooks that `git lfs install` normally writes there.
+Do not delete those files: LFS would stop working without any error.
 
 One CI job cannot be reproduced locally without extra tooling: the Markdown link
 check. It resolves every URL in every `.md` file over the network, so it fails
@@ -256,7 +379,7 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
 | A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force` from the repository root, then restart Godot |
-| `missing content file: res://data/...` | Sync script not run | `.\tools\sync_data.ps1` from the repository root |
+| `res://data/<file>.json is missing` | Sync script not run; `src/game/data/` is not in git, so a fresh clone has none | `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` from the repository root |
 | Assets appear as small text files | Git LFS not installed before cloning | `git lfs install` then `git lfs pull` |
 | CI complains about line endings | Committed CRLF | `.gitattributes` normalises to LF; re-add the file, do not disable core.autocrlf globally |
 | CI `markdown links` fails on a URL that works in your browser | lychee has no JavaScript engine and no browser user agent, and unpushed tags genuinely 404 | Read the job log for the exact URL and status, then decide: fix the link, or add a justified regex to `.lycheeignore` |

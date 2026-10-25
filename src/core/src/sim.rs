@@ -13,6 +13,10 @@
 //! 2. **No rules.** The harness never knows what a skill does. If it ever needs
 //!    to, the logic is in the wrong layer.
 //!
+//! Rule 2 is why the per-skill breakdown counts *ids* and nothing else. Naming
+//! which skills are offensive, or which ones a designer considers a mistake, is
+//! a judgement; counting what was used is a measurement.
+//!
 //! The seed list is fixed rather than sampled. Comparability between two commits
 //! matters more than statistical purity: a win rate that moves must move because
 //! the content changed, not because the sample did. Widen the list deliberately,
@@ -197,6 +201,34 @@ pub fn run_batch(db: &Database, matchups: &[Matchup]) -> Result<BatchReport, Dat
 /// Status damage is counted into `damage_received` *and* kept separately. A
 /// character dying to bleed and a character dying to a boss are the same number
 /// in an aggregate and completely different balance problems.
+///
+/// Accuracy rolls are counted per *target*, not per action: an attack against
+/// three foes performs three checks, each producing either a [`Event::Damaged`]
+/// or a [`Event::Missed`]. Counting both is what makes `miss_percent` a share of
+/// something rather than a ratio of two different units.
+///
+/// [`Event::StatusDamaged`] is deliberately excluded from that count. A status
+/// tick rolls nothing and has no attacker, which is exactly why it is a separate
+/// variant; folding it in would deflate every miss rate by the amount of bleed
+/// in the fight.
+///
+/// [`Event::ActionUsed`] increments the action count *and* credits the skill id
+/// it carries, in the same arm and from the same event. Deriving one of those
+/// two numbers anywhere else would allow them to disagree, which is precisely
+/// the class of defect that made `miss_percent` wrong for two releases.
+///
+/// [`Event::Healed`] credits the healer and nobody else. There is no
+/// `healing_received` counterpart, and that is a choice rather than an
+/// omission: the report exists to attribute *contribution*, and HP arriving is
+/// not something the recipient did. It also makes the self-heal case fall out
+/// for free -- `blood_drain` emits one event whose actor and target are the
+/// same combatant, and following the actor counts it once, where crediting both
+/// fields would count it twice.
+///
+/// [`Event::StatusHealed`] is excluded for the same reason
+/// [`Event::StatusDamaged`] is excluded from the roll count: it has no actor,
+/// so there is nobody to credit. Regeneration is real recovery and it is
+/// nobody's contribution.
 fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
     for event in events {
         match event {
@@ -208,6 +240,7 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
             } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.damage_dealt += i64::from(*amount);
+                    entry.attack_rolls += 1;
                 }
                 if let Some(entry) = stats.get_mut(*target) {
                     entry.damage_received += i64::from(*amount);
@@ -219,19 +252,26 @@ fn accumulate(stats: &mut [CombatantStats], events: &[Event]) {
                     entry.status_damage_received += i64::from(*amount);
                 }
             }
+            Event::Healed { actor, amount, .. } => {
+                if let Some(entry) = stats.get_mut(*actor) {
+                    entry.healing_done += i64::from(*amount);
+                }
+            }
             Event::SpConsumed { actor, amount } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.sp_spent += i64::from(*amount);
                 }
             }
-            Event::ActionUsed { actor, .. } => {
+            Event::ActionUsed { actor, skill, .. } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.actions += 1;
+                    entry.record_skill_use(skill);
                 }
             }
             Event::Missed { actor, .. } => {
                 if let Some(entry) = stats.get_mut(*actor) {
                     entry.misses += 1;
+                    entry.attack_rolls += 1;
                 }
             }
             Event::Downed { target } => {
@@ -261,7 +301,8 @@ fn median(sorted: &[u64]) -> u64 {
 mod tests {
     use super::*;
     use crate::data::{
-        AiProfile, CombatantDef, Effect, Element, SkillDef, Stats, TargetKind, Team,
+        AiProfile, CombatantDef, Effect, Element, Resistances, SkillDef, Stats, StatusKind,
+        TargetKind, Team,
     };
     use crate::state::TEMPO_THRESHOLD;
 
@@ -300,6 +341,11 @@ mod tests {
             stand: None,
             skills: vec![STRIKE.to_string()],
             ai: AiProfile::Aggressive,
+            // Empty on purpose. The assertions below pin that damage dealt
+            // equals damage received and that a hopeless matchup reports zero;
+            // a resistance here would change those figures without changing
+            // anything the tests claim to measure.
+            resist: Resistances::new(),
         }
     }
 
@@ -401,6 +447,131 @@ mod tests {
             "the hero cannot survive this matchup, on any seed"
         );
         assert_eq!(hero.survived, 0, "no seed may leave the hero standing");
+    }
+
+    /// The healing-side mirror of
+    /// [`damage_is_attributed_to_both_sides_of_every_hit`], driven through
+    /// `accumulate` directly.
+    ///
+    /// Deliberately not run through a matchup. Whether the AI ever *chooses* to
+    /// heal is a question about `ai::choose`, and answering it here would make
+    /// this test fail for a reason that has nothing to do with attribution.
+    /// Building the event slice by hand also lets it state the self-heal case
+    /// outright, which no seed is guaranteed to produce.
+    #[test]
+    fn healing_is_credited_to_the_healer_and_a_self_heal_counts_once() {
+        let mut stats = vec![
+            CombatantStats::new("pc.medic", "Medic", Team::Party),
+            CombatantStats::new("pc.ally", "Ally", Team::Party),
+        ];
+
+        accumulate(
+            &mut stats,
+            &[
+                // A support heal: the caster is credited, the recipient is not.
+                Event::Healed {
+                    actor: 0,
+                    target: 1,
+                    amount: 30,
+                },
+                // A drain's self-heal: one event naming the same combatant
+                // twice. Following the actor counts it once; crediting both
+                // fields would count it twice.
+                Event::Healed {
+                    actor: 0,
+                    target: 0,
+                    amount: 12,
+                },
+                // Regeneration: real recovery, nobody's contribution.
+                Event::StatusHealed {
+                    target: 1,
+                    status: StatusKind::Regen,
+                    amount: 50,
+                },
+            ],
+        );
+
+        assert_eq!(
+            stats[0].healing_done, 42,
+            "the healer is credited with both heals, the self-heal exactly once"
+        );
+        assert_eq!(
+            stats[1].healing_done, 0,
+            "receiving HP is not a contribution, and regeneration has no healer"
+        );
+    }
+
+    /// Every skill in this fixture hits one target with perfect accuracy, so
+    /// rolls, actions and landed hits must all agree. That equality is the
+    /// reason the old `misses / actions` formula went unnoticed for two
+    /// releases, and pinning it here means the next area skill breaks a test
+    /// instead of a report.
+    #[test]
+    fn an_accuracy_roll_is_counted_for_every_target_of_every_attack() {
+        let report = run_matchup(&db(), &matchup("m.titan", "titan", wide_band()))
+            .expect("matchup must run");
+
+        for stats in &report.combatants {
+            assert!(
+                stats.attack_rolls > 0,
+                "{} attacked in this matchup and must have rolled",
+                stats.name
+            );
+            assert_eq!(
+                stats.attack_rolls, stats.actions,
+                "{} only used single-target skills, so rolls must equal actions",
+                stats.name
+            );
+            assert_eq!(
+                stats.misses, 0,
+                "{} has 100 accuracy and cannot miss",
+                stats.name
+            );
+            assert_eq!(stats.miss_percent(), 0);
+        }
+
+        assert!(
+            report.miscounted_combatants().is_empty(),
+            "no combatant may report more misses than rolls"
+        );
+    }
+
+    /// The breakdown must account for every turn, or a behavioural claim read
+    /// off it is describing a different set of turns than the totals are.
+    ///
+    /// Asserts the invariant, not the repertoire: which id a plain attack is
+    /// recorded under is a fact to read off a report, not an expectation to
+    /// bake into a test before anyone has read one.
+    #[test]
+    fn every_action_is_attributed_to_the_skill_that_produced_it() {
+        let report = run_matchup(&db(), &matchup("m.titan", "titan", wide_band()))
+            .expect("matchup must run");
+
+        for stats in &report.combatants {
+            assert!(stats.actions > 0, "{} acted in this matchup", stats.name);
+            assert_eq!(
+                stats.counted_skill_uses(),
+                stats.actions,
+                "{}: the breakdown {:?} must account for every action",
+                stats.name,
+                stats.skill_uses
+            );
+            let shares: i32 = stats
+                .skill_uses
+                .iter()
+                .map(|entry| stats.skill_use_percent(&entry.skill))
+                .sum();
+            assert_eq!(
+                shares, 100,
+                "{}: shares of one combatant's own actions must total 100",
+                stats.name
+            );
+        }
+
+        assert!(
+            report.unattributed_combatants().is_empty(),
+            "every action must be attributed to a skill id"
+        );
     }
 
     #[test]

@@ -1,0 +1,51 @@
+# Enforces the one rule the protect-main ruleset cannot express: main accepts
+# pull requests from development and from nothing else.
+#
+# The ruleset requires a pull request and a green `ci`, but a ruleset has no
+# condition on a pull request's source branch, so until this workflow existed
+# "main only takes development" was a habit rather than a rule. Any topic
+# branch could open a pull request into main and merge once ci passed.
+#
+# Why a separate workflow rather than a job in ci.yml:
+#  - It must also run on `edited`, because retargeting an open pull request
+#    from development to main is an edit. ci.yml does not listen for edits (it
+#    would re-run the whole matrix whenever a description changed), and a ci
+#    result recorded while the PR targeted development would otherwise still
+#    satisfy main's required check for the same commit.
+#  - `ci` treats a skipped job as a failure, so a job that only applies to
+#    pull requests into main cannot live under it without always running.
+#
+# To take effect, the check this job reports, `main accepts development only`,
+# has to be added to the required status checks of the protect-main ruleset.
+# That is a repository setting; see docs/RELEASING.md section 4.
+
+name: PR guard
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  source:
+    name: main accepts development only
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The branch name and repository come from the pull request, which the
+      # author controls, so they are passed through env and never expanded
+      # inside the script itself.
+      - name: Check the source branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REF" = "development" ] && [ "$HEAD_REPO" = "$THIS_REPO" ]; then
+            echo "Source is $THIS_REPO:development."
+            exit 0
+          fi
+          echo "::error::main accepts pull requests from development only; this one comes from $HEAD_REPO:$HEAD_REF. Merge into development first."
+          exit 1

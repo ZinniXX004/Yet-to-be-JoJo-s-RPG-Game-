@@ -6,7 +6,7 @@
 ; Automate this in a task before it wastes anyone's afternoon.
 ;
 ; compatibility_minimum must equal the API version godot-rust compiles
-; against, not a version we wish we supported. godot 0.5.3 targets the
+; against, not a version we wish we supported. godot 0.5.4 targets the
 ; Godot 4.6 API by default, confirmed at startup:
 ;
 ;   Initialize godot-rust (API v4.6.stable.official,

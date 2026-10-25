@@ -1,0 +1,98 @@
+name: Balance finding
+description: The code is correct and the numbers are wrong
+title: "balance: "
+labels: ["type: balance", "area: content"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A balance claim is a measurement or it is an opinion. Run the harness
+        first:
+
+        ```powershell
+        cd src
+        cargo run -q -p rpg-core --bin balance -- --no-fail
+        ```
+
+        Two things have already misled this project, so read them before you
+        file:
+
+        - **Twelve seeds resolve to 8.3 percentage points.** 67% and 75% are the
+          same reading. A finding that depends on a smaller difference is not a
+          finding.
+        - **A rules change resets the series.** RNG draw order is part of the
+          rules, so after any edit to `ai.rs`, `resolve.rs` or `battle.rs` the
+          same seed no longer produces the same battle. Numbers measured across
+          that boundary are not comparable.
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or tag the numbers were measured at
+      placeholder: v0.3.0
+    validations:
+      required: true
+
+  - type: input
+    id: matchup
+    attributes:
+      label: Which encounter
+      description: The matchup id from `data/matchups.json`.
+      placeholder: matchup.assassin_ambush
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: The balance report
+      description: Paste it. Do not summarise it, and do not retype the numbers.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: band
+    attributes:
+      label: The declared band it contradicts
+      description: From `data/matchups.json`, plus the win rate you measured.
+      placeholder: "45..90 declared, 100% measured"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reading
+    attributes:
+      label: What you think the numbers mean
+      description: >-
+        A mechanism, not a verdict. "Jotaro is the only win condition; the
+        encounter reads as a coin flip on his survival" is useful. "Too easy"
+        is not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change, and your prediction
+      description: >-
+        Name the single value you would change, and predict the resulting win
+        rate **before** running it. Seven of nine predictions in 0.3.0 were
+        wrong; that is only knowable because they were written down first.
+      placeholder: |
+        npc.iron_brawler.atk 135 -> 155
+        Prediction: assassin_ambush falls from 100% to 70-85%.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: My numbers come from one side of a rules boundary, not both
+          required: true
+        - label: The difference I am reporting is larger than 8.3 points
+          required: true
+        - label: I am not proposing to widen a band to make CI green
+          required: true

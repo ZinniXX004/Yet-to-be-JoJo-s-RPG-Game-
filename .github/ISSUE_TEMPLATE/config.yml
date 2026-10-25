@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A tool is missing on my machine
+    url: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/blob/main/docs/DEVELOPMENT.md
+    about: >-
+      pwsh, typos, cargo deny or the godot alias not found is a setup step, not
+      a defect. Every one of these that has actually happened here is listed in
+      the troubleshooting section.
+  - name: How does the triage process work?
+    url: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/blob/main/docs/TRIAGE.md
+    about: >-
+      Labels, severity, and what a report has to contain before it can be acted
+      on.
+  - name: A question, not a report
+    url: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/discussions
+    about: >-
+      Ask here. If the answer should have been in docs/ and was not, that
+      absence is the defect worth filing.

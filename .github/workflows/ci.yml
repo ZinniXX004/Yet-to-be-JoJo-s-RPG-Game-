@@ -3,7 +3,13 @@
 # Design notes:
 #  - Windows is a first-class CI target because that is the primary development
 #    machine. A Linux-only pipeline would let Windows-specific breakage (path
-#    separators, line endings, DLL naming) reach main unnoticed.
+#    separators, line endings, DLL naming) reach main unnoticed. macOS is in the
+#    core and bridge matrices for the same reason: release.yml ships a macOS
+#    archive, and until this matrix included it, a release tag was the first
+#    time anything was built for that platform.
+#  - The godot job is the only automated check on the Godot layer. It plays
+#    every declared encounter headless through the real bridge; see
+#    tools/godot_smoke.py for what that does and does not prove.
 #  - clippy runs with -D warnings. A lint that is merely reported is a lint that
 #    accumulates.
 #  - Every job is cheap and independent, so a failure points at one cause.
@@ -50,7 +56,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo fmt --version
       - run: cargo fmt --all --check
@@ -60,8 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       # Stdlib only on purpose: a content validator that needs a dependency tree
@@ -69,6 +75,28 @@ jobs:
       # must run from the repository root.
       - name: Validate data/*.json
         run: python src/data-pipeline/validate_data.py
+      # tools/probe/ is not shipped, but its combatants are hand-copied from
+      # data/, and copies do not follow their originals. Issue #14 found this
+      # roster two milestones stale -- no resistance tables at all, and an Iron
+      # Brawler still at atk 105 after Change G shipped 135 -- which made the
+      # row labelled "control" stop being the shipped creature.
+      #
+      # Validating the directory on its own would not have caught either fault:
+      # an absent resist table is legal and 105 is a valid integer, so both
+      # files were internally consistent and had merely stopped describing the
+      # game. --mirror is the comparison, and it is here rather than in a README
+      # because the README already asked for this and was not obeyed. See #30.
+      #
+      # skills and stands are not overridden: the probe roster borrows the
+      # shipped ones, which is why references like stand.iron_hymn resolve.
+      # Warnings are expected from this run (0..100 bands by design) and do not
+      # fail it; only a drifted field or a broken reference does.
+      - name: Validate tools/probe against data/
+        run: >-
+          python src/data-pipeline/validate_data.py
+          --combatants tools/probe/combatants.probe.json
+          --matchups tools/probe/matchups.probe.json
+          --mirror data
 
   core:
     name: core (${{ matrix.os }})
@@ -77,12 +105,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo --version && cargo clippy --version
       - uses: Swatinem/rust-cache@v2
@@ -104,7 +132,7 @@ jobs:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Resolved toolchain
         run: rustup show active-toolchain && cargo --version
       - uses: Swatinem/rust-cache@v2
@@ -133,12 +161,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: src
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # godot-rust uses prebuilt GDExtension bindings by default, so no Godot
       # binary is needed here. libclang is installed anyway because bindgen is
       # pulled in on some feature paths and the failure mode is cryptic.
@@ -158,12 +186,52 @@ jobs:
       - name: Build cdylib
         run: cargo build -p rpg-bridge
 
+  godot:
+    name: godot smoke (headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # The engine the project is developed and played on, confirmed locally as
+      # 4.7.1.stable.official.a13da4feb. tools/godot_smoke.py reads this line to
+      # warn when a local Godot differs, so it is the single place to bump.
+      GODOT_VERSION: "4.7.1-stable"
+      # From the release's SHA512-SUMS.txt for Godot_v4.7.1-stable_linux.x86_64.zip.
+      # A download that does not match is not run.
+      GODOT_SHA512: "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install libclang
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - name: Resolved toolchain
+        working-directory: src
+        run: rustup show active-toolchain && cargo --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: godot-ubuntu-latest
+      - name: Download Godot (pinned, checksum-verified)
+        run: |
+          zip="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/$zip" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${zip}"
+          echo "${GODOT_SHA512}  $RUNNER_TEMP/$zip" | sha512sum -c -
+          unzip -q "$RUNNER_TEMP/$zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}_linux.x86_64" >> "$GITHUB_ENV"
+      # Builds the bridge, syncs data/ into res://data, imports the project and
+      # autoplays one battle per encounter. Fails on a non-zero exit, a battle
+      # that never reaches an outcome, or any ERROR or WARNING on the console.
+      - name: Every encounter plays to an outcome in Godot
+        run: python tools/godot_smoke.py
+
   audit:
     name: supply chain
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # This action runs cargo-deny inside its own container, which ships an
       # older default toolchain and therefore has to install the pinned 1.94.1
       # from rust-toolchain.toml on every run. That costs about thirty seconds
@@ -178,17 +246,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      # Pinned to a release tag. Tracking master means an upstream dictionary
-      # change can fail a build on a commit that changed no prose.
-      - uses: crate-ci/typos@v1
+      - uses: actions/checkout@v7
+      # Pinned to an exact release, not to @v1: the floating major tag was
+      # documented here as a pin and is not one. v1.49.0 shipped nothing but a
+      # July 2026 dictionary update and turned PR #36 red for "mis-sized" on
+      # a branch whose prose predated it. An exact tag makes a dictionary
+      # change arrive as a reviewable Dependabot pull request instead of as a
+      # red build on unrelated work.
+      - uses: crate-ci/typos@v1.49.0
 
   links:
     name: markdown links
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: lycheeverse/lychee-action@v2
         with:
           # Dead links in a README are the most visible kind of rot on a
@@ -212,7 +284,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [format, content, core, balance, bridge, audit, spelling, links]
+    needs: [format, content, core, balance, bridge, godot, audit, spelling, links]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
