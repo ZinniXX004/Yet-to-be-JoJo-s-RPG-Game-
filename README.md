@@ -185,18 +185,18 @@ cd src
 cargo run -q -p rpg-core --bin balance
 ```
 
-Current measurement, over 300 seeds per encounter, after #33 and the #24
-Diavolo rebalance:
+Current measurement, over 300 seeds per encounter, after the guard, snare
+and Diavolo fixes (#60, #61, #62) and the two bosses re-centred:
 
 | Encounter | Win rate | Declared band | Median length |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | 3 turns |
-| `matchup.assassin_ambush` | 58% | 45..90 | 23 turns |
-| `matchup.dio_boss` | 60% | 35..75 | 56 turns |
-| `matchup.dancer_rush` | 75% | 60..90 | 22 turns |
-| `matchup.weaver_gambit` | 67% | 58..86 | 29 turns |
-| `matchup.bell_race` | 66% | 48..80 | 19 turns |
-| `matchup.diavolo_boss` | 38% | 25..55 | 79 turns |
+| `matchup.assassin_ambush` | 69% | 45..90 | 22 turns |
+| `matchup.dio_boss` | 61% | 35..75 | 52 turns |
+| `matchup.dancer_rush` | 85% | 60..90 | 20 turns |
+| `matchup.weaver_gambit` | 81% | 58..86 | 26 turns |
+| `matchup.bell_race` | 75% | 48..80 | 17 turns |
+| `matchup.diavolo_boss` | 39% | 25..55 | 73 turns |
 
 The binary exits non-zero when any encounter leaves its band, so it is both a
 tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under

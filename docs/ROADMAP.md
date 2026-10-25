@@ -699,7 +699,9 @@ and `--mirror` is what said so rather than a human remembering to diff.
       moves `dio_boss` to its ceiling first, and `npc.diavolo` `hp` 3400 ->
       3200 puts the fight at 38%, median 79 turns. The probes also found
       `guard_stance` chosen often at a net cost and `emerald_snare` still
-      underpowered; fixing either moves this fight again)*
+      underpowered; fixing either moves this fight again. 0.4.1 fixed both
+      (#60, #61), loaded the resistance table he never had (#62) and
+      re-centred him at `hp` 2900: 39%, median 73 turns)*
 - [x] Floating damage numbers, status icons, legible tempo readout *(#18:
       every floating number is one event's own amount, badges come from the
       state snapshot's `statuses` and `tempo_lock`, and the tempo panel fills
@@ -783,7 +785,10 @@ Issue handling, labels and the reproduction a balance report must contain are in
   75 is below his own atk of 78, so against Dio's defence it deals 4 damage where
   his free `strike` deals 26, and the scorer picks it on 70% of his turns for the
   `spd_down` rider. This is issue #33, and it is a content fix, not another
-  skill.
+  skill. **Addressed in 0.4.1 (#61):** power 100 at 20 SP. He deals 208
+  per battle against Dio and 237 against Diavolo, still the least of the four,
+  now because he is the support and not because his main skill took damage
+  away.
 - **The SP economy is now the loudest unexplained number.** Dio spends 205 SP per
   battle against a party spending 98 to 137 each, on a pool of 200 that refills
   at 4 per turn. Still to be filed as its own issue rather than folded into step
