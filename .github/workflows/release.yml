@@ -3,15 +3,16 @@
 # Trigger: pushing a tag shaped v0.3.0. The tag is the single source of truth for
 # a release; nothing is published from a branch. That means a release is always
 # reproducible from an immutable ref. Tags are cut from main, never from
-# development -- see docs/RELEASING.md section 2.
+# development -- see docs/RELEASING.md section 2 -- and the verify job refuses
+# a tag whose commit is not on main.
 #
 # There is also a manual trigger, which takes an existing tag. By default it does
 # everything except publish, so the packaging and artefact steps can be exercised
 # without cutting a release. Set dry_run to false only to re-publish a tag.
 #
 # Output: one archive per platform containing the GDExtension library, the
-# content data, the .gdextension descriptor and the licence, plus release notes
-# extracted from CHANGELOG.md.
+# content data, the .gdextension descriptor and the licence, a .sha256 file
+# beside each archive, and release notes extracted from CHANGELOG.md.
 #
 # Deliberately NOT published to crates.io: rpg-core is a game's internal crate,
 # not a library anyone should depend on. Publishing it would create a support
@@ -51,6 +52,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
+          # Full history: the last step walks from main back to the tagged
+          # commit, and a depth-1 clone holds nothing but the tagged commit.
+          fetch-depth: 0
       # A tag whose version does not match Cargo.toml is the classic release
       # mistake. Catch it before any artefact exists.
       - name: Tag must match workspace version
@@ -69,6 +73,20 @@ jobs:
             echo "::error::CHANGELOG.md has no section for $tag"
             exit 1
           }
+      # Tags are cut from main (docs/RELEASING.md section 2), the branch whose
+      # ruleset requires ci and takes pull requests from development only. A tag
+      # push is not a pull request, so neither branch ruleset applies to it: a
+      # tag on a topic branch, or on development before its pull request into
+      # main has merged, would publish code main has never seen. Refuse it here,
+      # before any artefact exists.
+      - name: Tag must point at a commit on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${RELEASE_TAG}^{commit}" FETCH_HEAD; then
+            echo "::error::${RELEASE_TAG} is not on main. Tag origin/main after the pull request into main merges (docs/RELEASING.md section 2)."
+            exit 1
+          fi
+          echo "${RELEASE_TAG} is on main"
 
   build:
     name: build (${{ matrix.target }})
@@ -186,13 +204,29 @@ jobs:
           if [ ! -s notes.md ]; then
             echo "No changelog section found for $version." > notes.md
           fi
-          {
-            echo "## Downloads"
-            echo
-            echo "Each archive contains the GDExtension library, \`data/\` content, the"
-            echo "\`.gdextension\` descriptor and checksums. Drop the library into"
-            echo "\`src/game/bin/\` to run the Godot project."
-          } >> notes.md
+          # Quoted delimiter: everything up to EOF is literal, backticks included.
+          cat >> notes.md <<'EOF'
+          ## Downloads
+
+          One archive per platform: Windows x86_64, Linux x86_64, and macOS on
+          Apple Silicon. There is no Intel macOS build. Each archive holds the
+          GDExtension library in `bin/`, the `data/` content it was tested
+          against, the `.gdextension` descriptor, the licence, the README and
+          the changelog. The `.sha256` file beside an archive is its checksum.
+
+          An archive is a library and its content, not a game to double-click; a
+          standalone build is planned for `1.0.0`. To run it, take `src/game/`
+          from this tag's source code, copy the archive's `bin/` and `data/`
+          folders into it, and open `project.godot` in Godot 4.7 (tested on
+          4.7.1).
+
+          The macOS library is not signed with a Developer ID or notarised. If
+          macOS refuses to load it after a browser download, clear the
+          quarantine flag from inside `src/game/`:
+          `xattr -dr com.apple.quarantine bin`
+          EOF
+          # A dry run publishes nothing, so show the notes it would have used.
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
       # Skipped on a dry run, so everything above is exercised while no release is
       # touched. The tag is passed explicitly because on a manual run github.ref
