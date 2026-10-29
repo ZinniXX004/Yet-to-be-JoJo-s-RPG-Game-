@@ -27,4 +27,4 @@ serde_json = { workspace = true }
 # version this compiles against may no longer be 4.6. No cargo command reports
 # that number: read the godot-rust startup line in Godot and keep
 # compatibility_minimum in src/game/rpg.gdextension equal to it.
-godot = "=0.5.4"
+godot = "=0.5.5"
