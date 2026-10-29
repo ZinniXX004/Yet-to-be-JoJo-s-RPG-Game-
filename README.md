@@ -34,7 +34,7 @@ with Godot 4 doing nothing but showing you what happened.**
 
 </div>
 
-> **Status: `0.4.0` released (M3, content depth). Next: `1.0.0` (M4, polish).**
+> **Status: `0.4.1` released (M3 patch). Next: `0.5.0`, then `1.0.0` (M4, polish).**
 > `0.2.0` got one battle playable start to finish in Godot 4.7.1, console
 > clean. `0.3.0` made the numbers accountable: every encounter declares the
 > win rate it's supposed to produce, a headless harness measures the real
@@ -55,7 +55,14 @@ with Godot 4 doing nothing but showing you what happened.**
 > floor; it is back at 38% after a measured `hp` change, and the healer was
 > measured and kept (#24). The battle screen now shows what the log says --
 > floating numbers, status badges and a tempo panel (#18) -- and both boss
-> fights were recorded end to end with a clean console. `1.0.0` is about a
+> fights were recorded end to end with a clean console.
+>
+> `0.4.1` fixed what measuring M3 turned up next: the AI priced a guard as
+> though every enemy aimed at its holder (#60), Kakyoin's main skill cost
+> him most of his damage (#61), and Diavolo's resistance table had never
+> loaded (#62). Both bosses were re-centred where their fights stood at
+> `0.4.0`. `0.5.0` puts the AI's scoring back on one unit (#63) and makes
+> the loader refuse content keys it does not read (#65). `1.0.0` is about a
 > stranger being able to play it: a standalone export, audio and art. Plan in
 > [ROADMAP.md](docs/ROADMAP.md), reporting rules in
 > [TRIAGE.md](docs/TRIAGE.md), evidence in

@@ -2188,7 +2188,7 @@ struct, with tests -- and taken out again before release. It changes what the
 content files may contain: the `provenance` block `docs/DATA-SOURCES.md`
 reserves would stop loading the day an entry carried one. `docs/RELEASING.md`
 puts a schema change in a minor version, so the strict loader goes to 0.5.0
-together with declaring that block. Until then the validator accepts
+(#65) together with declaring that block. Until then the validator accepts
 `provenance` on the three kinds of entry the document reserves it for.
 
 ### Decision 4 -- `npc.dio` `hp` 1400 -> 1650
@@ -2231,7 +2231,7 @@ here on purpose.
 4. **The loader still drops a key it does not know.** Only the validator
    notices one, so a misspelled key in an edit that has not been through the
    gate or CI loads without a word, as Diavolo's table did. Planned for
-   0.5.0; see Decision 3.
+   0.5.0 (#65); see Decision 3.
 
 ### Re-measured, shipped content, 300 seeds
 
@@ -2255,7 +2255,7 @@ here on purpose.
       someone; every band re-measured, and the two that left re-centred
 - [x] #62: Diavolo's table applies; an unknown key fails the validator,
       and so CI, and the message names it -- checked against `0.4.0`'s data;
-      the loader's own refusal moves to 0.5.0 (Decision 3)
+      the loader's own refusal moves to 0.5.0 (#65, Decision 3)
 
 ## Known limitations of the harness itself
 

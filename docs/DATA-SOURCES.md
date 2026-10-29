@@ -59,8 +59,8 @@ three kinds of entry is the one it accepts beyond what the game reads. It
 checks nothing inside the block yet, and the loader drops the block, because
 the structs in `src/core/src/data.rs` do not declare it. Declaring it, and
 making the loader refuse unknown keys as the validator does, is a schema
-change and is planned for 0.5.0. When the first derived entry lands, add a
-rule that requires `source_url` and `retrieved` whenever
+change and is planned for 0.5.0 (#65). When the first derived entry lands, add
+a rule that requires `source_url` and `retrieved` whenever
 `origin != "hand-authored"`.
 
 ---
