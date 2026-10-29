@@ -12,10 +12,12 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-Every win rate except `matchup.thug_solo`'s moved: a scorer fix, a skill
-reprice, a resistance table that never loaded, and two bosses re-centred, each
-measured on its own with the prediction written first. The figures and the
-scorecard are in the 0.4.1 entry of
+## [0.4.1] - 2026-10-26
+
+M3 patch. Every win rate except `matchup.thug_solo`'s moved: a scorer fix, a
+skill reprice, a resistance table that never loaded, and two bosses
+re-centred, each measured on its own with the prediction written first. The
+figures and the scorecard are in the 0.4.1 entry of
 [docs/BALANCE-LOG.md](docs/BALANCE-LOG.md).
 
 | Encounter | Win rate | Declared band | Median length |
@@ -87,7 +89,7 @@ scorecard are in the 0.4.1 entry of
   runs, is the only check that notices one; the loader drops it, as it
   dropped Diavolo's table. Making the loader refuse it, and declaring
   `provenance` in the structs, changes what the content files may contain,
-  so it is planned for 0.5.0 rather than shipped in a patch.
+  so it is planned for 0.5.0 (#65) rather than shipped in a patch.
 - **The Iron Brawler fights sit close to their ceilings.** `dancer_rush` 85%,
   `weaver_gambit` 81% and `bell_race` 75% are each inside their band by less
   than a point at the 95% interval's upper end.
@@ -1008,7 +1010,8 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.1.0...v0.2.0

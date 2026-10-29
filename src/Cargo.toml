@@ -3,7 +3,7 @@ resolver = "2"
 members = ["core", "bridge"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 # Lower bound comes from the godot crate (MSRV 1.94.0). CI pins 1.94.1 via
