@@ -12,7 +12,19 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
-## [0.4.1] - 2026-10-26
+### Fixed
+
+- **Five documents meant for 0.4.1 missed its release commit.** The README
+  status, the `0.5.0` rows in the milestone tables of `docs/ROADMAP.md` and
+  `docs/RELEASING.md`, the release checklist retargeted at 0.4.1, and the
+  #65 references in `docs/BALANCE-LOG.md` and `docs/DATA-SOURCES.md` were
+  written for the release but never staged, so the `v0.4.1` tag and its
+  archives carry the 0.4.0 README. They land here. The tag stays where it is,
+  as `docs/RELEASING.md` requires of a published one.
+- **0.4.1's date.** Its section said 2026-10-26, the day its notes were
+  written; the tag and the release were published on 2026-10-29.
+
+## [0.4.1] - 2026-10-29
 
 M3 patch. Every win rate except `matchup.thug_solo`'s moved: a scorer fix, a
 skill reprice, a resistance table that never loaded, and two bosses
