@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through the #24 entry is
-**one hundred and twenty-seven predictions, sixty-four of them wrong**. The
+the fact is a rationalisation, and the running record through the 0.4.1 entry is
+**one hundred and forty-seven predictions, seventy-three of them wrong**. The
 scorecards are kept per entry so the rate is visible rather than asserted. That
 is the argument for the harness, not against it -- the same wrong guesses shipped
 as content, unmeasured, would have been indistinguishable from design.
@@ -96,29 +96,37 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > is untouched". #16 is the strongest case of that last kind in the file, because
 > it was verified at **ten consecutive commits** rather than once.
 
+> **Boundaries after #16 were declared in their own entries and never listed
+> here**, which made this list read as though there had been none. Rules: #29
+> (`is_candidate` admits ally-facing skills), #33 (the defence toll enters
+> `score_action`) and 0.4.1 (#60, a guard priced over the hits aimed at
+> its holder). Content: #24 (`matchup.diavolo_boss` only) and 0.4.1's snare
+> reprice, Diavolo's resistance table and the two boss `hp` values. #22 argued
+> it opened none; #33's reasoning, which is about the same kind of change, says
+> otherwise, so do not compare across it either. **Only `matchup.thug_solo` is
+> comparable across 0.4.1.**
+
 ## Current status
 
-After issue #16, commit `f341618d`, measured over **300 seeds** per encounter:
+At 0.4.1 (#60, #61, #62), measured over **300 seeds** per encounter:
 
 | Matchup | Win rate | 95% interval | Band | Status |
 | --- | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | -- | 85..100 | ok |
-| `matchup.assassin_ambush` | 53% | 47..59 | 45..90 | ok |
-| `matchup.dio_boss` | 68% | 62..74 | 35..75 | ok |
-| `matchup.dancer_rush` | 70% | 65..75 | 60..90 | ok |
-| `matchup.weaver_gambit` | 77% | 72..82 | 58..86 | ok |
-| `matchup.bell_race` | 68% | 63..73 | 48..80 | ok |
+| `matchup.assassin_ambush` | 69% | 64..75 | 45..90 | ok |
+| `matchup.dio_boss` | 61% | 56..67 | 35..75 | ok |
+| `matchup.dancer_rush` | 85% | 81..89 | 60..90 | ok |
+| `matchup.weaver_gambit` | 81% | 77..85 | 58..86 | ok |
+| `matchup.bell_race` | 75% | 70..80 | 48..80 | ok |
+| `matchup.diavolo_boss` | 39% | 33..44 | 25..55 | ok |
 
-Six encounters, 1800 battles, all inside their declared bands, and every
-interval is inside its band rather than merely the point estimate.
-`matchup.dio_boss` remains the row to watch: it sits 7 points under its ceiling
-against an interval half that wide. `matchup.weaver_gambit` is the second, at 9
-points under a ceiling of 86 -- and its band is the narrowest in the file at 28
-points, which the sensitivity finding below argues is close to the minimum that
-can honestly be declared.
-
-The first three rows are the control for issue #16 and reproduce bit for bit
-across all ten of its commits.
+Seven encounters, 2100 battles, every interval inside its band. Three are
+inside by less than a point at the interval's upper end -- `dancer_rush`
+(89.3 against 90), `weaver_gambit` (85.4 against 86) and `bell_race` (79.6
+against 80), the Iron Brawler fights -- and they are the rows to watch; see the
+0.4.1 entry. Until 0.4.1 this section still showed the six encounters as issue
+#16 left them: three rules changes (#22, #29, #33) and one encounter (#17) out
+of date.
 
 ## Issue #16 -- three enemies
 
@@ -1759,7 +1767,7 @@ integer.
 | `matchup.dancer_rush` | 70% | 77% | 60..90 | ok |
 | `matchup.weaver_gambit` | 73% | 69% | 58..86 | ok |
 | `matchup.bell_race` | 68% | 66% | 48..80 | ok |
-| `matchup.diavolo_boss` | 33% | 33% | 25..55 | ok, unaffected -- Diavolo carries a resistance table, but nothing on the party side changed and Diavolo's own targets (the party) were already being priced without one on his side of the fight either |
+| `matchup.diavolo_boss` | 33% | 33% | 25..55 | ok, unaffected -- Diavolo carries a resistance table, but nothing on the party side changed and Diavolo's own targets (the party) were already being priced without one on his side of the fight either. **Corrected in 0.4.1 (#62): he carried none. The table sat under `"resistances"`, a key nothing read, so there was nothing for the party's scorer to price -- that, not the reasoning before it, is why this row did not move.** |
 
 `matchup.assassin_ambush` and `matchup.dio_boss` are the two the issue named.
 `matchup.dancer_rush`, `matchup.weaver_gambit` and `matchup.bell_race` all
@@ -2053,6 +2061,201 @@ deferred, on purpose.
 - [x] All bands re-measured; the boundary is declared and scoped to
       `matchup.diavolo_boss`
 - [x] Dio's `blood_drain` considered in the same entry
+
+## 0.4.1 -- guard priced per ally, snare repriced, Diavolo's table loaded, bosses re-centred
+
+**A rules change and four content changes; only `matchup.thug_solo` is
+comparable across this entry.** The rules change: `status_points` divides the
+damage a guard prevents by the number of living allies (#60). The
+content: `skill.emerald_snare` power 75 -> 100 and SP 15 -> 20 (#61);
+`npc.diavolo`'s resistance table moved from `"resistances"`, a key nothing ever
+read, to `resist` (#62); `npc.dio` `hp` 1400 -> 1650; `npc.diavolo`
+`hp` 3200 -> 2900. The last two are re-centring, and the entry says why rather
+than letting them pass as tuning. `matchup.thug_solo` reproduces bit for bit:
+Jotaro fights it alone, so the divisor is one, and no Kakyoin, Dio or Diavolo
+is in it.
+
+### What reading the code found before anything ran
+
+1. **Diavolo never had a resistance table.** `data/combatants.json` declared
+   `"resistances": {"physical": 20, "psychic": 15}`; the field in
+   `CombatantDef` is `resist`. serde drops a key it does not know, and
+   `validate_data.py` only ever inspected `resist`, so the boss fought every
+   battle measured since #17 with full exposure to everything. The #22 entry
+   recorded `matchup.diavolo_boss` as unaffected by a scorer that reads its
+   target's table "because nothing on the party side changed". The reason was
+   simpler: there was no table to read. That row now carries a correction.
+2. **The guard was priced as if every enemy hit its holder.**
+   `potency / 2 * enemies * own_turns` counts each living enemy as one hit on
+   the guarding combatant per round. Enemies spread their attacks over the
+   living party -- 55% at the weakest, 45% at random -- so in a party of four
+   a guard stops about one hit in four of those it was credited with. Josuke's
+   effective atk is exactly 100, so the HP-to-power conversion changes nothing
+   for him: his 47% guard share against Dio and 59% against Diavolo come from
+   this assumption alone. The #33 entry recorded the jump from single digits
+   to 60% and called the alternatives "honestly discounted". They were; the
+   guard was not, because its price came through this line.
+3. **The scorer mixes units again.** Since #33, `effect_points` prices damage
+   in HP (`power * atk / 100`, minus `def / 2`) while `Bleed` and `DefUp` are
+   converted into power units and every action-valued status rides on a
+   nominal baseline that ignores the target's defence. #9 fixed the first
+   instance of exactly this. It is **not** fixed here; see the last section.
+
+### Predictions and results
+
+Probes ran as overrides of copies of `data/` on three scorer builds: shipped,
+guard divided by allies, and damage in power units. "Right" means the right
+direction and within two points, as in the #24 entry; a row is wrong if any
+claim on it is.
+
+| Round | Variant | Prediction | Measured | Verdict |
+| --- | --- | --- | --- | --- |
+| 1 | Diavolo's table under `resist` | other six bit-identical; diavolo 37.7 -> 10 | six bit-identical; diavolo **9.3** | right |
+| 1 | snare power 100 | the five #24 figures exactly; diavolo 46 | 65.3 / 68.0 / 83.3 / 75.7 / 72.7 exactly; diavolo 48.0 -- and `emerald_splash` **never used**, which nobody predicted | right on the numbers |
+| 1 | guard divided by allies | thug identical; ambush 59.5, dio 69, dancer unmoved, weaver 72, bell 66.5, diavolo 44; `guard_stance` close to unreachable | thug identical; 59.7, **66.3**, 74.7, 69.0, 65.0, 43.0; `guard_stance` **973** uses, Josuke 9% in both boss fights | wrong |
+| 1 | damage in power units | ambush 54, dio 58, dancer 71, weaver 63, bell 63, diavolo 40 | **94.0, 95.0, 89.0, 87.0, 82.7**; diavolo bit-identical; `sun_flare` never used | wrong, every direction |
+| 1 | both scorer changes | ambush 56, dio 66, dancer 72, weaver 68, bell 64, diavolo 45 | 95.7, 98.3, 89.7, 88.7, 78.0, 43.0 | wrong |
+| 2 | guard fix + snare 100 | ambush 66.5, dio 73.5, dancer 83.3, weaver 77.5, bell 72, diavolo 52; splash unused | 65.3, **76.3**, 83.0, **81.7**, 73.3, **57.3**; splash unused | wrong |
+| 2 | + snare at 18 SP | ambush 64, dio 72, dancer 81, weaver 76, bell 71, diavolo 50; splash used again | 65.0, 76.3, 83.0, 81.0, 73.3, 55.3; splash **still unused** | wrong |
+| 2 | guard fix + snare 90 | ambush 64, dio 71, dancer 80, weaver 75, bell 70, diavolo 50; splash used again | 59.7, 72.7, 78.3, 75.0, 69.0, 53.0; splash **unused** | wrong |
+| 3 | guard fix + snare 100 at 20 SP | ambush 64, dio 75.5, dancer 82, weaver 79.5, bell 72.5, diavolo 54.5; splash used again | **69.3**, 75.7, **85.3**, 81.0, 74.7, 55.0; splash used again | wrong |
+| 3 | + Diavolo's table | six identical to the row above; diavolo 26 | six identical; diavolo **16.7** | wrong |
+| 3 | + Dio `hp` 1500 | dio 69, others identical | 67.7, others identical | right |
+| 3 | + Dio `hp` 1600 | dio 63 | 62.7 | right |
+| 3 | + Dio `hp` 1700 | dio 57 | 56.7 | right |
+| 3 | no table, Diavolo `hp` 3400 | diavolo 43.5 | 42.0 | right |
+| 3 | no table, Diavolo `hp` 3500 | diavolo 38 | 36.7 | right |
+| 3 | table, Diavolo `hp` 3000 | diavolo 33 | **29.7** | wrong |
+| 3 | table, Diavolo `hp` 2900 | diavolo 37 | 38.7 | right |
+| 3 | table, Diavolo `hp` 2800 | diavolo 41 | 43.0 | right |
+| 4 | + Dio `hp` 1650 | dio 59.7, others identical | 61.0, others identical | right |
+| -- | shipped content, everything at once | each encounter bit-identical to the probe that isolated it | all seven bit-identical | right |
+
+Measured without a prediction, so not scored: no table, Diavolo `hp` 3600
+(31.3); table, Diavolo `hp` 2700 (50.7).
+
+**Scorecard: eleven of twenty.** Two misses are worth naming. The snare model
+in round 2 forgot that the Iron Brawler resists physical, so the free `strike`
+it compares against is worth 53 to Kakyoin there, not 88; redone with
+`best_action`'s own integer arithmetic it calls rounds 2 and 3 exactly (at 18
+SP the snare nets 72 against splash's 52; at 20 SP, 62 against 74). And the
+power-units probe moved the opposite way to every prediction on it, because
+the HP pricing undervalues damage most for the party's weakest attacker,
+Kakyoin.
+
+### Decision 1 (#60) -- divide by allies, rather than duration 2
+
+Both routes the issue named were measured. Duration 2 (the #24 probe) takes
+the guard out of almost every fight and leaves the reason in `ai.rs`; the
+divisor removes the reason. It also keeps the skill where the arithmetic says
+it belongs: Josuke still guards on 10% of his turns in both boss fights and
+Jotaro on 8% in `matchup.weaver_gambit`, and by the formula those are mostly
+turns after the party has thinned and the enemy's attention has fewer places
+to go. Uniform over `allies` is crude on purpose -- focus fire on the weakest
+is the enemy's rule, and a price read from content alone cannot know who that
+is. Two unit tests pin the divisor and the decision it changes.
+
+In the shipped result Josuke deals 244 per battle against Dio (132 at `0.4.0`)
+and 372 against Diavolo (243).
+
+### Decision 2 (#61) -- power 100 at 20 SP
+
+Power 100 makes the snare what its description says, a strike that also
+slows, and clears the validator warning it has carried since #33. On its own it
+also made `skill.emerald_splash` unreachable: at 15 SP a power-100 snare
+out-earns splash per SP even in the one case splash used to win, two foes up
+with the Iron Brawler targeted. Splash wins that case again from 19 SP; 20
+leaves a margin of 12 points in the comparison instead of 7. Every skill in the
+game is chosen by someone again.
+
+In the shipped result Kakyoin deals 208 per battle against Dio (77 at `0.4.0`),
+237 against Diavolo (123), and 65 to 76 more in each of the four Iron Brawler
+fights.
+
+### Decision 3 (#62) -- the table loads, and the validator rejects unknown keys
+
+The data said Diavolo resists physical 20 and psychic 15, and the #22 entry
+reasoned as though he did, so the fix makes that true rather than deleting the
+claim. Measured on its own it takes `matchup.diavolo_boss` from 37.7% to 9.3%:
+96% of the party's damage against him at `0.4.0` was physical. The guard
+against the next one is in code rather than in a checklist: `validate_data.py`
+knows every key each kind of object may carry and reports any other one, for
+every object at once, and CI runs it. Run against `0.4.0`'s data it says
+`combatants.json[11] (npc.diavolo): unknown keys ['resistances']`.
+
+The loader was made strict as well -- `deny_unknown_fields` on every content
+struct, with tests -- and taken out again before release. It changes what the
+content files may contain: the `provenance` block `docs/DATA-SOURCES.md`
+reserves would stop loading the day an entry carried one. `docs/RELEASING.md`
+puts a schema change in a minor version, so the strict loader goes to 0.5.0
+together with declaring that block. Until then the validator accepts
+`provenance` on the three kinds of entry the document reserves it for.
+
+### Decision 4 -- `npc.dio` `hp` 1400 -> 1650
+
+The guard and snare fixes together take `matchup.dio_boss` to 75.7%, out of its
+35..75 band. Dio is the lever because he appears in that fight and nowhere
+else, so the other six reproduce bit for bit, and `hp` because the fight had
+shortened (median 56 -> 46 turns) for exactly the reason the party got better
+at it. 1650 measures 61.0% against 60.0% at `0.4.0`, median 52.
+
+### Decision 5 -- `npc.diavolo` `hp` 3200 -> 2900
+
+With the table loading and both fixes in, the fight measures 16.7%. `hp` is the
+lever for the reason the #24 entry gave: of the Diavolo-only levers it is the
+one that also governs length. 2900 measures 38.7% against 37.7% at `0.4.0`,
+median 73 turns, longest 102 of 500. Both options for the table were measured
+before the choice was made: deleting the dead key and raising `hp` to 3500
+measures 36.7%, median 70. They are about as hard as each other; the one chosen
+is the one where the data means what it says.
+
+**Is this band-fitting?** Each boss's own number moved back to where its fight
+stood in `0.4.0`, after party-side defects were fixed and with each cause named
+in its own issue. That is the line the #24 entry drew, and it is drawn again
+here on purpose.
+
+### What this entry deliberately does not fix
+
+1. **Mixed units in `score_action`** (#63). Pricing damage in power units,
+   a one-line change, sends four encounters out of their bands (ambush 94, dio
+   95, weaver 87, bell 83) and leaves `matchup.diavolo_boss` bit for bit where
+   it was. That is not a patch: it voids every band and needs its own retune,
+   so it gets its own milestone.
+2. **Three encounters sit close to their ceilings.** `matchup.dancer_rush`,
+   `matchup.weaver_gambit` and `matchup.bell_race` are inside their bands by
+   less than a point at the 95% interval's upper end. They share the Iron
+   Brawler, and the next change that helps the party will push one out; when
+   it does, the answer is the regular enemies' numbers, not a wider band.
+3. **The guard's tempo cost.** `guard_stance` costs 600 tempo against
+   `strike`'s 1000, and no score prices tempo at all. Noted, not measured.
+4. **The loader still drops a key it does not know.** Only the validator
+   notices one, so a misspelled key in an edit that has not been through the
+   gate or CI loads without a word, as Diavolo's table did. Planned for
+   0.5.0; see Decision 3.
+
+### Re-measured, shipped content, 300 seeds
+
+| Encounter | `0.4.0` | 0.4.1 | Band | Median turns |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100% | 85..100 | 3, bit-identical |
+| `matchup.assassin_ambush` | 58% | 69% | 45..90 | 23 -> 22 |
+| `matchup.dio_boss` | 60% | 61% | 35..75 | 56 -> 52 |
+| `matchup.dancer_rush` | 75% | 85% | 60..90 | 22 -> 20 |
+| `matchup.weaver_gambit` | 67% | 81% | 58..86 | 29 -> 26 |
+| `matchup.bell_race` | 66% | 75% | 48..80 | 19 -> 17 |
+| `matchup.diavolo_boss` | 38% | 39% | 25..55 | 79 -> 73 (longest 106 -> 102) |
+
+### Acceptance
+
+- [x] #60: a guard is priced over the hits aimed at its holder, pinned by
+      two unit tests; the boundary is declared; all seven re-measured with
+      predictions first; `guard_stance` still chosen; `thug_solo`
+      bit-identical
+- [x] #61: no paid-below-free warning on the snare; every skill chosen by
+      someone; every band re-measured, and the two that left re-centred
+- [x] #62: Diavolo's table applies; an unknown key fails the validator,
+      and so CI, and the message names it -- checked against `0.4.0`'s data;
+      the loader's own refusal moves to 0.5.0 (Decision 3)
 
 ## Known limitations of the harness itself
 

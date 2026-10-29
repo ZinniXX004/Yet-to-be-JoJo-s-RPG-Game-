@@ -35,8 +35,8 @@ not ad hoc.
 ## 2. Content schema provenance fields
 
 Any entry that is ever derived from an external source must carry its own
-provenance. Reserved optional fields on `SkillDef`, `StandDef` and
-`CombatantDef`:
+provenance. Reserved for `SkillDef`, `StandDef` and `CombatantDef`, though
+not yet declared in them (see below):
 
 ```json
 {
@@ -53,9 +53,15 @@ provenance. Reserved optional fields on `SkillDef`, `StandDef` and
 }
 ```
 
-Entries without a `provenance` block are, by definition, `hand-authored`. The
-validator ignores unknown keys today; when the first derived entry lands, add a
-rule that requires `source_url` and `retrieved` whenever `origin != "hand-authored"`.
+Entries without a `provenance` block are, by definition, `hand-authored`. Since
+0.4.1 the validator rejects any key it does not know, and `provenance` on these
+three kinds of entry is the one it accepts beyond what the game reads. It
+checks nothing inside the block yet, and the loader drops the block, because
+the structs in `src/core/src/data.rs` do not declare it. Declaring it, and
+making the loader refuse unknown keys as the validator does, is a schema
+change and is planned for 0.5.0. When the first derived entry lands, add a
+rule that requires `source_url` and `retrieved` whenever
+`origin != "hand-authored"`.
 
 ---
 

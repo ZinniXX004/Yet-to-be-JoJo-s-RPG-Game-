@@ -126,9 +126,10 @@ struct Situation {
     /// HP and power points; see the module docs.
     atk: i32,
     /// Living hostiles, which is both the target count of an area attack and
-    /// the number of incoming hits defence is worth something against.
+    /// the number of incoming hits per round.
     enemies: i32,
-    /// Living allies, target count of an all-ally effect.
+    /// Living allies, the actor included: the target count of an all-ally
+    /// effect, and the number of bodies those incoming hits are spread over.
     allies: i32,
     /// Nominal power of the best single hit this actor can currently pay for.
     /// Used as the exchange rate for effects whose value is measured in enemy
@@ -392,10 +393,20 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
         // hit is already a power value.
         StatusKind::AtkUp | StatusKind::SpdUp => at.baseline * potency / 100 * own_turns,
         // Damage prevented, in HP: the model subtracts def/2 from every incoming
-        // hit, and every living enemy is one incoming hit per round. Converted,
-        // because HP and power are not the same unit.
+        // hit, and every living enemy is one hit per round -- but a guard only
+        // stops the hits aimed at its holder, and the enemy's attention is
+        // spread over every living member of the holder's side. Pricing it as
+        // though all of them landed on the holder had Josuke bracing on 47% of
+        // his turns against Dio and 59% against Diavolo at 0.4.0, and losing
+        // those fights by it (issue #60). Uniform over `allies` is crude
+        // on purpose: focus fire on the weakest is the enemy's rule, and a
+        // price read from content alone cannot know who that is.
+        //
+        // Converted, because HP and power are not the same unit -- though
+        // since #33 damage effects are priced in HP, so this conversion is one
+        // side of a mixed-unit comparison; issue #63.
         StatusKind::DefUp => {
-            let prevented = potency / 2 * at.enemies.max(1) * own_turns;
+            let prevented = potency / 2 * at.enemies.max(1) * own_turns / at.allies.max(1);
             as_power_units(prevented, at)
         }
         // Output taken away from the target, valued at our own exchange rate.
@@ -784,6 +795,46 @@ mod tests {
         assert_eq!(
             best_action(&db, &list, &healthy(0)).as_deref(),
             Some("guard")
+        );
+    }
+
+    /// Issue #60. A guard protects one body, and the enemy's hits are
+    /// spread over every living ally. Fighting alone it is priced as before;
+    /// in a party of four it prevents a quarter as much.
+    #[test]
+    fn a_guard_is_priced_over_the_hits_aimed_at_its_holder() {
+        let braced = guard(60);
+        let party_of_four = Situation {
+            allies: 4,
+            ..healthy(0)
+        };
+        // 30 per hit, two enemies, one turn under cover: 60 HP, 50 points at
+        // atk 120. Divided over four allies: 15 HP, 12 points.
+        assert_eq!(score_action(&braced, &healthy(0)), Some(50));
+        assert_eq!(score_action(&braced, &party_of_four), Some(12));
+    }
+
+    /// And the decision follows the price: the guard that out-earns a punch
+    /// for a combatant on its own is declined by one of four.
+    #[test]
+    fn a_guard_worth_taking_alone_is_declined_in_a_party_of_four() {
+        let skills = vec![
+            skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]),
+            guard(240),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+        let party_of_four = Situation {
+            allies: 4,
+            ..healthy(0)
+        };
+        assert_eq!(
+            best_action(&db, &list, &healthy(0)).as_deref(),
+            Some("guard")
+        );
+        assert_eq!(
+            best_action(&db, &list, &party_of_four).as_deref(),
+            Some("punch")
         );
     }
 
