@@ -253,7 +253,7 @@ jobs:
       # a branch whose prose predated it. An exact tag makes a dictionary
       # change arrive as a reviewable Dependabot pull request instead of as a
       # red build on unrelated work.
-      - uses: crate-ci/typos@v1.49.0
+      - uses: crate-ci/typos@v1.51.1
 
   links:
     name: markdown links
