@@ -90,6 +90,12 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Fixed
 
+- **`check_resistances` no longer says serde ignores a misspelled element**
+  (#65). It never did: a `resist` table's keys are the `Element` enum, which
+  has no fallback variant, so `"fyre"` has always failed the load with
+  `unknown variant`. The docstring in `validate_data.py` now says so, and
+  why the validator still reports it first: its message names the
+  combatant and lists every bad element in one run.
 - **Five documents meant for 0.4.1 missed its release commit.** The README
   status, the `0.5.0` rows in the milestone tables of `docs/ROADMAP.md` and
   `docs/RELEASING.md`, the release checklist retargeted at 0.4.1, and the

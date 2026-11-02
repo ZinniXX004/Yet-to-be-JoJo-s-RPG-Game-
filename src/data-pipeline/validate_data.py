@@ -324,10 +324,15 @@ def check_resistances(row: dict[str, Any], where: str, report: Report,
                       elements_dealt: set[str]) -> None:
     """Validates one combatant's optional `resist` table.
 
-    An unknown key is an error rather than a warning on purpose: serde ignores
-    it, so a misspelled element produces a combatant that silently has no
-    resistance at all, which is indistinguishable in the harness from a
-    resistance that is too weak to matter.
+    An unknown key is an error, and the loader agrees: a table's keys are the
+    `Element` enum in src/core/src/data.rs, which has no fallback variant, so
+    a misspelled element such as "fyre" stops the content from loading with
+    "unknown variant `fyre`". That has been true since the table was added;
+    #65 (0.5.0) closed the different gap of a misspelled *table* key, the
+    "resistances" that npc.diavolo carried until 0.4.1. This check still runs
+    because its message is earlier and clearer: it names the combatant, it
+    reports every bad element in every file in one run, and the validator runs
+    first in the gate, before anything is compiled.
 
     Note what this cannot do: an entirely absent table is legal and returns
     immediately, because most combatants genuinely have none. That is why the
