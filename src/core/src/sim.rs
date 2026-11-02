@@ -409,6 +409,27 @@ mod tests {
         }
     }
 
+    /// The last #65 gap: `deny_unknown_fields` on `Matchup` does not reach the
+    /// band nested inside it, so `target` used to load and vanish.
+    #[test]
+    fn an_unknown_key_inside_a_band_fails_the_parse_and_names_the_key() {
+        let json = r#"[{
+            "id": "m.target",
+            "party": ["hero"],
+            "foes": ["weakling"],
+            "seeds": [1],
+            "band": { "min_percent": 45, "max_percent": 90, "target": 70 }
+        }]"#;
+        match parse_matchups(json) {
+            Err(DataError::Parse(message)) => {
+                assert!(message.starts_with("matchups:"), "{message}");
+                assert!(message.contains("unknown field `target`"), "{message}");
+            }
+            Err(other) => panic!("expected a parse error, got: {other}"),
+            Ok(_) => panic!("a band with an unknown key must not parse"),
+        }
+    }
+
     #[test]
     fn a_hopeless_matchup_reports_a_zero_win_rate() {
         let report = run_matchup(&db(), &matchup("m.titan", "titan", wide_band()))

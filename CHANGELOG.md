@@ -25,6 +25,15 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **A matchup's `band` refuses a key it does not declare** (#65).
+  `deny_unknown_fields` on `Matchup` does not reach the `WinRateBand` nested
+  inside it, so a band such as `{"min_percent": 45, "max_percent": 90,
+  "target": 70}` still loaded and `target` vanished. `WinRateBand` is now
+  `#[serde(deny_unknown_fields)]` too, and the error names the key, as the
+  validator's `unknown band keys` already did. A report serializes only the
+  two declared fields, so every report a release has written still loads.
+  The shipped `data/` and `tools/probe/` load unchanged, and the `balance`
+  report is byte-identical.
 - **`score_action` prices every effect in HP** (#63). Since #33 damage was
   priced in HP after the defence toll while `Bleed` and `DefUp` were
   converted into power units and every action-valued effect rode on a
@@ -95,6 +104,18 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Fixed
 
+- **`check_resistances` no longer says serde ignores a misspelled element**
+  (#65). It never did: a `resist` table's keys are the `Element` enum, which
+  has no fallback variant, so `"fyre"` has always failed the load with
+  `unknown variant`. The docstring in `validate_data.py` now says so, and
+  why the validator still reports it first: its message names the
+  combatant and lists every bad element in one run.
+- **`docs/DEVELOPMENT.md` section 4 shows `.\tools\check.ps1` again.** Since
+  d0a70c8 (0.4.0) both PowerShell lines read `.`, a TAB, then
+  `ools\check.ps1`: a scripted edit had turned the `\t` of `.\tools` into a
+  TAB, so a pasted command failed. A search of every tracked text file for
+  control characters finds nothing else; the TABs left are GDScript
+  indentation.
 - **Five documents meant for 0.4.1 missed its release commit.** The README
   status, the `0.5.0` rows in the milestone tables of `docs/ROADMAP.md` and
   `docs/RELEASING.md`, the release checklist retargeted at 0.4.1, and the

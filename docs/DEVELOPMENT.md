@@ -302,8 +302,8 @@ all five CI failures recorded between late July and September 2026 (#22, #29,
 when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
-.	ools\check.ps1          # full gate: run before opening a pull request
-.	ools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
+.\tools\check.ps1          # full gate: run before opening a pull request
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
 ```
 
 ```sh
@@ -378,7 +378,7 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | Alias `godot` reports the full path as unrecognized | The archive extracted into a directory named after the archive, so the path points at a folder | `Get-ChildItem -Recurse C:\Tools\Godot\*.exe`, flatten the directory, then `. $PROFILE` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
-| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.7, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
+| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.7. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
 | `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
