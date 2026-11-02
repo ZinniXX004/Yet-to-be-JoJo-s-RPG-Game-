@@ -17,25 +17,30 @@
 //!
 //! # The unit
 //!
-//! Scores are in **nominal power points**: the same unit a designer writes in
-//! the `power` field of `data/skills.json`. Everything else is converted into
-//! it, because a choice between an attack and a buff is meaningless until both
-//! are quoted in one currency.
+//! Scores are in **HP**: the amount the effect is expected to take from the
+//! enemy side, or keep on ours, after the defence toll and the resistance
+//! table that [`crate::resolve`] applies to the real hit. A choice between an
+//! attack and a buff is meaningless until both are quoted in one currency,
+//! and HP is the one the battle itself is decided in.
 //!
-//! The conversion that is easy to get wrong, and was wrong once: a `power`
-//! value is *not* damage. [`crate::resolve`] turns it into damage by
-//! multiplying by `atk / 100` and subtracting `def / 2`. So a quantity that is
-//! already in HP -- damage prevented by a defence buff, HP lost to a bleed --
-//! must be divided by the actor's attack before it can be compared to a power
-//! value. Skipping that step silently overvalues every defensive and
-//! damage-over-time effect by the actor's attack multiplier, and the balance
-//! harness measured the result: a party member who braced instead of attacking
-//! and lost the encounter doing it.
+//! The mistake this replaced, twice (#9, then #63): quoting some effects in
+//! *power points* -- the `power` field of `data/skills.json` -- and others in
+//! HP. A power value is not damage; `resolve` multiplies it by `atk / 100` and
+//! subtracts `def / 2`. Within one decision the actor's attack is fixed, so a
+//! scorer quoted entirely in power points would rank candidates exactly as
+//! this one does; what breaks a decision is the *mix*, and above all a mix
+//! that charges the defence toll on one side of the comparison and not the
+//! other.
 //!
-//! Effects whose value is a number of *actions* rather than an amount of HP --
-//! a tempo lock, a stun, an attack or speed buff -- are priced against
-//! `Situation::baseline`, which is already a power value, so they need no
-//! conversion.
+//! Each effect therefore lands in HP by the route its mechanic takes:
+//!
+//! - damage and drain: the hit itself, against the chosen target;
+//! - bleed and a guard: already HP, so no conversion at all;
+//! - an attack buff or debuff: a percentage of the HP a hit carries before
+//!   the toll, since the toll is flat and does not scale with attack;
+//! - anything measured in *actions* -- a tempo lock, a stun, a speed buff or
+//!   debuff -- at [`Situation::baseline_hp`], what one of the actor's actions
+//!   is worth against this target right now.
 //!
 //! # The price of SP
 //!
@@ -65,8 +70,8 @@
 //! `data/skills.json` keeps deciding behaviour.
 
 use crate::data::{
-    AiProfile, Database, Effect, Id, Resistances, SkillDef, StatusKind, TargetKind, MAX_RESISTANCE,
-    MIN_RESISTANCE,
+    AiProfile, Database, Effect, Element, Id, Resistances, SkillDef, StatusKind, TargetKind,
+    MAX_RESISTANCE, MIN_RESISTANCE,
 };
 use crate::resolve::BASIC_ATTACK_ID;
 use crate::state::BattleState;
@@ -122,8 +127,8 @@ const FALLBACK_BASELINE: i32 = 100;
 struct Situation {
     /// SP the actor can spend right now.
     sp: i32,
-    /// Actor's current effective attack. Only used as the exchange rate between
-    /// HP and power points; see the module docs.
+    /// Actor's current effective attack: what turns a `power` value into the
+    /// HP a hit carries before the defence toll.
     atk: i32,
     /// Living hostiles, which is both the target count of an area attack and
     /// the number of incoming hits per round.
@@ -132,9 +137,14 @@ struct Situation {
     /// effect, and the number of bodies those incoming hits are spread over.
     allies: i32,
     /// Nominal power of the best single hit this actor can currently pay for.
-    /// Used as the exchange rate for effects whose value is measured in enemy
-    /// or own *actions* rather than in HP.
+    /// `baseline * atk / 100` is the HP that hit carries before the defence
+    /// toll, which is what an attack buff or debuff scales.
     baseline: i32,
+    /// HP per target of the best hit this actor can currently pay for,
+    /// against `target_def` and `target_resist`, through the same toll,
+    /// resistance and floor as a Damage effect. The price of one action, for
+    /// effects measured in actions (see the module docs).
+    baseline_hp: i32,
     /// The resistance table of whichever hostile target has already been
     /// chosen for this turn (see `choose`) -- empty, which reads as neutral
     /// for every element, when no hostile target applies (a self-only or
@@ -217,9 +227,11 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                 enemies: enemy_count,
                 allies: ally_count,
                 baseline,
+                baseline_hp: 0,
                 target_resist: st.combatants[hostile].resist.clone(),
                 target_def: st.combatants[hostile].def(),
-            };
+            }
+            .priced(db, &skills);
             if let Some(skill) = best_action(db, &skills, &situation) {
                 let target = resolved_target(db, &skill, actor, hostile);
                 return Command::Skill { skill, target };
@@ -237,9 +249,11 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                     enemies: enemy_count,
                     allies: ally_count,
                     baseline,
+                    baseline_hp: 0,
                     target_resist: st.combatants[hostile].resist.clone(),
                     target_def: st.combatants[hostile].def(),
-                };
+                }
+                .priced(db, &skills);
                 if let Some(skill) = best_action(db, &skills, &situation) {
                     let target = resolved_target(db, &skill, actor, hostile);
                     return Command::Skill { skill, target };
@@ -310,13 +324,14 @@ fn total_power(def: &SkillDef) -> i32 {
         .sum()
 }
 
-/// The exchange rate between an *action* and *power points*, for this actor,
-/// now.
+/// Nominal power of the best hit the actor can currently pay for.
 ///
 /// Effects like a tempo lock are worth some number of actions; to price them we
 /// need to know what an action is worth. The best hit the actor can currently
 /// pay for is the honest answer: a boss with a 140-power slam values a denied
-/// enemy turn more than a thug with a 100-power punch does.
+/// enemy turn more than a thug with a 100-power punch does. This is that hit's
+/// `power`; [`baseline_hp`] quotes an action in the scorer's unit, and this
+/// value only feeds the attack-share price of an attack buff or debuff.
 fn baseline_power(db: &Database, skills: &[Id], sp: i32) -> i32 {
     let best = skills
         .iter()
@@ -333,17 +348,92 @@ fn baseline_power(db: &Database, skills: &[Id], sp: i32) -> i32 {
         .unwrap_or(FALLBACK_BASELINE)
 }
 
-/// Converts an amount of HP into the power points that would have produced it.
+impl Situation {
+    /// Fills in [`Situation::baseline_hp`], which needs every other field.
+    ///
+    /// Pure: it reads the database and numbers already copied out of the
+    /// state, and draws nothing from the RNG, so calling it after the target
+    /// draw in `choose` leaves every recorded battle's draws where they were.
+    fn priced(mut self, db: &Database, skills: &[Id]) -> Self {
+        self.baseline_hp = baseline_hp(db, skills, &self);
+        self
+    }
+}
+
+/// HP one Damage or Drain effect of `power` deals to the chosen target.
 ///
-/// The inverse of the `power * atk / 100` step in [`crate::resolve`], and the
-/// only reason [`Situation::atk`] exists. The `def / 2` subtraction is
-/// deliberately not inverted: it depends on the target, and a scorer that reads
-/// the defence of a specific combatant stops being reproducible from content
-/// alone. The omission biases attacks slightly upward against defensive
-/// effects, which is the safer direction -- an AI that overrates attacking is
-/// merely suboptimal, while one that overrates bracing stops trying to win.
-fn as_power_units(hp: i32, at: &Situation) -> i32 {
-    hp * 100 / at.atk.max(1)
+/// Mirrors `compute_damage` in resolve.rs (issue #33), not just a resistance
+/// weighting on raw power (issue #22's fix, extended here rather than
+/// replaced): the flat defence toll is subtracted after atk scaling, so a
+/// low-power skill can collapse toward the floor against a high-defence target
+/// in a way power-only pricing never saw. Same floor-at-1 in both places
+/// compute_damage floors, same order of operations. Variance and crit are left
+/// out -- this prices the expected floor of a hit, not a specific roll.
+fn hit_hp(power: i32, element: Element, at: &Situation) -> i32 {
+    let base = power * at.atk / 100;
+    let after_def = (base - at.target_def / 2).max(1);
+    let resist = at
+        .target_resist
+        .get(&element)
+        .copied()
+        .unwrap_or(0)
+        .clamp(MIN_RESISTANCE, MAX_RESISTANCE);
+    if resist != 0 {
+        (after_def * (100 - resist) / 100).max(1)
+    } else {
+        after_def
+    }
+}
+
+/// HP one application of a skill's damage deals to the chosen target, or zero
+/// for a skill that deals none.
+fn skill_hit_hp(def: &SkillDef, at: &Situation) -> i32 {
+    def.effects
+        .iter()
+        .map(|effect| match *effect {
+            Effect::Damage { power, element, .. } | Effect::Drain { power, element, .. } => {
+                hit_hp(power, element, at)
+            }
+            _ => 0,
+        })
+        .sum()
+}
+
+/// The price of one action, in HP, for this actor against this target, now.
+///
+/// The same reasoning as [`baseline_power`] -- the best hit the actor can pay
+/// for is what an action is worth to it -- quoted in the scorer's unit. Chosen
+/// by HP rather than by nominal power, so a hit the target resists does not
+/// set the price of an action it would never take.
+///
+/// Still a proxy where an effect denies the *enemy* an action: that action is
+/// valued at the actor's own hit, because the scorer does not read what the
+/// target would have done with it.
+fn baseline_hp(db: &Database, skills: &[Id], at: &Situation) -> i32 {
+    let best = skills
+        .iter()
+        .filter_map(|id| db.skill(id))
+        .filter(|def| def.sp_cost <= at.sp && def.target.is_hostile())
+        .map(|def| skill_hit_hp(def, at))
+        .max()
+        .unwrap_or(0);
+    if best > WORTHLESS {
+        return best;
+    }
+    db.skill(BASIC_ATTACK_ID)
+        .map(|def| skill_hit_hp(def, at))
+        .filter(|&hp| hp > WORTHLESS)
+        .unwrap_or_else(|| hit_hp(FALLBACK_BASELINE, Element::Physical, at))
+}
+
+/// HP a percentage of attack adds to (or, as a debuff, takes from) one hit.
+///
+/// The defence toll is flat, so it does not scale with attack and drops out of
+/// the difference; what scales is the hit before the toll,
+/// `baseline * atk / 100`. Resistance is not applied, which overstates the
+/// delta against a target that resists the actor's best hit.
+fn attack_share_hp(potency: i32, at: &Situation) -> i32 {
+    at.baseline * at.atk / 100 * potency / 100
 }
 
 /// Whether this skill is a candidate for the action slot at all.
@@ -389,9 +479,10 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
     let duration = duration as i32;
     let own_turns = (duration - 1).max(0);
     match status {
-        // More attack, or more turns to attack in, both convert to hits, and a
-        // hit is already a power value.
-        StatusKind::AtkUp | StatusKind::SpdUp => at.baseline * potency / 100 * own_turns,
+        // More attack is a larger hit on each own turn under the buff.
+        StatusKind::AtkUp => attack_share_hp(potency, at) * own_turns,
+        // More speed is more actions, each one worth a whole hit.
+        StatusKind::SpdUp => at.baseline_hp * potency / 100 * own_turns,
         // Damage prevented, in HP: the model subtracts def/2 from every incoming
         // hit, and every living enemy is one hit per round -- but a guard only
         // stops the hits aimed at its holder, and the enemy's attention is
@@ -402,24 +493,25 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
         // on purpose: focus fire on the weakest is the enemy's rule, and a
         // price read from content alone cannot know who that is.
         //
-        // Converted, because HP and power are not the same unit -- though
-        // since #33 damage effects are priced in HP, so this conversion is one
-        // side of a mixed-unit comparison; issue #63.
-        StatusKind::DefUp => {
-            let prevented = potency / 2 * at.enemies.max(1) * own_turns / at.allies.max(1);
-            as_power_units(prevented, at)
-        }
-        // Output taken away from the target, valued at our own exchange rate.
-        StatusKind::AtkDown | StatusKind::SpdDown => at.baseline * potency / 100 * duration,
-        // Halved: a softer target is worth less than a weaker attacker,
-        // because def is halved again inside the damage model.
-        StatusKind::DefDown => at.baseline * potency / 200 * duration,
+        // Already HP, so no conversion (#63). `potency / 2` reads the potency
+        // as flat defence points, while `state.rs` applies it as a percentage
+        // of the holder's defence; that is a separate defect, left for its own
+        // measurement.
+        StatusKind::DefUp => potency / 2 * at.enemies.max(1) * own_turns / at.allies.max(1),
+        // Output taken away from the target, valued at our own exchange rate:
+        // the mirror of AtkUp, on the target's turns.
+        StatusKind::AtkDown => attack_share_hp(potency, at) * duration,
+        // Actions taken away from the target, each valued at one of ours.
+        StatusKind::SpdDown => at.baseline_hp * potency / 100 * duration,
+        // Each of our hits on a softer target clears `def * potency / 100`
+        // less toll, and the toll is half of defence.
+        StatusKind::DefDown => at.target_def * potency / 200 * duration,
         // Bleed is HP, dealt over turns rather than at once.
-        StatusKind::Bleed => as_power_units(potency * duration, at),
+        StatusKind::Bleed => potency * duration,
         // Healing is the triage branch's decision, not the scorer's.
         StatusKind::Regen => WORTHLESS,
         // A stunned combatant loses its action outright.
-        StatusKind::Stun => at.baseline * duration,
+        StatusKind::Stun => at.baseline_hp * duration,
     }
 }
 
@@ -427,29 +519,7 @@ fn status_points(status: StatusKind, potency: i32, duration: u8, at: &Situation)
 fn effect_points(effect: &Effect, at: &Situation, targets: i32) -> i32 {
     match *effect {
         Effect::Damage { power, element, .. } | Effect::Drain { power, element, .. } => {
-            // Mirrors compute_damage in resolve.rs (issue #33), not just a
-            // resistance weighting on raw power (issue #22's fix, extended
-            // here rather than replaced): the flat defence toll is
-            // subtracted after atk scaling, so a low-power skill can
-            // collapse toward the floor against a high-defence target in a
-            // way power-only pricing never saw. Same floor-at-1 in both
-            // places compute_damage floors, same order of operations.
-            // Variance and crit are still left out -- this prices the
-            // expected floor of a hit, not a specific roll.
-            let base = power * at.atk / 100;
-            let after_def = (base - at.target_def / 2).max(1);
-            let resist = at
-                .target_resist
-                .get(&element)
-                .copied()
-                .unwrap_or(0)
-                .clamp(MIN_RESISTANCE, MAX_RESISTANCE);
-            let after_resist = if resist != 0 {
-                (after_def * (100 - resist) / 100).max(1)
-            } else {
-                after_def
-            };
-            after_resist * targets
+            hit_hp(power, element, at) * targets
         }
         // See status_points: the support branch owns healing.
         Effect::Heal { .. } => WORTHLESS,
@@ -459,7 +529,7 @@ fn effect_points(effect: &Effect, at: &Situation, targets: i32) -> i32 {
             duration,
             chance,
         } => status_points(status, potency, duration, at) * targets * chance / 100,
-        Effect::TempoLock { ticks } => at.baseline * ticks as i32 * targets / TICKS_PER_ACTION,
+        Effect::TempoLock { ticks } => at.baseline_hp * ticks as i32 * targets / TICKS_PER_ACTION,
     }
 }
 
@@ -573,7 +643,6 @@ fn affordable(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::Element;
     use crate::state::TEMPO_THRESHOLD;
 
     fn skill(id: &str, target: TargetKind, sp_cost: i32, effects: Vec<Effect>) -> SkillDef {
@@ -618,7 +687,7 @@ mod tests {
     }
 
     /// Two enemies, one ally, Jotaro's effective attack, an ordinary 100-power
-    /// baseline.
+    /// baseline against a target with no defence: one action is a 120 HP hit.
     fn healthy(sp: i32) -> Situation {
         Situation {
             sp,
@@ -626,6 +695,7 @@ mod tests {
             enemies: 2,
             allies: 1,
             baseline: 100,
+            baseline_hp: 120,
             target_resist: Resistances::new(),
             target_def: 0,
         }
@@ -752,18 +822,18 @@ mod tests {
         assert_eq!(score_action(&drain, &healthy(12)), Some(144));
     }
 
-    /// The defect this commit exists for. 60 prevented HP is worth fewer power
-    /// points to a strong attacker, because that attacker converts a power
-    /// point into more than one point of damage.
+    /// Issue #63. HP prevented is HP whoever prevents it: the guard's price
+    /// does not depend on the holder's attack, as it did while it was
+    /// converted into power units and compared against damage in HP.
     #[test]
-    fn hp_denominated_effects_are_converted_into_power_units() {
+    fn hp_denominated_effects_are_not_converted() {
         let braced = guard(60);
-        assert_eq!(score_action(&braced, &healthy(0)), Some(50));
+        assert_eq!(score_action(&braced, &healthy(0)), Some(60));
         let weak_attacker = Situation {
             atk: 60,
             ..healthy(0)
         };
-        assert_eq!(score_action(&braced, &weak_attacker), Some(100));
+        assert_eq!(score_action(&braced, &weak_attacker), Some(60));
     }
 
     /// Records a content finding rather than hiding it: at potency 60 over two
@@ -809,10 +879,10 @@ mod tests {
             allies: 4,
             ..healthy(0)
         };
-        // 30 per hit, two enemies, one turn under cover: 60 HP, 50 points at
-        // atk 120. Divided over four allies: 15 HP, 12 points.
-        assert_eq!(score_action(&braced, &healthy(0)), Some(50));
-        assert_eq!(score_action(&braced, &party_of_four), Some(12));
+        // 30 per hit, two enemies, one turn under cover: 60 HP. Divided over
+        // four allies: 15 HP.
+        assert_eq!(score_action(&braced, &healthy(0)), Some(60));
+        assert_eq!(score_action(&braced, &party_of_four), Some(15));
     }
 
     /// And the decision follows the price: the guard that out-earns a punch
@@ -872,9 +942,16 @@ mod tests {
     /// turns ever happen in the one-enemy state. The drift is a composition
     /// effect, not a defect: pinned here so the arithmetic cannot silently
     /// change out from under that conclusion.
+    ///
+    /// Since #63 the slow is priced at one 120 HP action rather than at 100
+    /// nominal power, and without a free attack in the list the snare now
+    /// edges the splash even with two enemies up (11 against 10 net). The
+    /// strike below is Kakyoin's own, and it is what the decision is really
+    /// measured against: SP buys only the surplus over a free hit.
     #[test]
     fn an_all_enemies_skill_loses_its_edge_once_only_one_enemy_remains() {
         let skills = vec![
+            skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
             skill(
                 "snare",
                 TargetKind::OneEnemy,
@@ -918,7 +995,8 @@ mod tests {
             vec![status(StatusKind::AtkUp, 40, 3, 100)],
         );
         let punch = skill("punch", TargetKind::OneEnemy, 0, vec![damage(100)]);
-        assert_eq!(score_action(&rage, &healthy(10)), Some(80));
+        // 40% of a 120 HP hit is 48, on each of two own turns under the buff.
+        assert_eq!(score_action(&rage, &healthy(10)), Some(96));
         let skills = vec![rage, punch];
         let list = ids(&skills);
         let db = database(skills);
@@ -939,11 +1017,13 @@ mod tests {
         let against_three = Situation {
             enemies: 3,
             baseline: 140,
+            baseline_hp: 168,
             ..healthy(45)
         };
-        // 140 * 6 * 3 / 12 = 210 denied, plus 72 damage (60 power at atk 120)
-        // on each of three.
-        assert_eq!(score_action(&halt, &against_three), Some(426));
+        // 168 * 6 * 3 / 12 = 252 HP of denied actions (a 140-power hit at atk
+        // 120 is 168 HP), plus 72 damage (60 power at atk 120) on each of
+        // three.
+        assert_eq!(score_action(&halt, &against_three), Some(468));
     }
 
     #[test]
@@ -954,9 +1034,9 @@ mod tests {
             22,
             vec![damage(140), status(StatusKind::Stun, 0, 1, 40)],
         );
-        // 168 damage (140 power at atk 120) plus 40% of one denied
-        // 100-point action.
-        assert_eq!(score_action(&slam, &healthy(22)), Some(208));
+        // 168 damage (140 power at atk 120) plus 40% of one denied 120 HP
+        // action.
+        assert_eq!(score_action(&slam, &healthy(22)), Some(216));
     }
 
     #[test]
@@ -967,14 +1047,15 @@ mod tests {
             16,
             vec![damage(150), status(StatusKind::Bleed, 25, 3, 60)],
         );
-        // 180 damage (150 power at atk 120), plus 75 HP over three turns
-        // converted to 62 power points, of which 60% is expected to land.
-        assert_eq!(score_action(&flare, &healthy(16)), Some(217));
+        // 180 damage (150 power at atk 120), plus 75 HP over three turns, of
+        // which 60% is expected to land: 45. Both terms are HP (#63); until
+        // then the 75 was converted to 62 power points and added to the 180.
+        assert_eq!(score_action(&flare, &healthy(16)), Some(225));
     }
 
     /// The exchange rate between SP and points, spelled out on the repertoire
-    /// the harness measured. The barrage buys 95 points above a free strike for
-    /// 18 SP; the tempo lock buys 120 for 45.
+    /// the harness measured. The barrage buys 114 HP above a free strike for
+    /// 18 SP; the tempo lock buys 144 for 45.
     #[test]
     fn sp_is_priced_at_the_best_other_use_of_it() {
         let skills = jotaro_skills();
@@ -984,11 +1065,11 @@ mod tests {
         assert_eq!(free_points(&candidates, &at), 120);
         // Pricing the lock, the alternative is the barrage: (234 - 120) / 18 = 6.
         assert_eq!(best_other_rate(&candidates, &at, "halt", 120), 6);
-        // Pricing the barrage, the alternative is the lock: (244 - 120) / 45 = 2.
-        assert_eq!(best_other_rate(&candidates, &at, "rush", 120), 2);
-        // A skill with no paid alternative is charged nothing -- 244 is the
+        // Pricing the barrage, the alternative is the lock: (264 - 120) / 45 = 3.
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 120), 3);
+        // A skill with no paid alternative is charged nothing -- 264 is the
         // lock's own score, so nothing left can outbid it.
-        assert_eq!(best_other_rate(&candidates, &at, "rush", 244), 0);
+        assert_eq!(best_other_rate(&candidates, &at, "rush", 264), 0);
     }
 
     /// The measured defect, as a unit test. 45 SP on a tempo lock is two and a
@@ -1079,5 +1160,142 @@ mod tests {
         let db = database(skills);
         assert_eq!(baseline_power(&db, &list, 45), 195);
         assert_eq!(baseline_power(&db, &list, 0), 100);
+    }
+
+    /// A situation against a real target: defence 40 (a 20 HP toll), no
+    /// resistances, Jotaro's attack. One action is a 100-power hit: 120 - 20.
+    fn armoured(sp: i32) -> Situation {
+        Situation {
+            target_def: 40,
+            baseline_hp: 100,
+            ..healthy(sp)
+        }
+    }
+
+    /// Issue #63, the defect in one table: every effect kind against the same
+    /// situation, each priced in HP. A one-turn stun, a one-tick-per-action
+    /// lock, a 100% slow for one turn and a hit all cost the target exactly
+    /// one action's worth; the bleed and the guard are the HP they move.
+    #[test]
+    fn every_effect_kind_is_priced_in_hp() {
+        let at = Situation {
+            enemies: 1,
+            ..armoured(0)
+        };
+        let one = |effect: Effect| effect_points(&effect, &at, 1);
+
+        // The hit itself: 120 before the toll, 100 after it.
+        assert_eq!(one(damage(100)), 100);
+        assert_eq!(
+            one(Effect::Drain {
+                power: 100,
+                element: Element::Physical,
+            }),
+            100
+        );
+        // One action denied, three ways, each worth that same hit.
+        assert_eq!(one(status(StatusKind::Stun, 0, 1, 100)), 100);
+        assert_eq!(
+            one(Effect::TempoLock {
+                ticks: TICKS_PER_ACTION as u32
+            }),
+            100
+        );
+        assert_eq!(one(status(StatusKind::SpdDown, 100, 1, 100)), 100);
+        // HP as HP: no conversion by the actor's attack.
+        assert_eq!(one(status(StatusKind::Bleed, 25, 3, 100)), 75);
+        assert_eq!(one(status(StatusKind::DefUp, 60, 2, 100)), 30);
+        // A share of the hit before the toll, which a percentage of attack
+        // scales: 25% of 120, not of 100.
+        assert_eq!(one(status(StatusKind::AtkDown, 25, 1, 100)), 30);
+        assert_eq!(one(status(StatusKind::AtkUp, 25, 2, 100)), 30);
+        // Half of the defence the target loses comes off each hit's toll.
+        assert_eq!(one(status(StatusKind::DefDown, 50, 1, 100)), 10);
+    }
+
+    /// The attack multiplier is not in the price of anything that is already
+    /// HP. Halve the actor's attack and the bleed and guard keep their price,
+    /// while the hit -- and so every action-valued effect, through
+    /// `baseline_hp` -- falls.
+    #[test]
+    fn only_hit_valued_effects_follow_the_actors_attack() {
+        let strong = armoured(0);
+        let weak = Situation {
+            atk: 60,
+            baseline_hp: 40,
+            ..armoured(0)
+        };
+        let bleed = status(StatusKind::Bleed, 25, 3, 100);
+        let guard = status(StatusKind::DefUp, 60, 3, 100);
+        let stun = status(StatusKind::Stun, 0, 1, 100);
+
+        assert_eq!(effect_points(&bleed, &strong, 1), 75);
+        assert_eq!(effect_points(&bleed, &weak, 1), 75);
+        assert_eq!(effect_points(&guard, &strong, 1), 120);
+        assert_eq!(effect_points(&guard, &weak, 1), 120);
+        assert_eq!(effect_points(&damage(100), &weak, 1), 40);
+        assert_eq!(effect_points(&stun, &weak, 1), 40);
+    }
+
+    /// The price of an action is the best affordable hit against *this*
+    /// target, after its defence and its resistance -- so a resisted element
+    /// can lose the baseline to a weaker one the target does not resist.
+    #[test]
+    fn the_hp_baseline_is_the_best_affordable_hit_against_the_target() {
+        let skills = vec![
+            skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill(
+                "flare",
+                TargetKind::OneEnemy,
+                16,
+                vec![Effect::Damage {
+                    power: 150,
+                    element: Element::Fire,
+                    variance: 0,
+                }],
+            ),
+        ];
+        let list = ids(&skills);
+        let db = database(skills);
+
+        // 150 power at atk 120 is 180, minus the 20 toll.
+        assert_eq!(baseline_hp(&db, &list, &armoured(16)), 160);
+        // Unaffordable: the strike, 120 - 20.
+        assert_eq!(baseline_hp(&db, &list, &armoured(15)), 100);
+        // Fire resisted 75%: 160 becomes 40, and the strike's 100 wins.
+        let mut fireproof = armoured(16);
+        fireproof.target_resist.insert(Element::Fire, 75);
+        assert_eq!(baseline_hp(&db, &list, &fireproof), 100);
+    }
+
+    #[test]
+    fn the_hp_baseline_falls_back_to_a_nominal_hit_without_a_basic_attack() {
+        let skills = vec![skill("costly", TargetKind::OneEnemy, 45, vec![damage(195)])];
+        let list = ids(&skills);
+        let db = database(skills);
+        // FALLBACK_BASELINE is 100 power: 120 at atk 120, minus the 20 toll.
+        assert_eq!(baseline_hp(&db, &list, &armoured(0)), 100);
+    }
+
+    /// `priced` fills in the baseline and nothing else.
+    #[test]
+    fn pricing_a_situation_sets_only_its_baseline() {
+        let skills = vec![skill(
+            BASIC_ATTACK_ID,
+            TargetKind::OneEnemy,
+            0,
+            vec![damage(100)],
+        )];
+        let list = ids(&skills);
+        let db = database(skills);
+        let priced = Situation {
+            baseline_hp: 0,
+            ..armoured(7)
+        }
+        .priced(&db, &list);
+        assert_eq!(priced.baseline_hp, 100);
+        assert_eq!(priced.sp, 7);
+        assert_eq!(priced.baseline, 100);
+        assert_eq!(priced.target_def, 40);
     }
 }
