@@ -22,6 +22,14 @@ with prebuilt libraries. A section here without a tag is not a release.
   and `src/game/rpg.gdextension`, the dependency table in
   `docs/DEVELOPMENT.md` (which still said `=0.5.3`) and the README badge now
   name 0.5.5.
+- **typos 1.51.1 is installed with `cargo +stable`** (#67). typos-cli
+  1.51.1 declares `rust-version` 1.95, and rustup applies
+  `rust-toolchain.toml` (1.94.1) to every cargo command run inside the
+  repository, so the install command the gate's hints print,
+  `cargo install typos-cli --version 1.51.1 --locked`, failed there, and
+  the one in `docs/DEVELOPMENT.md` still installed 1.49.0. Both now say
+  `cargo +stable install typos-cli --version <pin> --locked`, with the pin
+  `ci.yml` holds, 1.51.1, written out in `docs/DEVELOPMENT.md`.
 
 ### Fixed
 

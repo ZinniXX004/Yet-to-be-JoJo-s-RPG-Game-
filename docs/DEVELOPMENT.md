@@ -49,7 +49,7 @@ library and the synced content, both gitignored.
 | --- | --- | --- |
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
-| `typos-cli` | `cargo install typos-cli --version 1.49.0 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml` |
+| `typos-cli` | `cargo +stable install typos-cli --version 1.51.1 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml`; section 4 says why `+stable` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
 | LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
@@ -332,8 +332,12 @@ releases, and PR #36 went red on a dictionary update alone. The scripts read the
 version CI pins from `ci.yml` and warn when yours differs. To match it:
 
 ```powershell
-cargo install typos-cli --version 1.49.0 --locked   # the pin in ci.yml at the time of writing
+cargo +stable install typos-cli --version 1.51.1 --locked   # the pin in ci.yml at the time of writing
 ```
+
+`+stable` is there because typos-cli 1.51.1 needs rustc 1.95 or newer, and
+inside this repository rustup otherwise applies the 1.94.1 that
+`rust-toolchain.toml` pins to every cargo command, so the install fails.
 
 ### 4.1 Pre-push hook (once per clone)
 
