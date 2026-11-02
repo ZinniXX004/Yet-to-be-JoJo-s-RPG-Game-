@@ -1,6 +1,11 @@
+<a id="top"></a>
+
 <div align="center">
 
-# Yet-to-be JoJo's RPG Game
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+  <img alt="Yet-to-be JoJo's RPG: deterministic turn-based battles in a pure Rust core, played out in Godot through a GDExtension" src="docs/assets/banner-light.svg" width="100%">
+</picture>
 
 **A turn-based RPG whose combat rules live in a deterministic Rust simulation,
 with Godot 4 doing nothing but showing you what happened.**
@@ -22,105 +27,167 @@ with Godot 4 doing nothing but showing you what happened.**
 [![Keep a Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-E05735?logo=keepachangelog&logoColor=white)](CHANGELOG.md)
 [![SemVer](https://img.shields.io/badge/semver-2.0.0-3F4551?logo=semver&logoColor=white)](https://semver.org/spec/v2.0.0.html)
 
-[Architecture](docs/ARCHITECTURE.md) ·
-[Setup](docs/DEVELOPMENT.md) ·
-[Roadmap](docs/ROADMAP.md) ·
-[Triage](docs/TRIAGE.md) ·
-[Balance log](docs/BALANCE-LOG.md) ·
-[Balance curve](docs/BALANCE-CURVE.md) ·
-[Releases](docs/RELEASING.md) ·
-[Changelog](CHANGELOG.md) ·
-[Data provenance](docs/DATA-SOURCES.md)
+[See it run](#see-it-run) ·
+[Why](#why-this-exists) ·
+[Architecture](#architecture) ·
+[Quickstart](#quickstart-windows) ·
+[Balance](#balance) ·
+[Layout](#repository-layout) ·
+[Quality gates](#quality-gates) ·
+[Contributing](#contributing-and-reporting) ·
+[Licence](#licence-and-ip-notice)
+
+<sub>[All documentation](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Setup](docs/DEVELOPMENT.md) · [Roadmap](docs/ROADMAP.md) · [Triage](docs/TRIAGE.md) · [Balance log](docs/BALANCE-LOG.md) · [Balance curve](docs/BALANCE-CURVE.md) · [Releases](docs/RELEASING.md) · [Changelog](CHANGELOG.md) · [Data provenance](docs/DATA-SOURCES.md)</sub>
 
 </div>
 
+> [!NOTE]
 > **Status: `0.4.1` released (M3 patch). Next: `0.5.0`, then `1.0.0` (M4, polish).**
-> `0.2.0` got one battle playable start to finish in Godot 4.7.1, console
-> clean. `0.3.0` made the numbers accountable: every encounter declares the
-> win rate it's supposed to produce, a headless harness measures the real
-> one, and CI fails the build the moment the two disagree. The first
-> playthrough's defeat turned out to be pointing the wrong way entirely —
-> left on autopilot, the party actually won that same fight 92% of the time,
-> with two of three encounters sitting outside their intended range.
->
-> `0.4.0` began by closing the hole those measurements were taken through:
-> the rules got fixed (miss accounting, elemental resistance, a scored AI in
-> place of a damage-only one, healing finally counted), and the seed list
-> widened from twelve to 300 so a measurement actually means something.
-> Content followed once the ground stopped moving — a fourth party member
-> (`pc.polnareff`, #15), three new enemies (#16), and a second boss
-> (`npc.diavolo`, #17). The two skills nothing could choose were repriced
-> (#29), and the scorer now weighs damage against the target's resistance and
-> defence (#22, #33). #33 left the Diavolo fight two points above its band's
-> floor; it is back at 38% after a measured `hp` change, and the healer was
-> measured and kept (#24). The battle screen now shows what the log says --
-> floating numbers, status badges and a tempo panel (#18) -- and both boss
-> fights were recorded end to end with a clean console.
->
-> `0.4.1` fixed what measuring M3 turned up next: the AI priced a guard as
-> though every enemy aimed at its holder (#60), Kakyoin's main skill cost
-> him most of his damage (#61), and Diavolo's resistance table had never
-> loaded (#62). Both bosses were re-centred where their fights stood at
-> `0.4.0`. `0.5.0` puts the AI's scoring back on one unit (#63) and makes
-> the loader refuse content keys it does not read (#65). `1.0.0` is about a
-> stranger being able to play it: a standalone export, audio and art. Plan in
-> [ROADMAP.md](docs/ROADMAP.md), reporting rules in
-> [TRIAGE.md](docs/TRIAGE.md), evidence in
-> [BALANCE-LOG.md](docs/BALANCE-LOG.md).
+> `0.5.0` puts the AI's scoring back on one unit (#63) and makes the loader
+> refuse content keys it does not read (#65). `1.0.0` is about a stranger being
+> able to play it: a standalone export, audio and art. Plan in
+> [ROADMAP.md](docs/ROADMAP.md), reporting rules in [TRIAGE.md](docs/TRIAGE.md),
+> evidence in [BALANCE-LOG.md](docs/BALANCE-LOG.md).
 
----
+<details>
+<summary><b>How it got here, one release at a time</b></summary>
+
+<br>
+
+`0.2.0` got one battle playable start to finish in Godot 4.7.1, console clean.
+`0.3.0` made the numbers accountable: every encounter declares the win rate it's
+supposed to produce, a headless harness measures the real one, and CI fails the
+build the moment the two disagree. The first playthrough's defeat turned out to
+be pointing the wrong way entirely: left on autopilot, the party actually won
+that same fight 92% of the time, with two of three encounters sitting outside
+their intended range.
+
+`0.4.0` began by closing the hole those measurements were taken through: the
+rules got fixed (miss accounting, elemental resistance, a scored AI in place of
+a damage-only one, healing finally counted), and the seed list widened from
+twelve to 300 so a measurement actually means something. Content followed once
+the ground stopped moving: a fourth party member (`pc.polnareff`, #15), three
+new enemies (#16), and a second boss (`npc.diavolo`, #17). The two skills
+nothing could choose were repriced (#29), and the scorer now weighs damage
+against the target's resistance and defence (#22, #33). #33 left the Diavolo
+fight two points above its band's floor; it is back at 38% after a measured
+`hp` change, and the healer was measured and kept (#24). The battle screen now
+shows what the log says, with floating numbers, status badges and a tempo panel
+(#18), and both boss fights were recorded end to end with a clean console.
+
+`0.4.1` fixed what measuring M3 turned up next: the AI priced a guard as though
+every enemy aimed at its holder (#60), Kakyoin's main skill cost him most of his
+damage (#61), and Diavolo's resistance table had never loaded (#62). Both bosses
+were re-centred where their fights stood at `0.4.0`.
+
+</details>
+
+## See it run
+
+<div align="center">
+  <img src="docs/assets/battle-clip.webp" width="88%" alt="Twelve seconds of matchup.dio_boss at seed 7 on autoplay: the tempo bars fill, a critical hit and a bleed tick float over their targets, and the battle log scrolls">
+</div>
+
+<br>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/battle-dio-boss.png" alt="The battle screen mid-fight in matchup.dio_boss at seed 7: tempo panel, six combatants with HP and SP bars, floating numbers and status badges, and the battle log"></td>
+    <td width="50%"><img src="docs/assets/battle-victory.png" alt="The battle screen at the end of matchup.dancer_rush at seed 1, showing the Victory result line"></td>
+  </tr>
+  <tr>
+    <td valign="top"><sub><b>Mid-fight.</b> The tempo panel decides who acts next. A critical hit and a bleed tick float over their targets, and <code>BLEED 2</code> and <code>ATK+ 1</code> are the statuses still running. <code>matchup.dio_boss</code>, seed 7.</sub></td>
+    <td valign="top"><sub><b>Resolution.</b> The fight ends on its result line, and the console stays clean. <code>matchup.dancer_rush</code>, seed 1.</sub></td>
+  </tr>
+</table>
+
+Everything on screen repeats what the battle log says, and the log is a pure
+function of the encounter and its seed. These are frames from Godot's Movie
+Maker mode, so the same command replays the same fight.
+
+<details>
+<summary><b>Reproduce these pictures</b></summary>
+
+<br>
+
+From the repository root in `cmd.exe`, after the [quickstart](#quickstart-windows)
+has built and synced the project:
+
+```bat
+mkdir recordings\dio7
+"C:\Tools\Godot\Godot_v4.7.1-stable_win64_console.exe" --path src\game --write-movie "%CD%\recordings\dio7\f.png" --fixed-fps 10 -- --encounter=matchup.dio_boss --seed=7 --autoplay --quit-on-end
+```
+
+A `.png` movie path writes one numbered image per frame at 10 frames per second.
+The still above is frame 330 of that run, and the clip is frames 290 to 409. The
+victory screen is the last frame of the same command for `matchup.dancer_rush`
+at seed 1. The rules for recordings, including why the movie path has to be
+absolute, are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#33-recording-a-playthrough);
+how each image in this README was made is in
+[docs/assets/README.md](docs/assets/README.md).
+
+</details>
+
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Why this exists
 
 Most hobby RPGs bury their combat rules inside engine callbacks, where the
-logic can't be tested, replayed, or reasoned about. This project inverts
-that: the rules live in a plain Rust library with no engine, no globals, no
-clock, and no floating point, so a battle is nothing more than a pure
-function of a seed plus a sequence of commands.
+logic can't be tested, replayed, or reasoned about. This project inverts that:
+the rules live in a plain Rust library with no engine, no globals, no clock, and
+no floating point, so a battle is nothing more than a pure function of a seed
+plus a sequence of commands. That single constraint buys, for free:
 
-That single constraint buys, for free:
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/determinism.svg" width="44" align="left" alt="">
+      <b>Replays and real tests</b><br>
+      <sub>One <code>u64</code> reproduces a fight exactly, so a seed is a complete bug report. <code>cargo test</code> runs whole battles with no engine, no scene and no mocking, and a save file is nothing but a serialised <code>BattleState</code>.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/data.svg" width="44" align="left" alt="">
+      <b>Content is data</b><br>
+      <sub>A new skill is a JSON object and needs no code change. The loader refuses keys it does not read, so a misspelled field stops the load and names itself instead of quietly vanishing.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/assets/icons/balance.svg" width="44" align="left" alt="">
+      <b>Balance at scale</b><br>
+      <sub>Thousands of headless AI battles per second. Every encounter declares the win rate it should produce, and CI fails the build when the measurement leaves that band.</sub>
+    </td>
+    <td valign="top">
+      <img src="docs/assets/icons/screen.svg" width="44" align="left" alt="">
+      <b>A frontend that only presents</b><br>
+      <sub>Godot animates the events the core emits and computes nothing, so the same simulation can drive a different frontend later.</sub>
+    </td>
+  </tr>
+</table>
 
-- **Replays and bug reports** — one `u64` reproduces a fight exactly.
-- **Real tests** — `cargo test` runs battles; no engine, no scene, no mocking.
-- **Trivial saves** — serialising `BattleState` is the entire save file.
-- **Balance at scale** — thousands of headless AI battles per second.
-- **Portability** — the same simulation can drive a different frontend later.
+Balance at scale is not aspirational. It is [a CI job](.github/workflows/ci.yml)
+that has already rejected the content this repository shipped in `0.2.0`.
 
-The fourth item is not aspirational. It is [a CI
-job](.github/workflows/ci.yml) that has already rejected the content this
-repository shipped in `0.2.0`.
-
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Architecture
 
-```text
-┌───────────────────────────────────────────────┐
-│ src/game        Godot 4  ·  GDScript          │  presentation only:
-│                 scenes, UI, animation         │  animates events,
-└──────────────────────┬────────────────────────┘  computes nothing
-                       │  JSON strings over GDExtension
-┌──────────────────────▼────────────────────────┐
-│ src/bridge      rpg-bridge  ·  Rust cdylib    │  translation only:
-│                 5 methods, JSON in and out    │  no game rules
-└──────────────────────┬────────────────────────┘
-                       │
-┌──────────────────────▼────────────────────────┐
-│ src/core        rpg-core  ·  Rust library     │  every rule lives here:
-│                 tempo scheduler, resolution,  │  deterministic,
-│                 statuses, AI, seeded RNG      │  engine-free, tested
-└──────────────────────┬────────────────────────┘
-                       │  reads
-┌──────────────────────▼────────────────────────┐
-│ data/*.json     skills · stands · combatants  │  content, not code
-│                 matchups: declared win rates  │
-│ src/data-pipeline  stdlib-only validator      │  runs in CI
-└───────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    game["<b>src/game</b><br/>Godot 4 · GDScript<br/>scenes, UI, animation<br/><i>presentation only:<br/>computes nothing</i>"]
+    bridge["<b>src/bridge</b><br/>rpg-bridge · Rust cdylib<br/>5 methods<br/>JSON in, JSON out<br/><i>translation only:<br/>no game rules</i>"]
+    core["<b>src/core</b><br/>rpg-core · Rust library<br/>tempo scheduler<br/>resolution, statuses<br/>AI, seeded RNG<br/><i>every rule lives here:<br/>deterministic<br/>and engine-free</i>"]
+    data["<b>data/*.json</b><br/>skills, stands,<br/>combatants, matchups<br/>and their win-rate bands<br/><i>content, not code</i>"]
+    validator["<b>src/data-pipeline</b><br/>stdlib-only validator<br/><i>runs in CI</i>"]
+    game -->|JSON over GDExtension| bridge
+    bridge --> core
+    core -->|reads| data
+    validator -->|checks| data
 ```
 
 | Concept | One-line summary |
 | --- | --- |
-| **Tempo scheduler** | Integer ATB: `tempo += spd` per tick, act at 1000, each action subtracts its own cost — so speed is a resource |
+| **Tempo scheduler** | Integer ATB: `tempo += spd` per tick, act at 1000, each action subtracts its own cost, so speed is a resource |
 | **Tempo denial** | `tempo_lock` suspends accumulation; time-stop abilities are ordinary data, with no special case in the scheduler |
 | **Command → Event** | Intent is validated *before* mutation; a rejected command costs no turn. Events are the only channel to the UI |
 | **Determinism** | SplitMix64 RNG stored inside `BattleState`; no floats anywhere |
@@ -130,12 +197,12 @@ repository shipped in `0.2.0`.
 Full reasoning in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the engine choice
 is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Quickstart (Windows)
 
-Requires the Rust toolchain, MSVC Build Tools, Godot 4.7 and Python 3.11+ —
-exact versions and install links in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Requires the Rust toolchain, MSVC Build Tools, Godot 4.7 and Python 3.11+.
+Exact versions and install links are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 Every block below is PowerShell, not `cmd.exe`, and paths are relative to the
 directory the block says you are in.
@@ -164,28 +231,32 @@ Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force
 # 5. Open src/game/project.godot in Godot and run the main scene.
 ```
 
-The sync script is Windows PowerShell 5.1 compatible, so PowerShell 7 is not
-required. If your execution policy blocks the script, run
-`powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` instead; that
-affects one process and changes no machine-wide setting. On Linux and macOS,
-run `sh tools/sync_data.sh`.
+> [!TIP]
+> The sync script is Windows PowerShell 5.1 compatible, so PowerShell 7 is not
+> required. If your execution policy blocks the script, run
+> `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` instead; that
+> affects one process and changes no machine-wide setting. On Linux and macOS,
+> run `sh tools/sync_data.sh`.
 
-Prebuilt libraries for Windows and Linux (x86_64) and macOS (Apple Silicon
-only) are attached to every
+Prebuilt libraries for Windows and Linux (x86_64) and macOS (Apple Silicon only)
+are attached to every
 [release](https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/releases),
-each with a SHA-256 checksum. An archive replaces building the library
-yourself: copy its `bin/` and `data/` folders into `src/game/` of a checkout of
-the same tag, then open the project. It is a library and its content, not a
-standalone game; that arrives with `1.0.0`.
+each with a SHA-256 checksum. An archive replaces building the library yourself:
+copy its `bin/` and `data/` folders into `src/game/` of a checkout of the same
+tag, then open the project.
 
----
+> [!IMPORTANT]
+> A release archive is a library and its content, not a standalone game. That
+> arrives with `1.0.0`.
+
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Balance
 
 Every encounter lives in [`data/matchups.json`](data/matchups.json) with a
 party, a set of foes, 300 fixed seeds, and the win rate it's *supposed* to
-produce. The harness plays all of them with both sides on AI and reports
-what actually happens:
+produce. The harness plays all of them with both sides on AI and reports what
+actually happens:
 
 ```powershell
 cd src
@@ -205,14 +276,15 @@ every effect in HP (#63) and the Iron Brawler's `atk` went from 135 to 155:
 | `matchup.bell_race` | 70% | 48..80 | 15 turns |
 | `matchup.diavolo_boss` | 38% | 25..55 | 73 turns |
 
-The binary exits non-zero when any encounter leaves its band, so it is both a
-tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under
-`cargo test`, and a `balance` CI job blocks the merge.
+The seeds are fixed, so anyone who runs the command gets this table to the last
+digit. The binary exits non-zero when any encounter leaves its band, so it is
+both a tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing
+under `cargo test`, and a `balance` CI job blocks the merge.
 
 Useful flags: `--only <matchup.id>` for one encounter, `--json` for a machine
 readable report, `--no-fail` to print without a non-zero exit, and
-`--combatants` / `--stands` / `--skills` to run against content outside `data/`.
-That last group is how the response curve in
+`--combatants`, `--stands` or `--skills` to run against content outside
+`data/`. That last group is how the response curve in
 [docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md) was swept in a single run:
 
 ```powershell
@@ -228,24 +300,24 @@ it never reaches the game, the validator or the CI gate.
 Two documents carry the reasoning, and they are the interesting part of this
 repository rather than an appendix to it:
 
-- **[docs/BALANCE-LOG.md](docs/BALANCE-LOG.md)** — one entry per change, each
+- **[docs/BALANCE-LOG.md](docs/BALANCE-LOG.md)**: one entry per change, each
   with the prediction written *before* the run. Seven of nine predictions were
   wrong, which is the argument for measuring rather than against it.
-- **[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md)** — how much win rate a point
+- **[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md)**: how much win rate a point
   of enemy damage actually buys. Flat below a ratio of 0.65, a bend to 67%, a
   plateau to 0.81, then 8% by parity. Six changes were spent moving a number
   along the flat part of a curve nobody had plotted yet.
 
-A win rate here is a **floor for a competent player**, not a forecast — the
-AI always takes the strongest affordable skill and never sets up for later.
-The seed list runs to 300 now, not twelve, which narrows the noise
-considerably; the exact current margin is in
-[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md), along with this limit and
-several more at the end of the balance log. If you want to dispute a number,
-[TRIAGE.md](docs/TRIAGE.md) says what a balance finding has to contain before
-it can be acted on.
+> [!NOTE]
+> A win rate here is a **floor for a competent player**, not a forecast: the AI
+> always takes the strongest affordable skill and never sets up for later. The
+> seed list runs to 300 now, not twelve, which narrows the noise considerably;
+> the exact current margin is in [docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md),
+> along with this limit and several more at the end of the balance log. If you
+> want to dispute a number, [TRIAGE.md](docs/TRIAGE.md) says what a balance
+> finding has to contain before it can be acted on.
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Repository layout
 
@@ -256,17 +328,19 @@ it can be acted on.
 | `src/game/` | Godot 4 project: scenes, GDScript, extension descriptor |
 | `src/data-pipeline/` | Stdlib-only Python content validator |
 | `data/` | Canonical content: skills, stands, combatants, matchups |
-| `docs/` | Architecture, ADR, roadmap, setup, release process, triage, provenance, balance |
-| `tools/` | Content sync scripts for the Godot project |
+| `docs/` | Architecture, ADR, roadmap, setup, release process, triage, provenance, balance; [index](docs/README.md) |
+| `docs/assets/` | README artwork and battle captures, in plain Git rather than LFS |
+| `tools/` | The local gate (`check.ps1`, `check.sh`), the Godot smoke test, content sync scripts, label setup |
 | `tools/probe/` | Throwaway content for curve sweeps. Not game content |
 | `.github/workflows/` | CI and release automation |
 | `.github/ISSUE_TEMPLATE/` | Defect, balance and task forms; blank issues are disabled |
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Quality gates
 
-Every push and pull request runs, on **Linux and Windows**:
+Every pull request into `development` or `main`, and every push to either, runs
+the jobs below. `core` and `bridge` build on Linux, Windows and macOS.
 
 | Check | Tool |
 | --- | --- |
@@ -274,27 +348,29 @@ Every push and pull request runs, on **Linux and Windows**:
 | Lints, warnings are errors | `cargo clippy -- -D warnings` |
 | Tests, including determinism | `cargo test --all-targets` |
 | Docs build | `cargo doc --no-deps` |
-| Content integrity | `validate_data.py` (types, enums, cross-references, balance smells) |
-| Balance | `cargo run -p rpg-core --bin balance` — every encounter inside its declared win-rate band |
+| Content integrity | `validate_data.py` (types, enums, cross-references, balance smells), and the probe roster against `data/` |
+| Balance | `cargo run -p rpg-core --bin balance`: every encounter inside its declared win-rate band |
+| Godot smoke | `tools/godot_smoke.py`: every encounter played to an outcome in headless Godot 4.7.1, with a clean console |
 | Supply chain: advisories, licences, sources | [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) |
 | Spelling | [`typos`](https://github.com/crate-ci/typos) |
 | Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |
+| Code scanning | CodeQL default setup: Actions, Python and Rust |
 | Dependency updates | Dependabot, weekly and grouped |
 
-None of these run Godot. The GDScript layer is verified by playing it, which is
-why every milestone's exit criterion is written as an observable playthrough
-rather than a green pipeline.
+The smoke job proves that every encounter loads and finishes in the engine; it
+cannot judge how the screen looks. That is why every milestone's exit criterion
+is written as an observable playthrough rather than a green pipeline.
 
 Tagging `vX.Y.Z` builds, tests and publishes per-platform archives with release
 notes taken from the changelog. The workflow refuses to publish if the tag does
 not match `Cargo.toml` or the changelog has no section for it. Details in
 [docs/RELEASING.md](docs/RELEASING.md).
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Contributing and reporting
 
-Issues use three forms — defect, balance finding, task — and blank issues are
+Issues use three forms (defect, balance finding, task), and blank issues are
 disabled, because a report this project cannot reproduce is a report it cannot
 act on. A defect report needs the seed, the encounter id and the version; the
 simulation is deterministic, so those three reproduce the fight exactly. A
@@ -302,9 +378,10 @@ balance finding needs the pasted harness output, not an impression. Labels,
 severity and the triage rules are in [docs/TRIAGE.md](docs/TRIAGE.md).
 
 Pull requests carry the local gate as a checklist. Run it before opening one;
-the commands are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-checks-to-run-before-pushing).
+the commands are in
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-checks-to-run-before-pushing).
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## References and further reading
 
@@ -312,26 +389,26 @@ the commands are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-checks-to-run-be
 
 - [The Rust Programming Language](https://doc.rust-lang.org/book/) · [Rust API guidelines](https://rust-lang.github.io/api-guidelines/)
 - [godot-rust book](https://godot-rust.github.io/book/) · [gdext API docs](https://godot-rust.github.io/docs/gdext) · [gdext repository](https://github.com/godot-rust/gdext)
-- [godot-rust compatibility matrix](https://godot-rust.github.io/book/toolchain/compatibility.html) — API version must be at most the runtime version
-- [Selecting a Godot version](https://godot-rust.github.io/book/toolchain/godot-version.html) — why `compatibility_minimum` is 4.6 here
+- [godot-rust compatibility matrix](https://godot-rust.github.io/book/toolchain/compatibility.html): the API version must be at most the runtime version
+- [Selecting a Godot version](https://godot-rust.github.io/book/toolchain/godot-version.html): why `compatibility_minimum` is 4.6 here
 - [Godot 4 documentation](https://docs.godotengine.org/en/stable/) · [The GDExtension system](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/index.html)
 
 **Design and algorithms**
 
-- Steele, Lea and Flood, *Fast Splittable Pseudorandom Number Generators*, OOPSLA 2014 — [ACM](https://dl.acm.org/doi/10.1145/2714064.2660195); reference constants at [prng.di.unimi.it](https://prng.di.unimi.it/splitmix64.c)
-- [Game Programming Patterns](https://gameprogrammingpatterns.com/) — command and event patterns, free online
-- [Determinism in games: floating point](https://gafferongames.com/post/floating_point_determinism/) — why this project has no float math
+- Steele, Lea and Flood, *Fast Splittable Pseudorandom Number Generators*, OOPSLA 2014: [ACM](https://dl.acm.org/doi/10.1145/2714064.2660195); reference constants at [prng.di.unimi.it](https://prng.di.unimi.it/splitmix64.c)
+- [Game Programming Patterns](https://gameprogrammingpatterns.com/): command and event patterns, free online
+- [Determinism in games: floating point](https://gafferongames.com/post/floating_point_determinism/): why this project has no float math
 
 **Process**
 
 - [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) · [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-- [Architecture decision records](https://adr.github.io/) — the format of `docs/ENGINE-DECISION.md`
+- [Architecture decision records](https://adr.github.io/): the format of `docs/ENGINE-DECISION.md`
 - [GitHub Actions documentation](https://docs.github.com/actions) · [Shields.io](https://shields.io) · [Simple Icons](https://simpleicons.org)
 
 Every external resource, licence and the project's scraping policy are catalogued
 in [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
----
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
 
 ## Licence and IP notice
 
@@ -339,7 +416,14 @@ Code is [MIT](LICENSE) licensed.
 
 Character and ability names reference *JoJo's Bizarre Adventure* by Hirohiko
 Araki (Shueisha). This is an unaffiliated, non-commercial fan project; no
-official assets are included. `rpg-core` contains **no** character names — the
+official assets are included. `rpg-core` contains **no** character names: the
 engine is IP-agnostic, so swapping `data/*.json` produces an original game
 without touching a line of code. See
 [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md#4-intellectual-property-notice).
+
+The README artwork is original. Its lettering is set in
+[Inter](https://rsms.me/inter/) (SIL Open Font License 1.1) and DejaVu Sans
+Mono, converted to outlines; the battle captures show this project's own
+screen. Details in [docs/assets/README.md](docs/assets/README.md).
+
+<p align="right"><sub><a href="#top">Back to top</a></sub></p>
