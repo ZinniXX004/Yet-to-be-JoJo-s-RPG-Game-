@@ -78,6 +78,20 @@ with prebuilt libraries. A section here without a tag is not a release.
   GDExtension API (`compatibility_minimum`), not of the project. The README
   requirement and badge, and the Godot row and troubleshooting entry in
   `docs/DEVELOPMENT.md`, say 4.7.
+- **The README shows the game.** It opens on a banner in a light and a dark
+  variant, animated and still under reduced motion, and shows a twelve
+  second battle clip and two framed stills taken with Godot's Movie Maker
+  from seeded battles, so the same command reproduces them. Feature icons,
+  GitHub callouts and a Mermaid diagram replace the text drawing of the
+  layers. The images live in `docs/assets/`, which `.gitattributes` keeps
+  out of Git LFS, and `docs/assets/README.md` records how each was made.
+  `docs/README.md` indexes the documentation. Facts the README had left
+  behind were corrected on the way: `core` and `bridge` also build on macOS,
+  CI plays every encounter in headless Godot, CodeQL scans pull requests, and
+  CI runs for pull requests into and pushes to `development` and `main`, not
+  every push. The README and both new pages use no em dash, en dash or
+  double hyphen as punctuation, and the battle screen's tempo title now reads
+  `Tempo: a combatant acts on reaching 1000`.
 
 ### Fixed
 
