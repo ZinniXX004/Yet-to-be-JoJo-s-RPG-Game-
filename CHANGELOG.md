@@ -25,6 +25,27 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **`score_action` prices every effect in HP** (#63). Since #33 damage was
+  priced in HP after the defence toll while `Bleed` and `DefUp` were
+  converted into power units and every action-valued effect rode on a
+  nominal power baseline that ignored the target's defence: one decision,
+  three units. Every effect now lands in HP by its own mechanic: bleed and a
+  guard as they are, a tempo lock, stun or slow at the HP of the actor's
+  best affordable hit against the chosen target, and an attack buff or
+  debuff as a share of the hit before the toll, taken on the actor's *base*
+  attack, the stat `state.rs` applies the modifier to. Taken on the current
+  attack, a buffed Flame Assassin priced each refresh of `rage_focus` above
+  the buff itself and stopped using `sun_flare`. No RNG draw moved. A rules
+  change: every encounter but `matchup.thug_solo` crosses a comparability
+  boundary (`docs/BALANCE-LOG.md`).
+- **`npc.iron_brawler` `atk` 135 -> 155** (#63). With one unit Kakyoin
+  prefers `emerald_splash` while both foes stand, and the three Iron Brawler
+  fights without the Flame Assassin rose six to ten points, out of their
+  bands. Chosen by the owner from three measured levers. Over 300 seeds,
+  0.4.1 -> now: `matchup.assassin_ambush` 69.3 -> 56.7, `matchup.dio_boss`
+  61.0 -> 55.7, `matchup.dancer_rush` 85.3 -> 80.0, `matchup.weaver_gambit`
+  81.0 -> 82.3, `matchup.bell_race` 74.7 -> 70.3, `matchup.diavolo_boss`
+  38.7 -> 38.0, `matchup.thug_solo` 100, bit-identical. No band changed.
 - **The loader refuses a content key it does not declare** (#65). `Stats`,
   `SkillDef`, `StandDef`, `CombatantDef`, every `Effect` kind and `Matchup`
   are `#[serde(deny_unknown_fields)]`, so a misspelled key stops the content
