@@ -65,7 +65,7 @@ git switch -c chore/release-0.4.1 origin/development
    documentation commit pushed afterwards is unverified until it runs. Run the
    full gate from
    [DEVELOPMENT.md](DEVELOPMENT.md#4-checks-to-run-before-pushing) before opening
-   the release PR. `0.3.0` learned this the direct way -- its branch failed the
+   the release PR. `0.3.0` learned this the direct way: its branch failed the
    `format` job because files authored through the GitHub API had never been near
    `cargo fmt`.
 2. **Update `CHANGELOG.md`.** Move items out of `Unreleased` into a
@@ -83,7 +83,7 @@ git switch -c chore/release-0.4.1 origin/development
 
    `cargo set-version` comes from cargo-edit (`cargo install cargo-edit`); the
    test run also refreshes `Cargo.lock`, which is committed. `cmd.exe` has no
-   trailing `#` comments -- it passes them to the command as arguments -- so
+   trailing `#` comments (it passes them to the command as arguments), so
    the block carries none.
 
    The workflow compares the tag against `src/Cargo.toml` and aborts on a
@@ -113,7 +113,7 @@ git switch -c chore/release-0.4.1 origin/development
    `development`, so this merge changes no file; it adds history. Each release
    reaches `main` as a merge commit that `development` never gets, so without
    this step `development` falls one more commit behind `main` with every
-   release -- three by `0.4.0`. A pull request whose head is behind its base
+   release (three by `0.4.0`). A pull request whose head is behind its base
    can be held by `protect-main`'s up-to-date rule, and *Update branch* would
    then try to push to `development`, which only takes pull requests.
 
@@ -201,8 +201,8 @@ Do not move a published tag. Delete the release and the tag, fix forward, and
 tag the next patch version. A rewritten tag breaks every checksum anyone already
 downloaded.
 
-A tag the release workflow refused -- not on `main`, or not matching the
-manifest -- published nothing, so it can be deleted and cut again at the right
+A tag the release workflow refused (not on `main`, or not matching the
+manifest) published nothing, so it can be deleted and cut again at the right
 commit:
 
 ```bat
