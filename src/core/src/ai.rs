@@ -586,6 +586,7 @@ mod tests {
             accuracy: 100,
             tempo_cost: TEMPO_THRESHOLD,
             effects,
+            provenance: None,
         }
     }
 

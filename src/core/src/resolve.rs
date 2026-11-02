@@ -41,6 +41,7 @@ fn fallback_attack() -> SkillDef {
             element: Element::Physical,
             variance: 10,
         }],
+        provenance: None,
     }
 }
 
@@ -59,6 +60,7 @@ fn fallback_guard() -> SkillDef {
             duration: 2,
             chance: 100,
         }],
+        provenance: None,
     }
 }
 
@@ -440,6 +442,7 @@ mod tests {
                 element,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -462,6 +465,7 @@ mod tests {
             skills: skills.iter().map(|id| id.to_string()).collect(),
             ai: AiProfile::Aggressive,
             resist,
+            provenance: None,
         }
     }
 
@@ -561,6 +565,7 @@ mod tests {
             accuracy: 100,
             tempo_cost: TEMPO_THRESHOLD,
             effects: vec![Effect::Heal { power: 50 }],
+            provenance: None,
         };
         let siphon = SkillDef {
             id: "skill.siphon".to_string(),
@@ -574,6 +579,7 @@ mod tests {
                 power: 100,
                 element: Element::Physical,
             }],
+            provenance: None,
         };
 
         let db = Database::new(

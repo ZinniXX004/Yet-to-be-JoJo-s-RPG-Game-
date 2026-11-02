@@ -357,6 +357,7 @@ mod tests {
                 element: Element::Physical,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -374,6 +375,7 @@ mod tests {
             // an uncontrolled variable in all three. Resistance behaviour is
             // tested where it is implemented, in resolve.rs.
             resist: Resistances::new(),
+            provenance: None,
         }
     }
 

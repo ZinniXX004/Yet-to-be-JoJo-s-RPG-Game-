@@ -824,7 +824,7 @@ a patch (`docs/RELEASING.md` section 1).
 
 - [ ] Damage, defence and action-valued effects priced in one unit, then every
       band re-measured and retuned, predictions first (#63)
-- [ ] The loader refuses unknown keys, and `provenance` is declared in the
+- [x] The loader refuses unknown keys, and `provenance` is declared in the
       structs (#65)
 
 ---
