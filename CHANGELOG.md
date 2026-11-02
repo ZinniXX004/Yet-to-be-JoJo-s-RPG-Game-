@@ -12,6 +12,17 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+### Changed
+
+- **godot-rust 0.5.5** (#66). Dependabot moved `godot` from 0.5.4 to
+  0.5.5 and `serde_json` from 1.0.151 to 1.0.154. godot-rust still compiles
+  against the Godot 4.6 API: under Godot 4.7.1 its startup line reads
+  `Initialize godot-rust (API v4.6.stable.official, ...)`, so
+  `compatibility_minimum` stays 4.6. The comments in `src/bridge/Cargo.toml`
+  and `src/game/rpg.gdextension`, the dependency table in
+  `docs/DEVELOPMENT.md` (which still said `=0.5.3`) and the README badge now
+  name 0.5.5.
+
 ### Fixed
 
 - **Five documents meant for 0.4.1 missed its release commit.** The README

@@ -64,7 +64,7 @@ needs.
 | --- | --- | --- | --- |
 | `serde` | `1` (feature `derive`) | `rpg-core` | Serialise state, content and events |
 | `serde_json` | `1` | `rpg-core`, `rpg-bridge` | JSON at the content and FFI boundaries |
-| `godot` | `=0.5.3` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
+| `godot` | `=0.5.5` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
 
 `rpg-core` has **zero engine dependencies** and builds and tests without Godot
 installed. That is enforced by the CI job that compiles and tests it alone.
@@ -243,8 +243,8 @@ that still takes a playthrough.
 One behaviour it works around, stated so it is not mistaken for flakiness: the
 first `--import` of a project with no `.godot/` folder can abort while shutting
 down, after the import has finished, when the GDExtension is present (seen with
-Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
-the extension was registered, and the second run has to exit cleanly.
+Godot 4.7.1 and godot-rust 0.5.4 and 0.5.5 on Linux). The script retries once,
+only when the extension was registered, and the second run has to exit cleanly.
 
 ### 3.3 Recording a playthrough
 
