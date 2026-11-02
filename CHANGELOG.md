@@ -25,6 +25,17 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **Markdown prose uses no dash as punctuation, and a check keeps it that
+  way.** Every em dash, en dash and double hyphen used as punctuation in the
+  tracked Markdown, 378 of them in ten files, became a comma, a colon, a
+  semicolon, parentheses or a full stop, and a table cell that held `--` for
+  "no value" now reads `n/a`. In the released sections of this file and in
+  the history of `docs/BALANCE-LOG.md` only punctuation changed. Headings
+  changed with it, and so did their anchors; the one link in the repository
+  that pointed at such an anchor follows the new one. `tools/check_prose.py`,
+  standard library only, prints `file:line:column` for any that come back
+  and exits 1. It runs in the fast gate of `tools/check.sh` and
+  `tools/check.ps1`, so in the pre-push hook too, and in CI's `spelling` job.
 - **A matchup's `band` refuses a key it does not declare** (#65).
   `deny_unknown_fields` on `Matchup` does not reach the `WinRateBand` nested
   inside it, so a band such as `{"min_percent": 45, "max_percent": 90,

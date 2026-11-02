@@ -303,7 +303,7 @@ when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
 .\tools\check.ps1          # full gate: run before opening a pull request
-.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos, prose: seconds
 ```
 
 ```sh
@@ -338,6 +338,19 @@ cargo +stable install typos-cli --version 1.51.1 --locked   # the pin in ci.yml 
 `+stable` is there because typos-cli 1.51.1 needs rustc 1.95 or newer, and
 inside this repository rustup otherwise applies the 1.94.1 that
 `rust-toolchain.toml` pins to every cargo command, so the install fails.
+
+[`tools/check_prose.py`](../tools/check_prose.py) holds the prose rule: no em
+dash, en dash or double hyphen used as punctuation in any tracked Markdown file.
+A comma, a colon, a semicolon, parentheses or a full stop says the same thing,
+and a table cell that only marks "no value" reads `n/a`. The check skips fenced
+and inline code, HTML comments, URLs, table separator rows and command-line
+flags such as `--fast`, prints `file:line:column` for every dash it finds and
+exits 1 if there is one. It needs nothing beyond the standard library; to run it
+alone:
+
+```powershell
+py -3 tools\check_prose.py
+```
 
 ### 4.1 Pre-push hook (once per clone)
 

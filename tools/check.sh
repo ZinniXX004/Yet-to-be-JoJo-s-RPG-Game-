@@ -2,7 +2,7 @@
 # The local gate: the same checks .github/workflows/ci.yml runs, in one command.
 #
 #   sh tools/check.sh          full gate, run before opening a pull request
-#   sh tools/check.sh --fast   formatting, content and spelling only (seconds);
+#   sh tools/check.sh --fast   formatting, content, spelling, prose (seconds);
 #                              this is what the pre-push hook runs
 #
 # Why this file exists: all five CI failures between late July and September
@@ -104,6 +104,7 @@ step "content: tools/probe mirrors data/" run_py src/data-pipeline/validate_data
 
 # --- job: spelling ----------------------------------------------------------
 step "spelling (typos)" typos_check
+step "prose punctuation" run_py tools/check_prose.py
 
 if [ "$fast" -eq 0 ]; then
   # --- job: core ------------------------------------------------------------
