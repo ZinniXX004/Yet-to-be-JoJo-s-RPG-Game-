@@ -624,7 +624,7 @@ func _refresh_tempo_panel(combatants: Array) -> void:
 		name_label.text = marker + String(widgets["base_name"])
 		widgets["box"].modulate = Color(1, 1, 1, 0.4) if is_down else Color(1, 1, 1, 1)
 
-	_tempo_title.text = "Tempo -- a combatant acts on reaching %d" % _tempo_threshold
+	_tempo_title.text = "Tempo: a combatant acts on reaching %d" % _tempo_threshold
 
 
 func _add_tempo_entry(index: int, display_name: String) -> void:
