@@ -117,7 +117,7 @@ godot --version
 ```
 
 Adjust the path to your own extraction directory. If the alias reports
-`is not recognized`, the path is wrong -- most often because the archive was
+`is not recognized`, the path is wrong, most often because the archive was
 extracted into a subdirectory named after the archive itself. Verify with:
 
 ```powershell
@@ -303,7 +303,7 @@ when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
 .\tools\check.ps1          # full gate: run before opening a pull request
-.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos, prose: seconds
 ```
 
 ```sh
@@ -339,6 +339,19 @@ cargo +stable install typos-cli --version 1.51.1 --locked   # the pin in ci.yml 
 inside this repository rustup otherwise applies the 1.94.1 that
 `rust-toolchain.toml` pins to every cargo command, so the install fails.
 
+[`tools/check_prose.py`](../tools/check_prose.py) holds the prose rule: no em
+dash, en dash or double hyphen used as punctuation in any tracked Markdown file.
+A comma, a colon, a semicolon, parentheses or a full stop says the same thing,
+and a table cell that only marks "no value" reads `n/a`. The check skips fenced
+and inline code, HTML comments, URLs, table separator rows and command-line
+flags such as `--fast`, prints `file:line:column` for every dash it finds and
+exits 1 if there is one. It needs nothing beyond the standard library; to run it
+alone:
+
+```powershell
+py -3 tools\check_prose.py
+```
+
 ### 4.1 Pre-push hook (once per clone)
 
 ```powershell
@@ -356,7 +369,7 @@ Do not delete those files: LFS would stop working without any error.
 
 One CI job cannot be reproduced locally without extra tooling: the Markdown link
 check. It resolves every URL in every `.md` file over the network, so it fails
-for reasons that have nothing to do with your change -- a slow academic host, a
+for reasons that have nothing to do with your change: a slow academic host, a
 rate-limited CDN, or a link to a Git tag that does not exist yet. Exclusions live
 in [`.lycheeignore`](../.lycheeignore), one regex per line, each with the reason
 it is there. Add to that list only when the failure is genuinely outside the
@@ -380,7 +393,7 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
 | Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.7. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
-| `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
+| `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale; rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
 | A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force` from the repository root, then restart Godot |
 | `res://data/<file>.json is missing` | Sync script not run; `src/game/data/` is not in git, so a fresh clone has none | `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` from the repository root |

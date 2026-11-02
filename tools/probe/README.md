@@ -6,7 +6,7 @@ unless a path is pointed at them by hand: the game reads `data/`, and the
 blocking `balance` CI job runs with no arguments, which can only read the content
 compiled into the binary by `include_str!`. These files exist to answer
 measurement questions that would otherwise need one throwaway commit per data
-point -- the combatants are deliberately absurd (`atk` up to 225, roughly half
+point; the combatants are deliberately absurd (`atk` up to 225, roughly half
 again as hard-hitting as the final boss) and the bands are `0..100` so a probe
 can never report a violation. Numbers measured here are only meaningful once they
 are re-measured on shipped content; the curve they produced is written up in
@@ -29,10 +29,10 @@ re-run the sweep before sizing another encounter against it.
 They are not interchangeable and the difference decides what a row can be
 compared against.
 
-- **Stat probes** -- `probe.curve_a075` through `probe.curve_a225`. Six
+- **Stat probes**: `probe.curve_a075` through `probe.curve_a225`. Six
   encounters that differ only in one enemy's `atk`, fought by invented
   `npc.probe_a*` clones. These produce the response curve.
-- **Composition probes** -- `probe.chariot_duel`, added in issue #15. Same
+- **Composition probes**: `probe.chariot_duel`, added in issue #15. Same
   encounter as `matchup.assassin_ambush` with **one party member swapped**:
   Polnareff in Jotaro's place. Nothing about any combatant's numbers changes.
 
@@ -40,8 +40,8 @@ A composition probe is the honest home for a question of the form "what does
 this character contribute", and issue #15 is the reason the distinction is
 written down. `chariot_duel` was first authored into `data/matchups.json` with a
 `20..60` band, measured 0 wins from 300 battles, and turned the CI gate red. It
-was never a shipped encounter -- it is `assassin_ambush` with one variable
-changed, which is the definition of a probe -- and it would have belonged here at
+was never a shipped encounter (it is `assassin_ambush` with one variable
+changed, which is the definition of a probe), and it would have belonged here at
 53% exactly as much as it did at 0%. **Do not put an experiment in `data/`. A
 band is a statement of design intent, and a fixture built to answer a question
 has no design intent to declare.**
@@ -49,7 +49,7 @@ has no design intent to declare.**
 ### Composition probes fight the real mirrored combatants
 
 This is the part that changes how the rest of this file must be read.
-`chariot_duel`'s foes are `npc.flame_assassin` and `npc.iron_brawler` -- the
+`chariot_duel`'s foes are `npc.flame_assassin` and `npc.iron_brawler`: the
 **mirrored copies of shipped combatants**, not clones. Its party is
 `pc.polnareff` and `pc.kakyoin`, likewise mirrored. A stat probe reads its
 numbers from invented entries that only exist here; a composition probe reads
@@ -68,7 +68,7 @@ been quietly wrong for two milestones and nothing in the project noticed.
 ### The mirrored entries are checked by CI now, and only those
 
 Issue #30 added a comparison to the content validation job. **Run it from the
-repository root, not from `src`** -- unlike the `cargo` commands above and below,
+repository root, not from `src`**; unlike the `cargo` commands above and below,
 the path to the script is relative to where you stand, and `cd src` first gives
 you `src/src/data-pipeline/...` and a file-not-found:
 
@@ -99,14 +99,14 @@ lucky. It should equal the number of combatants in `data/combatants.json`; if it
 is lower, an entry here has been deleted or renamed rather than updated.
 
 Of the ten warnings, **seven** are the `0..100` bands declaring no intent, which
-is deliberate here -- one per matchup. The other **three** are combatants this
+is deliberate here: one per matchup. The other **three** are combatants this
 directory carries that no probe encounter uses: `pc.josuke`, `npc.dio` and
 `npc.thug`.
 
 ### What the check still cannot protect, and why that is tolerable
 
 Note what is deliberately *not* covered. The six `npc.probe_a*` clones have no
-shipped counterpart, so nothing constrains them -- being invented is the whole
+shipped counterpart, so nothing constrains them; being invented is the whole
 point of them. The probe matchups are not compared either, because they are
 supposed to differ: `0..100` bands, `max_turns: 300`, their own encounter list.
 
@@ -134,14 +134,14 @@ run prints, which is a useful property: the warning list *is* the list of entrie
 that could be deleted without anything complaining.
 
 That is tolerable, because an entry no encounter references cannot influence a
-sweep -- but it is tolerable for that reason and not because the reference check
+sweep, but it is tolerable for that reason and not because the reference check
 covers it. An entry moves into the protected set the moment a probe starts using
 it, and `chariot_duel` is the proof that this happens in practice rather than in
 theory.
 
 > **Retracted, by `probe.chariot_duel`.** This section used to claim that **the
 > mirrored `npc.iron_brawler` is inert for measurement**, on the grounds that the
-> sweep reads `atk` from the clones and never from it -- and concluded that its
+> sweep reads `atk` from the clones and never from it, and concluded that its
 > staleness in issue #14 misled a reader rather than corrupting a number. That
 > was true of a directory containing only stat probes. It is false now.
 > `chariot_duel` fights the mirrored `npc.iron_brawler` and `npc.flame_assassin`
@@ -169,8 +169,8 @@ The second is subtler and worth keeping in mind whenever a check is added here:
   Iron Brawler clones were taking full physical damage from Jotaro where the
   shipped Brawler takes 25% less, and ordinary psychic damage from Kakyoin where
   the shipped one takes 25% more. An absent table is legal, and the validator
-  returns immediately when it sees one -- correctly, because most combatants have
-  none.
+  returns immediately when it sees one (correctly, because most combatants have
+  none).
 - **`npc.iron_brawler` still had `atk: 105`.** Change G shipped `atk: 135` two
   milestones earlier. 105 is a positive integer and no schema check has an
   opinion about which positive integer it ought to be.
@@ -201,7 +201,7 @@ cd src
 cargo run -q -p rpg-core --bin balance -- --only matchup.assassin_ambush
 ```
 
-The two reports must agree in **every digit** -- win count, all three turn
+The two reports must agree in **every digit**: win count, all three turn
 figures, every combatant row, and every skill-use count. Bit-identity is
 available here because the seed lists are the same and the engine is
 deterministic, so there is no reason to accept less than it. As of issue #15 the
@@ -218,7 +218,7 @@ The mirror check narrows what can go wrong here but does not replace this step.
 It compares the roster, not the rules: a change to `resolve.rs` or `ai.rs` moves
 the control while every field still matches. It also does not constrain the
 clone the control actually uses, `npc.probe_a135`, because that id exists only
-here -- so the control must still be reproduced by hand.
+here, so the control must still be reproduced by hand.
 
 ### Keep the seed lists at 300 and keep them identical across rows
 
@@ -229,12 +229,12 @@ second. Rows must share a seed list, or differences between them mix the effect
 under test with a change of sample.
 
 The validator warns below 100 seeds and reports the 95% interval a list that
-small would carry (issue #31). It cannot warn about the opposite mistake -- rows
-that disagree with each other -- so that one stays a reading rule.
+small would carry (issue #31). It cannot warn about the opposite mistake (rows
+that disagree with each other), so that one stays a reading rule.
 
 ### Only one field may differ between probe clones
 
-The six clones differ in `atk` and in nothing else -- same `hp`, `sp`, `def`,
+The six clones differ in `atk` and in nothing else: same `hp`, `sp`, `def`,
 `spd`, `will`, same Stand, same skills, same AI profile, same resistance table.
 This is the whole reason a sweep can attribute its trend to a single stat. It is
 also why issue #27 is a real question rather than a shrug: Kakyoin's skill mix
@@ -250,7 +250,7 @@ matchup name which field that is.
 
 ### The same rule for composition probes, applied to the roster
 
-A composition probe changes **one participant** and nothing else -- same foes,
+A composition probe changes **one participant** and nothing else: same foes,
 same seeds, same `max_turns`, same everything on every combatant sheet. Its
 value comes entirely from having a shipped encounter to compare against, so name
 that encounter in the matchup description and keep the swap to one slot.

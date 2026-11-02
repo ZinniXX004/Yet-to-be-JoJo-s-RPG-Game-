@@ -22,7 +22,7 @@ override it locally.
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), scoped
 by layer: `feat(core):`, `fix(bridge):`, `ci:`, `docs(readme):`.
 
-The body should explain *why* a change happened — the diff already shows
+The body should explain *why* a change happened; the diff already shows
 *what* changed.
 
 ## Before opening a PR

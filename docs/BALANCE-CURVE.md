@@ -77,10 +77,10 @@ measures what it claims to measure, and the five other rows are readable.
 
 ## The curve
 
-Party HP is **1140** — Jotaro 620, Kakyoin 520. Neither Star Platinum nor
+Party HP is **1140**: Jotaro 620, Kakyoin 520. Neither Star Platinum nor
 Hierophant Green grants `hp`, so no stand bonus applies. (The old table gave
 this as "Jotaro 700, Kakyoin 440, stand bonuses included". The total was right
-and the split was invented.) Foe HP is **1340** — Flame Assassin 640, probe 620
+and the split was invented.) Foe HP is **1340**: Flame Assassin 640, probe 620
 plus Iron Hymn's `hp: 80`.
 
 "Output" is damage dealt per battle, summed across a side.
@@ -95,7 +95,7 @@ plus Iron Hymn's `hp: 80`.
 | `a225` | 225 | 1101 | 953 | 0.97 | 1.36 | **12%** | 8..16 | 12% | 16 |
 
 `a135` is the shipped encounter. **Exchange ratio** is
-`(foe out / party HP) / (party out / foe HP)` — how fast each side is being
+`(foe out / party HP) / (party out / foe HP)`: how fast each side is being
 killed, relative to each other. See *Pricing a new enemy* for why it is there.
 
 ### Writing the ratio out in full
@@ -127,7 +127,7 @@ term that `matchup.dio_boss` needs:
 The party stops dealing damage the moment the last foe dies, so in any encounter
 it usually wins, its per-battle output is pinned to the pool it had to chew
 through. The second term of the ratio is therefore close to 1 by construction,
-and the ratio quietly collapses onto `foe out/b / party HP` -- the axis that
+and the ratio quietly collapses onto `foe out/b / party HP`, the axis that
 finding 6 above declares dead above 0.9. Use the exchange ratio to **size** an
 encounter that has not been run. Do not use it to **explain** one that has.
 
@@ -152,7 +152,7 @@ priced on its damage, with its status effects treated as unmeasured.
    Win rate falls 96, 81, 53, 34, 20, 12 with no flat step anywhere, and the
    95% intervals of adjacent rows do not overlap except at the extremes. The
    steepest segment is `atk` 105 to 135, which loses 28 points, and the slope
-   eases in both directions from there — the ordinary shape of any binary
+   eases in both directions from there, the ordinary shape of any binary
    outcome, steepest where it passes 50%.
 
 2. **The shipped encounter sits on the steepest part of the curve.** At `atk`
@@ -168,7 +168,7 @@ priced on its damage, with its status effects treated as unmeasured.
    finding in the file.** His survival tracks the win rate to within three
    points at every row: 93 against 96, 78 against 81, 51 against 53, 33 against
    34, 19 against 20, 12 against 12. The party essentially never wins without
-   him and rarely loses with him. Kakyoin's survival is 48, 28, 15, 8, 6, 2 —
+   him and rarely loses with him. Kakyoin's survival is 48, 28, 15, 8, 6, 2:
    far below the win rate everywhere, so his death is a symptom, not the
    mechanism. Any encounter designed around this party is really an encounter
    designed against one character.
@@ -176,13 +176,13 @@ priced on its damage, with its status effects treated as unmeasured.
 4. **Fights get monotonically shorter as the enemy gets stronger**: 22, 21, 21,
    19, 17, 16. The old table claimed they got shorter *in both directions* and
    read a non-monotonicity into 18, 19, 17, 17, 16. At 300 seeds there is no
-   such wobble. Median turn count is still not a difficulty signal on its own —
-   it says how fast the battle resolves, not who wins — but it is a clean
+   such wobble. Median turn count is still not a difficulty signal on its own
+   (it says how fast the battle resolves, not who wins), but it is a clean
    monotone function of enemy strength.
 
 5. **Damage per turn is linear in `atk`; only damage per battle saturates.**
    Probe output per battle grows 347, 501, 631, 700, 745, 781 across a
-   threefold rise in `atk` — heavily sublinear. Divided by median turn count it
+   threefold rise in `atk`: heavily sublinear. Divided by median turn count it
    is 15.8, 23.9, 30.0, 36.8, 43.8, 48.8, and the ratio of that to `atk` is
    0.21, 0.23, 0.22, 0.22, 0.23, 0.22. **Constant to within 4% across the whole
    range.** The saturation is entirely battle-length compression: a stronger
@@ -260,7 +260,7 @@ intervals on the old rows and compare them to the new ones:
 
 **Four of the five old points cannot disagree with anything.** Their intervals
 are so wide that the new values fall inside them, so the differences are not
-evidence that the rules changed the curve — they are equally consistent with the
+evidence that the rules changed the curve; they are equally consistent with the
 old instrument having been unable to see. Differencing the two tables would
 produce five numbers of which four are noise, and there would be no way to know
 which four.
@@ -286,8 +286,8 @@ likely coincidence available to a twelve-seed instrument.
 This matters beyond the table. Change G chose `atk` 135 over 165 partly *because*
 they were believed to measure the same win rate, so 135 could be taken as the
 near edge of a flat region that would absorb a later party buff. There is no
-flat region. The choice of 135 remains correct for its other two reasons —
-effective `atk` stays under Dio's, and it leaves Kakyoin alive some of the time —
+flat region. The choice of 135 remains correct for its other two reasons
+(effective `atk` stays under Dio's, and it leaves Kakyoin alive some of the time),
 but the plateau argument behind it is void.
 
 ### What survives
@@ -312,7 +312,7 @@ The comparison is therefore about the model's *shape*, not a controlled test.
 
 The old file recorded a uniform over-prediction of 5-14% and blamed a hard SP
 ceiling, noting `sp/b` read 57 on every row. That is no longer the failure mode.
-`sp/b` now reads 64, 66, 67, 64, 61, 56 — it is not pinned, because SP regen
+`sp/b` now reads 64, 66, 67, 64, 61, 56; it is not pinned, because SP regen
 arrived after that sweep. The error is now a **slope error**: the model is 15%
 low at the bottom of the range and 15% high at the top, crossing zero near
 `atk` 175.
@@ -347,13 +347,13 @@ an artefact of shorter battles: Kakyoin's turns per battle fall by a factor of
 is choosing it less often per turn.
 
 The probe's `spd` is 62 on every row and only `atk` varies, so nothing about the
-enemy's speed — the thing `spd_down` is supposed to counter — has changed. The
+enemy's speed (the thing `spd_down` is supposed to counter) has changed. The
 mechanism is in `ai.rs` and this file will not guess at it. Recorded here as an
 observation to be explained, not as a finding.
 
 ## Pricing a new enemy
 
-For an encounter shaped like this one — two foes, this party, no healer:
+For an encounter shaped like this one (two foes, this party, no healer):
 
 1. Estimate each foe's per-turn output as `0.22 x atk`, adjusted for its skill
    kit, then multiply by the party's HP-weighted expected battle length.
@@ -385,8 +385,8 @@ honest: the control row is arithmetic rather than a forecast, the ranges were
 10-13 points wide against an instrument with 3 points of error, and `a225`
 landed on the edge of its interval.
 
-The one miss is the interesting one. The curve did shift **down** — 53% where
-67% was published at the shipped stat — but it did not shift **sideways**. The
+The one miss is the interesting one. The curve did shift **down** (53% where
+67% was published at the shipped stat), but it did not shift **sideways**. The
 steepest region is where it was. Enemy strength moved the whole response down
 rather than relocating the point of maximum sensitivity, which is not what
 "the bend moves" would have implied.

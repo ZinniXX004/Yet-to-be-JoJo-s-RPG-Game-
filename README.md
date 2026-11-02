@@ -353,6 +353,7 @@ the jobs below. `core` and `bridge` build on Linux, Windows and macOS.
 | Godot smoke | `tools/godot_smoke.py`: every encounter played to an outcome in headless Godot 4.7.1, with a clean console |
 | Supply chain: advisories, licences, sources | [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) |
 | Spelling | [`typos`](https://github.com/crate-ci/typos) |
+| Prose punctuation | `tools/check_prose.py`: no em dash, en dash or double hyphen used as punctuation in Markdown |
 | Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |
 | Code scanning | CodeQL default setup: Actions, Python and Rust |
 | Dependency updates | Dependabot, weekly and grouped |

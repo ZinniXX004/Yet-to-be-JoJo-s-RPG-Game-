@@ -1,4 +1,4 @@
-# Issue #16 -- three enemies, three encounters, ten readings
+# Issue #16: three enemies, three encounters, ten readings
 
 **This is the issue #16 entry of [`BALANCE-LOG.md`](BALANCE-LOG.md).** It lives in
 its own file, and the reason is itself a recorded failure. The entry was first
@@ -6,8 +6,8 @@ written as part of a single full-file rewrite of `BALANCE-LOG.md`, which is 81 K
 The write path available for these documents can only send a **whole file**, with
 no patch and no append, and the content sent was cut off mid-sentence inside the
 issue #15 entry. The commit succeeded, the file was silently truncated, and
-everything after that point -- four findings of #15 and the whole "Known
-limitations of the harness itself" section -- vanished from the branch until
+everything after that point (four findings of #15 and the whole "Known
+limitations of the harness itself" section) vanished from the branch until
 `1255f35` restored it byte-for-byte from `f341618`.
 
 That was the **second** occurrence of that exact failure on that exact file, and
@@ -32,9 +32,9 @@ other and to `matchup.assassin_ambush`.
 
 | Enemy | Axis | `hp` / `sp` / `atk` / `def` / `spd` / `will` | Signature skill |
 | --- | --- | --- | --- |
-| Blade Dancer | speed and cheap actions | 620 / 60 / 92 / 38 / **110** / 50 | `flurry_cut` -- 10 SP, power 105, `tempo_cost` **700** |
-| Hex Weaver | pure mitigation | **690** / 90 / 60 / 55 / 78 / 85 | `wither_hex` -- 18 SP, `atk_down` 26 / 8 turns / 85%, **no damage effect** |
-| Requiem Bell | one enormous slow action | 560 / 90 / 96 / 60 / **40** / 70 | `grave_toll` -- 40 SP, power **240** psychic, `tempo_cost` **2000** |
+| Blade Dancer | speed and cheap actions | 620 / 60 / 92 / 38 / **110** / 50 | `flurry_cut`: 10 SP, power 105, `tempo_cost` **700** |
+| Hex Weaver | pure mitigation | **690** / 90 / 60 / 55 / 78 / 85 | `wither_hex`: 18 SP, `atk_down` 26 / 8 turns / 85%, **no damage effect** |
+| Requiem Bell | one enormous slow action | 560 / 90 / 96 / 60 / **40** / 70 | `grave_toll`: 40 SP, power **240** psychic, `tempo_cost` **2000** |
 
 None of the three carries a resistance table, deliberately: three encounters that
 each vary one axis are only readable if the damage pipeline is held flat across
@@ -58,12 +58,12 @@ Bands, all at 300 seeds: `dancer_rush` **60..90**, `weaver_gambit` **58..86**,
 | 7 | `618dad83` | `wither_hex` duration 8 -> **3** | `weaver_gambit` | **87%** | RED |
 | 8 | `14c7b14a` | duration **3 -> 8** again | `weaver_gambit` | **77%** | green |
 | 9 | `769ffb16` | Requiem Bell ships, hp 560 | `bell_race` | **68%** | green |
-| 10 | `f341618d` | two `description` strings only | -- | unchanged | green |
+| 10 | `f341618d` | two `description` strings only | n/a | unchanged | green |
 
 Reading 8 reproduced reading 6 **cell for cell**, and reading 10 reproduced
 reading 9 cell for cell across all six encounters. Together with `14c7b14a` that
-is three separate proofs that `description` strings never reach the simulation --
-worth having, because two of them were written to be exactly that.
+is three separate proofs that `description` strings never reach the simulation.
+Worth having, because two of them were written to be exactly that.
 
 **The first three encounters in the report never moved a digit at any of the ten
 commits.** That is what makes "#16 creates no comparability boundary" a measured
@@ -93,12 +93,12 @@ reading exactly, and it did.
 
 ---
 
-## The Blade Dancer -- what "fast and fragile" cost
+## The Blade Dancer: what "fast and fragile" cost
 
 **The brief was retreated from, and the retreat is the finding.** The Dancer was
 conceived as fast and fragile. Fragility is `def` 38, the lowest of any foe, and
 that part shipped. Low **HP** did not: at hp 340 the encounter read 100% and then
-95%, and hp had to go to **620** -- equal to Jotaro's -- before the fight was a
+95%, and hp had to go to **620** (equal to Jotaro's) before the fight was a
 fight. At this party's output a foe with a small pool does not get to act, so
 "fragile" is not expressible in HP in this engine. It is expressible in defence
 only.
@@ -108,7 +108,7 @@ the second foe. Swapping it for the Iron Brawler at reading 2 moved the exchange
 ratio 0.427 -> 0.594 for five points of win rate, which says the fixture was
 nowhere near parity and the Dancer was never the binding constraint.
 
-**Authoritative reading, `d84a3894` and reproduced twice since** -- 209 won, 91
+**Authoritative reading, `d84a3894` and reproduced twice since**: 209 won, 91
 lost, 70%, turns 22 / 13 / 33:
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
@@ -119,13 +119,13 @@ lost, 70%, turns 22 / 13 / 33:
 | Iron Brawler | 621 | 661 | 8 | 65 | 1461 | 10% | 28% |
 
 The Dancer takes **5.03 actions per battle**, the most of any foe in the file, and
-converts them into 272 damage -- 54 per action against the Brawler's 133. The axis
+converts them into 272 damage, 54 per action against the Brawler's 133. The axis
 worked: cheap fast actions do buy volume, and volume at `power` 105 against
 defence 66-72 is not the same thing as damage.
 
 ---
 
-## The Hex Weaver -- five readings, and the one that fired its own falsifier
+## The Hex Weaver: five readings, and the one that fired its own falsifier
 
 ### HP on a debuffer is an uptime knob
 
@@ -153,7 +153,7 @@ fixed and **only** `duration` changed:
 Ten points from one field. The earlier null result was taken at an HP value where
 the caster lived 3.42 actions, so no value of duration could have shown an
 effect. **A null result only counts if the experiment had room to show a positive
-one** -- and the second test was the same field, changed by the same amount, at a
+one**, and the second test was the same field, changed by the same amount, at a
 place where it could speak.
 
 The mechanism is `tick_statuses`, read from `battle.rs` rather than assumed: it
@@ -166,14 +166,14 @@ coverage gap on a 31% per-hit cut is worth ten points of win rate.
 
 `618dad83` predicted 79..83% with a pre-committed rule: *a reading outside 71..83%
 means duration was never saturated*. It measured **87%**. The falsifier fired, it
-was honoured, and duration went back to 8 -- which is why reading 8 exists at all.
+was honoured, and duration went back to 8, which is why reading 8 exists at all.
 A falsifier written before the run is the only kind that can be honoured after it.
 
 ### The share moved seven points, through a branch that was called inadmissible
 
 `status_points` prices `AtkDown` at `baseline * potency / 100 * duration`. At
 duration 8 that is 208 points, `effect_points` = `208 * 2 * 85/100` = **354**, and
-with one party member left 177 -- still above the 100-point baseline, so the skill
+with one party member left 177, still above the 100-point baseline, so the skill
 is chosen anyway. At duration 3 it is 78 -> 133, and with one member left
 **66 < 100**, so the branch fires and the Weaver switches to `strike`. Measured
 share 62% -> **55%**. The threshold crossing was identified from `ai.rs` before
@@ -186,10 +186,10 @@ the run and then dismissed as too rare to matter; it was worth seven points.
   super-linearly against a high-defence target: at potency 45 the cut reaches 77%,
   which is a stun with extra steps. Rejected.
 - **`spd_down` instead of `atk_down`.** `tick()` adds `spd` to tempo each tick, so
-  a speed debuff reduces accrual linearly -- and against the Iron Brawler it moved
+  a speed debuff reduces accrual linearly, and against the Iron Brawler it moved
   its actions per battle from 4.98 to 4.94. A wash. Rejected.
 
-### Authoritative reading, `3b4ca816` / `14c7b14a` -- 232 won, 68 lost, 77%, turns 26 / 16 / 48
+### Authoritative reading, `3b4ca816` / `14c7b14a`: 232 won, 68 lost, 77%, turns 26 / 16 / 48
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -205,7 +205,7 @@ skills with no damage effect, not of area skills.
 
 ---
 
-## The Requiem Bell -- the arithmetic was right and the conclusion was wrong
+## The Requiem Bell: the arithmetic was right and the conclusion was wrong
 
 `grave_toll` was shipped with a description claiming the first toll is
 "unpreventable by design rather than by luck", because at `spd` 40 against
@@ -227,7 +227,7 @@ must be read together.**
 Predicted `rolls` from 372 actions; measured **578**. The reason was already in
 these notes: `sim.rs::an_accuracy_roll_is_counted_for_every_target_of_every_attack`
 means a damaging **area** attack draws one roll per target, so the arithmetic is
-`232 x 2 + 140 = 604`. The measured 578 is therefore not an error -- it decomposes
+`232 x 2 + 140 = 604`. The measured 578 is therefore not an error: it decomposes
 as **206 tolls against two party members and 26 against one**, so the party was
 already down to a single survivor for **11.2%** of the tolls. `miss%` 1% checks
 out: 140 strikes at 95% is about 7 misses of 578.
@@ -260,7 +260,7 @@ The Bell was designed to hit hard enough to draw fire on purpose, inverting the
 support-enemy problem the Hex Weaver has. Its `alive%` reads **7%**: the party did
 aim at it. `sp/b` 30 is 0.77 tolls x 40 SP exactly.
 
-### Authoritative reading, `769ffb16` and `f341618d` -- 205 won, 95 lost, 68%, turns 17 / 12 / 25
+### Authoritative reading, `769ffb16` and `f341618d`: 205 won, 95 lost, 68%, turns 17 / 12 / 25
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -285,7 +285,7 @@ reading**, and it did so on a model that had been corrected nine times first.
 
 The throughput model in `BALANCE-LOG.md` estimates a foe's output from speed
 shares of an estimated battle length. Inverted around the quantity that is
-actually stable -- party damage per party action, measured between 87 and 110 in
+actually stable, party damage per party action, measured between 87 and 110 in
 every reading here:
 
 ```
@@ -308,7 +308,7 @@ above the model across six fixtures, consistently.
 Ratio = (foe out/b / party HP pool) / (party out/b / foe HP pool)
 ```
 
-Not foe output divided by party output -- which is how this file's own axis was
+Not foe output divided by party output, which is how this file's own axis was
 misread for **three consecutive commits**, producing three wrongly sized predictions
 before anyone recomputed it. Calibrated to about two points between 0.43 and 0.92,
 it **over-calls by 3-4 points below 0.61 and by a full 8 points at 0.716**, and it
@@ -344,14 +344,14 @@ and is **retracted**. Damage per **action** can see it:
 
 Per-hit arithmetic, for the record: `scaled()` gives `100 - 26 = 74`, so Jotaro's
 atk 120 becomes 88, and `rush_barrage` at power 195 against defence 66 goes
-**201 clean to 138 debuffed -- a 31% cut**.
+**201 clean to 138 debuffed, a 31% cut**.
 
 ### And a regularity that turned out not to be one
 
 `taken/b` equalling a foe's max HP held for several readings and broke at 688 of
 689. It was a consequence of nothing surviving, not a law. Likewise the Iron
 Brawler's `dealt/b` takes **eight different values** on identical stats across
-these fixtures -- 531, 590, 621, 631, 656, 713, 720, 763 -- so a foe's output is
+these fixtures (531, 590, 621, 631, 656, 713, 720, 763), so a foe's output is
 not the sum of independent contributions and cannot be carried between fixtures.
 
 ---
@@ -369,7 +369,7 @@ not the sum of independent contributions and cannot be carried between fixtures.
    against >800, and party actions 15.23 against 17.0. A right answer from wrong
    reasoning is a failure that scores as a success.
 4. **A lever was tested where it could not show an effect**, then declared inert.
-5. **A prediction was made against a fact already in these notes** -- the
+5. **A prediction was made against a fact already in these notes**: the
    per-target rolls rule, which is pinned by a test in `sim.rs`.
 6. **An 81 KB document was rewritten in one output and truncated**, for the second
    time, immediately after warning about the first. See the top of this file.
@@ -389,7 +389,7 @@ also changes content.
    built around one signature action gets it about two turns in three; the Bell
    gets it in 62% of 1.24 actions, so 38% of battles never hear a toll.
 2. **No column can attribute a mitigation**, and `inert_combatants` is satisfied by
-   a token attack -- the Hex Weaver had to carry `skill.strike`, the one thing it is
+   a token attack: the Hex Weaver had to carry `skill.strike`, the one thing it is
    not for, to avoid failing `no_combatant_sits_out_the_whole_batch`.
 3. **`FOCUS_FIRE_CHANCE` makes any non-damaging enemy self-defeating** at every HP
    value: the more valuable the debuff, the less of it the party ever sees.
@@ -407,7 +407,7 @@ also changes content.
 9. **Six shipped matchups plus seven probe rows is ~78 KB of hand-written
    contiguous integers.** `seed_count` / `seed_base` would express it in two
    fields; overlaps issue #31.
-10. **The Blade Dancer's "punishes slow parties" brief is untested** -- there is no
+10. **The Blade Dancer's "punishes slow parties" brief is untested**: there is no
     slow-party fixture to test it against.
 
 ---
@@ -415,8 +415,8 @@ also changes content.
 ## What this entry does not authorise
 
 - **No band is widened here.** Every band was declared before its encounter was
-  measured, and the two encounters that failed were fixed in content -- `hp` on
-  the Dancer, `hp` and `duration` on the Weaver -- never by moving a band.
+  measured, and the two encounters that failed were fixed in content (`hp` on
+  the Dancer, `hp` and `duration` on the Weaver), never by moving a band.
 - **The curve is not void.** All six rows of
   [`BALANCE-CURVE.md`](BALANCE-CURVE.md) reproduce exactly. The #14 entry listed
   #16 as likely to invalidate it and it did not: **what voids a curve is touching
@@ -427,5 +427,5 @@ also changes content.
   part of the measured curve and is the control for all three new fixtures; it
   must not be touched while they are the newest content in the game.
 - **Nothing here settles issue #27.** Three new foes spanning 22 points of defence
-  moved the snare's share of Kakyoin's turns 40% / 32% / 35% -- non-monotonically.
+  moved the snare's share of Kakyoin's turns 40% / 32% / 35%, non-monotonically.
   A single foe's defence is not the mechanism.

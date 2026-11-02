@@ -9,10 +9,11 @@
 # `git lfs install` would otherwise have written there, and why this file ends
 # with the LFS pre-push call. Removing any of them silently breaks LFS.
 #
-# Only the fast gate runs here: formatting, content plus the probe mirror, and
-# spelling. Those three are every check that has failed in CI so far, and they
-# take seconds. Clippy and tests stay with `sh tools/check.sh` before a PR and
-# with CI, because a hook slow enough to annoy is a hook that gets bypassed.
+# Only the fast gate runs here: formatting, content plus the probe mirror,
+# spelling and prose punctuation. The first three are every check that had
+# failed in CI when this hook was written, and all four take seconds. Clippy
+# and tests stay with `sh tools/check.sh` before a PR and with CI, because a
+# hook slow enough to annoy is a hook that gets bypassed.
 #
 # Bypass for one push, knowingly:  git push --no-verify
 
