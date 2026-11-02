@@ -39,8 +39,11 @@ fn default_max_turns() -> u64 {
 /// considered acceptable.
 ///
 /// This is content, not code. Adding an encounter must never require a
-/// recompile, so the whole struct is deserialized from `data/matchups.json`.
+/// recompile, so the whole struct is deserialized from `data/matchups.json`,
+/// and an unknown key fails the parse rather than being dropped, as on every
+/// struct in [`crate::data`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Matchup {
     pub id: Id,
     #[serde(default)]
@@ -322,6 +325,7 @@ mod tests {
                 element: Element::Physical,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -346,6 +350,7 @@ mod tests {
             // a resistance here would change those figures without changing
             // anything the tests claim to measure.
             resist: Resistances::new(),
+            provenance: None,
         }
     }
 
@@ -379,6 +384,28 @@ mod tests {
         WinRateBand {
             min_percent: 0,
             max_percent: 100,
+        }
+    }
+
+    /// `max_turn` for `max_turns` used to load as a 500-turn default without a
+    /// word; the encounter would run, under a budget nobody chose.
+    #[test]
+    fn a_misspelled_matchup_key_fails_the_parse_and_names_the_key() {
+        let json = r#"[{
+            "id": "m.typo",
+            "party": ["hero"],
+            "foes": ["weakling"],
+            "seeds": [1],
+            "band": { "min_percent": 0, "max_percent": 100 },
+            "max_turn": 40
+        }]"#;
+        match parse_matchups(json) {
+            Err(DataError::Parse(message)) => {
+                assert!(message.starts_with("matchups:"), "{message}");
+                assert!(message.contains("unknown field `max_turn`"), "{message}");
+            }
+            Err(other) => panic!("expected a parse error, got: {other}"),
+            Ok(_) => panic!("a matchup with an unknown key must not parse"),
         }
     }
 
