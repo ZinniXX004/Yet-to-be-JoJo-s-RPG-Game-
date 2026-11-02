@@ -8,7 +8,8 @@ Catching it in CI is cheaper.
 Checks performed:
   1. Every file parses as JSON and is a top-level list of objects.
   2. Required keys are present and correctly typed, and no key is present
-     that the core does not read (`provenance` excepted; see ALLOWED_KEYS).
+     that the core does not declare, inside `provenance` included (see
+     ALLOWED_KEYS and PROVENANCE_KEYS).
   3. Enum-valued fields use values the Rust core actually accepts.
   4. Cross-file references resolve (stand -> skills, combatant -> stand/skills,
      matchup -> combatants).
@@ -78,10 +79,13 @@ EFFECT_KINDS = {"damage", "heal", "drain", "status", "tempo_lock"}
 STAT_KEYS = {"hp", "sp", "atk", "def", "spd", "will"}
 
 # Every key each kind of object may carry, mirroring the serde structs in
-# src/core/src/data.rs and src/core/src/sim.rs, plus `provenance`, which
-# docs/DATA-SOURCES.md reserves on skills, stands and combatants. Anything else
-# is an error. The core itself still drops a key it does not know -- serde's
-# default -- so until it refuses one too, this is the only check that notices.
+# src/core/src/data.rs and src/core/src/sim.rs. Anything else is an error.
+# Since 0.5.0 (#65) the core refuses an unknown key as well
+# (`deny_unknown_fields` on every content struct), so the two checks must stay
+# in step: a key only the structs know fails here, a key only this file knows
+# fails the load, and either way CI goes red. This one still earns its place
+# because it reports every unknown key in every file at once, while the loader
+# stops at the first one.
 #
 # Why it exists: npc.diavolo declared its resistance table as "resistances"
 # from issue #17 until 0.4.1. serde dropped the key, check_resistances below
@@ -103,6 +107,16 @@ EFFECT_KEYS = {
     "status": {"kind", "status", "potency", "duration", "chance"},
     "tempo_lock": {"kind", "ticks"},
 }
+
+# The optional `provenance` block on skills, stands and combatants, mirroring
+# `Provenance` and `ProvenanceOrigin` in src/core/src/data.rs and the fields
+# docs/DATA-SOURCES.md section 2 lists. `origin` is required inside the block;
+# every other field is an optional string. The rule that a derived or imported
+# entry must fill in `source_url` and `retrieved` waits for the first such
+# entry, as section 2 says.
+PROVENANCE_KEYS = {"origin", "source", "source_url", "retrieved", "licence",
+                   "transform"}
+PROVENANCE_ORIGINS = {"hand-authored", "derived", "imported"}
 
 # The four content files, in the order they must be validated: later ones
 # reference ids defined by earlier ones.
@@ -267,11 +281,31 @@ def check_enum(row: dict[str, Any], key: str, allowed: set[str], where: str,
 
 def check_keys(row: dict[str, Any], allowed: set[str], where: str,
                report: Report) -> None:
-    """Errors on any key outside ALLOWED_KEYS, which the core would drop."""
+    """Errors on any key outside `allowed`, which the core refuses to load."""
     unknown = sorted(set(row) - allowed)
     if unknown:
-        report.error(where, f"unknown keys {unknown}: the core would drop them"
-                            f" without a word (allowed: {sorted(allowed)})")
+        report.error(where, f"unknown keys {unknown}: the core refuses to load"
+                            f" them (allowed: {sorted(allowed)})")
+
+
+def check_provenance(row: dict[str, Any], where: str, report: Report) -> None:
+    """Validates the optional `provenance` block of a skill, stand or combatant.
+
+    Absence is legal and the common case: an entry without the block is
+    hand-authored by definition (docs/DATA-SOURCES.md section 2).
+    """
+    if "provenance" not in row:
+        return
+    block = row["provenance"]
+    if not isinstance(block, dict):
+        report.error(where, "'provenance' must be an object")
+        return
+    p_where = f"{where}.provenance"
+    check_keys(block, PROVENANCE_KEYS, p_where, report)
+    check_enum(block, "origin", PROVENANCE_ORIGINS, p_where, report)
+    for key in sorted((PROVENANCE_KEYS - {"origin"}) & set(block)):
+        if not isinstance(block[key], str):
+            report.error(p_where, f"'{key}' must be a string")
 
 
 def check_stats(block: Any, where: str, report: Report) -> None:
@@ -330,6 +364,7 @@ def validate_skills(rows: list[dict[str, Any]], filename: str,
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
         check_keys(row, ALLOWED_KEYS["skills"], where, report)
+        check_provenance(row, where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         check_int(row, "sp_cost", where, report, required=False, low=0)
@@ -398,6 +433,7 @@ def validate_stands(rows: list[dict[str, Any]], filename: str,
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
         check_keys(row, ALLOWED_KEYS["stands"], where, report)
+        check_provenance(row, where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         bonus = row.get("bonus", {})
@@ -431,6 +467,7 @@ def validate_combatants(rows: list[dict[str, Any]], filename: str,
     for index, row in enumerate(rows):
         where = f"{filename}[{index}] ({row.get('id', '?')})"
         check_keys(row, ALLOWED_KEYS["combatants"], where, report)
+        check_provenance(row, where, report)
         if not isinstance(row.get("name"), str):
             report.error(where, "missing or non-string 'name'")
         check_enum(row, "team", TEAMS, where, report)
