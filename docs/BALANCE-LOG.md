@@ -10,7 +10,7 @@ knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
 the fact is a rationalisation, and the running record through the #63 entry is
-**one hundred and seventy predictions, ninety-two of them wrong**. The
+**one hundred and seventy-two predictions, ninety-two of them wrong**. The
 scorecards are kept per entry so the rate is visible rather than asserted. That
 is the argument for the harness, not against it -- the same wrong guesses shipped
 as content, unmeasured, would have been indistinguishable from design.
@@ -109,25 +109,24 @@ Seeds are fixed precisely so two rows of this table can be compared.
 
 ## Current status
 
-At 0.4.1 (#60, #61, #62), measured over **300 seeds** per encounter:
+After #63 (every effect priced in HP, `npc.iron_brawler` `atk` 135 -> 155),
+measured over **300 seeds** per encounter:
 
 | Matchup | Win rate | 95% interval | Band | Status |
 | --- | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | -- | 85..100 | ok |
-| `matchup.assassin_ambush` | 69% | 64..75 | 45..90 | ok |
-| `matchup.dio_boss` | 61% | 56..67 | 35..75 | ok |
-| `matchup.dancer_rush` | 85% | 81..89 | 60..90 | ok |
-| `matchup.weaver_gambit` | 81% | 77..85 | 58..86 | ok |
-| `matchup.bell_race` | 75% | 70..80 | 48..80 | ok |
-| `matchup.diavolo_boss` | 39% | 33..44 | 25..55 | ok |
+| `matchup.assassin_ambush` | 57% | 51..62 | 45..90 | ok |
+| `matchup.dio_boss` | 56% | 50..61 | 35..75 | ok |
+| `matchup.dancer_rush` | 80% | 76..85 | 60..90 | ok |
+| `matchup.weaver_gambit` | 82% | 78..87 | 58..86 | ok |
+| `matchup.bell_race` | 70% | 65..76 | 48..80 | ok |
+| `matchup.diavolo_boss` | 38% | 33..44 | 25..55 | ok |
 
-Seven encounters, 2100 battles, every interval inside its band. Three are
-inside by less than a point at the interval's upper end -- `dancer_rush`
-(89.3 against 90), `weaver_gambit` (85.4 against 86) and `bell_race` (79.6
-against 80), the Iron Brawler fights -- and they are the rows to watch; see the
-0.4.1 entry. Until 0.4.1 this section still showed the six encounters as issue
-#16 left them: three rules changes (#22, #29, #33) and one encounter (#17) out
-of date.
+Seven encounters, 2100 battles, every win rate inside its band. One interval
+crosses its ceiling at the upper end: `weaver_gambit` (86.6 against 86), the
+row to watch. The other two Iron Brawler fights that sat within a point of
+their ceilings at 0.4.1 now clear them by five (`dancer_rush`, 84.5 against
+90) and four and a half (`bell_race`, 75.5 against 80). See the #63 entry.
 
 ## Issue #16 -- three enemies
 
@@ -2265,8 +2264,8 @@ here on purpose.
 (since #33), `Bleed` and `DefUp` in power units, and every action-valued
 effect on a nominal power baseline that ignores the target's defence. One
 decision compared three units. This entry measures the scorer change alone,
-on 0.4.1 content, then probes the retune levers. **No content has changed
-yet: the lever is the owner's decision, and it is still open.**
+on 0.4.1 content, then probes the retune levers, then records the owner's
+choice (option A, below) and the shipped measurement.
 
 ### What reading the code found before anything ran
 
@@ -2363,9 +2362,9 @@ strike, where it was 50 power points before.
 
 Each P and O probe changes content in a copy of `data/` and runs through
 `--combatants`, `--stands` or `--skills`. Q1 and Q2 are temporary scorer
-builds, measured and reverted; neither is on the branch. P runs on the new
-scorer; O combines a Q build with one content number, each of which was
-first measured alone.
+builds, measured and reverted; Q2 then ships (see the decision). P runs on
+the new scorer; O combines a Q build with one content number, each of which
+was first measured alone.
 
 | Probe | Change | Prediction |
 | --- | --- | --- |
@@ -2440,8 +2439,75 @@ assassin no longer refreshing its buff, the Brawler is the fight.
    and five points under 0.4.1. It needs no re-centring to pass; whether it
    should be re-centred is the owner's call under the boss rule.
 
-The options, with their measurements, are in the owner's hands; this entry
-records the decision and the final measurement once one exists.
+### Decision -- the owner chose option A: Q2, and `npc.iron_brawler` `atk` 135 -> 155
+
+Recorded on 2026-11-02, from the options above: Q2 ships as part of #63,
+and the Iron Brawler's attack goes from 135 to 155. Not taken: B (`hp` 620
+-> 720), which returns the three Brawler fights closest to 0.4.1 but leaves
+the ambush's interval 3.7 points above its floor; C (`atk` 150), whose
+`matchup.weaver_gambit` interval reaches 88.7 against a ceiling of 86.
+`matchup.dio_boss` is not re-centred: it stays in band at 55.7, and the
+causes that moved it (#63, Q2) are named here. Q1 and the `DefUp` percentage
+are not fixed in this change.
+
+Predictions for the shipped build, before it ran: Q2 as shipped reproduces
+probe Q2 win for win (68.7, 55.7, 92.0, 91.0, 80.7, 38.0, thug 100), and Q2
+with the content change reproduces O4 win for win (56.7, 55.7, 80.0, 82.3,
+70.3, 38.0, thug 100), because the shipped code computes exactly what the
+probes did.
+
+### Re-measured, shipped build, 300 seeds
+
+Both predictions right: Q2 as shipped reproduces probe Q2 win for win (206,
+167, 276, 273, 242, 114, 300), and the shipped build with the content change
+reproduces O4 (below). Two runs are byte-identical, and `matchup.thug_solo`'s
+report is byte-identical to 0.4.1's. **Scorecard for the entry: six of
+twenty-five.**
+
+| Encounter | 0.4.1 | Now | 95% interval | Band | Median turns |
+| --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100%, bit-identical | -- | 85..100 | 3 |
+| `matchup.assassin_ambush` | 69.3% | 56.7% (170) | 51.1..62.3 | 45..90 | 22 -> 19 |
+| `matchup.dio_boss` | 61.0% | 55.7% (167) | 50.0..61.3 | 35..75 | 52 |
+| `matchup.dancer_rush` | 85.3% | 80.0% (240) | 75.5..84.5 | 60..90 | 20 -> 19 |
+| `matchup.weaver_gambit` | 81.0% | 82.3% (247) | 78.0..86.6 | 58..86 | 26 -> 23 |
+| `matchup.bell_race` | 74.7% | 70.3% (211) | 65.2..75.5 | 48..80 | 17 -> 15 |
+| `matchup.diavolo_boss` | 38.7% | 38.0% (114) | 32.5..43.5 | 25..55 | 73 |
+
+**Is this band-fitting?** No band moved, and no number was chosen to land
+on one. The content change answers a named cause (Kakyoin's better play in
+the three Brawler fights, #63), and was taken from three measured levers by
+the owner. Neither boss was re-centred.
+
+### What this entry deliberately does not fix
+
+1. **The scorer does not know which statuses are active** (probe Q1). It
+   still re-buffs a buffed actor and re-debuffs a debuffed target; Q2 only
+   stops a refresh from looking better than the first application. A rules
+   change of its own, unfiled.
+2. **`DefUp` reads its potency as flat defence**, where `state.rs` applies
+   it as a percentage of the holder's defence. Small at shipped stats (29 or
+   24 per hit against the 30 priced), unfiled.
+3. **Denial is priced at the actor's own hit.** A stun, a lock or a slow is
+   worth one of *our* actions, not the target's; a weak attacker therefore
+   undervalues slowing a strong one. This is the proxy that made the
+   prediction for Kakyoin wrong in both directions at once.
+4. **`matchup.weaver_gambit` sits close to its ceiling again**: 86.6 at the
+   interval's upper end against 86, as it stood at 85.4 in 0.4.1.
+
+### Acceptance (#63)
+
+- [x] One unit throughout `score_action`: every effect kind pinned in HP by
+      `every_effect_kind_is_priced_in_hp`, the attack multiplier kept out of
+      HP-valued effects by `only_hit_valued_effects_follow_the_actors_attack`,
+      and an attack buff priced on the base attack by
+      `an_attack_buff_is_priced_on_the_base_attack_not_the_buffed_one`
+- [x] Predictions written before every run, and scored
+- [x] Comparability boundary declared, here and in the list at the top
+- [x] Scorer change measured alone; retune options brought to the owner with
+      measurements; the owner's choice recorded with the options not taken
+- [x] All seven encounters inside their bands; `matchup.thug_solo`
+      bit-identical; no band widened
 
 ## Known limitations of the harness itself
 

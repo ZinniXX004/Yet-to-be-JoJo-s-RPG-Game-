@@ -192,18 +192,18 @@ cd src
 cargo run -q -p rpg-core --bin balance
 ```
 
-Current measurement, over 300 seeds per encounter, after the guard, snare
-and Diavolo fixes (#60, #61, #62) and the two bosses re-centred:
+Current measurement, over 300 seeds per encounter, after the scorer priced
+every effect in HP (#63) and the Iron Brawler's `atk` went from 135 to 155:
 
 | Encounter | Win rate | Declared band | Median length |
 | --- | --- | --- | --- |
 | `matchup.thug_solo` | 100% | 85..100 | 3 turns |
-| `matchup.assassin_ambush` | 69% | 45..90 | 22 turns |
-| `matchup.dio_boss` | 61% | 35..75 | 52 turns |
-| `matchup.dancer_rush` | 85% | 60..90 | 20 turns |
-| `matchup.weaver_gambit` | 81% | 58..86 | 26 turns |
-| `matchup.bell_race` | 75% | 48..80 | 17 turns |
-| `matchup.diavolo_boss` | 39% | 25..55 | 73 turns |
+| `matchup.assassin_ambush` | 57% | 45..90 | 19 turns |
+| `matchup.dio_boss` | 56% | 35..75 | 52 turns |
+| `matchup.dancer_rush` | 80% | 60..90 | 19 turns |
+| `matchup.weaver_gambit` | 82% | 58..86 | 23 turns |
+| `matchup.bell_race` | 70% | 48..80 | 15 turns |
+| `matchup.diavolo_boss` | 38% | 25..55 | 73 turns |
 
 The binary exits non-zero when any encounter leaves its band, so it is both a
 tool and a gate. `core/tests/balance_bounds.rs` asserts the same thing under

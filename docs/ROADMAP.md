@@ -822,8 +822,11 @@ Two defects M3 left behind. Each changes something `0.4.x` guaranteed -- every
 band, or which content files load -- so they make a minor version rather than
 a patch (`docs/RELEASING.md` section 1).
 
-- [ ] Damage, defence and action-valued effects priced in one unit, then every
-      band re-measured and retuned, predictions first (#63)
+- [x] Damage, defence and action-valued effects priced in one unit, then every
+      band re-measured and retuned, predictions first (#63): every effect in
+      HP, an attack buff priced on the base attack, and `npc.iron_brawler`
+      `atk` 135 -> 155; all seven encounters in band (ambush 57, dio 56,
+      dancer 80, weaver 82, bell 70, diavolo 38, thug 100)
 - [x] The loader refuses unknown keys, and `provenance` is declared in the
       structs (#65)
 
