@@ -12,8 +12,29 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+### Added
+
+- **`provenance` is declared on skills, stands and combatants** (#65). The
+  block `docs/DATA-SOURCES.md` section 2 reserved is now the `Provenance`
+  struct in `src/core/src/data.rs`: a required `origin` (`hand-authored`,
+  `derived` or `imported`) and the optional strings `source`, `source_url`,
+  `retrieved`, `licence` and `transform`. No rule reads it, and an entry
+  without it serialises exactly as before. `validate_data.py` now checks
+  inside the block as well: an unknown key, an unknown `origin` or a field
+  that is not a string is an error.
+
 ### Changed
 
+- **The loader refuses a content key it does not declare** (#65). `Stats`,
+  `SkillDef`, `StandDef`, `CombatantDef`, every `Effect` kind and `Matchup`
+  are `#[serde(deny_unknown_fields)]`, so a misspelled key stops the content
+  from loading, and the error names it, instead of loading as if it were
+  absent, the way `npc.diavolo`'s `resistances` did from #17 to 0.4.1.
+  Content that loaded in 0.4.x with a key the core does not read no longer
+  loads, which is why this is in 0.5.0 (`docs/RELEASING.md` section 1). The
+  shipped `data/` and `tools/probe/` load unchanged, and the `balance`
+  report is byte-identical to 0.4.1's. The validator's unknown-key message no
+  longer says the core would drop the key.
 - **godot-rust 0.5.5** (#66). Dependabot moved `godot` from 0.5.4 to
   0.5.5 and `serde_json` from 1.0.151 to 1.0.154. godot-rust still compiles
   against the Godot 4.6 API: under Godot 4.7.1 its startup line reads
