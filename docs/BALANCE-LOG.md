@@ -9,8 +9,8 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through the 0.4.1 entry is
-**one hundred and forty-seven predictions, seventy-three of them wrong**. The
+the fact is a rationalisation, and the running record through the #63 entry is
+**one hundred and seventy predictions, ninety-two of them wrong**. The
 scorecards are kept per entry so the rate is visible rather than asserted. That
 is the argument for the harness, not against it -- the same wrong guesses shipped
 as content, unmeasured, would have been indistinguishable from design.
@@ -99,12 +99,13 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > **Boundaries after #16 were declared in their own entries and never listed
 > here**, which made this list read as though there had been none. Rules: #29
 > (`is_candidate` admits ally-facing skills), #33 (the defence toll enters
-> `score_action`) and 0.4.1 (#60, a guard priced over the hits aimed at
-> its holder). Content: #24 (`matchup.diavolo_boss` only) and 0.4.1's snare
+> `score_action`), 0.4.1 (#60, a guard priced over the hits aimed at
+> its holder) and #63 (every effect priced in HP). Content: #24
+> (`matchup.diavolo_boss` only) and 0.4.1's snare
 > reprice, Diavolo's resistance table and the two boss `hp` values. #22 argued
 > it opened none; #33's reasoning, which is about the same kind of change, says
 > otherwise, so do not compare across it either. **Only `matchup.thug_solo` is
-> comparable across 0.4.1.**
+> comparable across 0.4.1, and across #63.**
 
 ## Current status
 
@@ -2256,6 +2257,191 @@ here on purpose.
 - [x] #62: Diavolo's table applies; an unknown key fails the validator,
       and so CI, and the message names it -- checked against `0.4.0`'s data;
       the loader's own refusal moves to 0.5.0 (#65, Decision 3)
+
+## Issue #63 -- `score_action` prices every effect in HP
+
+**A rules change: comparability boundary for every encounter but
+`matchup.thug_solo`.** `ai.rs` priced damage in HP after the defence toll
+(since #33), `Bleed` and `DefUp` in power units, and every action-valued
+effect on a nominal power baseline that ignores the target's defence. One
+decision compared three units. This entry measures the scorer change alone,
+on 0.4.1 content, then probes the retune levers. **No content has changed
+yet: the lever is the owner's decision, and it is still open.**
+
+### What reading the code found before anything ran
+
+1. **The unit was never the question.** Within one decision the actor's
+   attack is constant, so "everything in HP" and "everything in power units"
+   rank candidates identically up to integer rounding. What #63's one-line
+   probe in the 0.4.1 entry changed was the *mix*: it moved damage to
+   `HP * 100 / atk` after the defence toll and left the action-valued
+   effects on a baseline before it. Its figures (ambush 94, dio 95, dancer
+   89, weaver 87, bell 83) are therefore not a forecast of this fix.
+2. **The fix, per branch.** Damage and Drain unchanged. `Bleed` and `DefUp`
+   lose the `as_power_units` conversion. `TempoLock`, `Stun`, `SpdDown` and
+   `SpdUp` are priced at `baseline_hp`: the HP the actor's best affordable
+   hit deals to the chosen target, through the same defence, resistance and
+   floor as a Damage effect. `AtkUp`, and `AtkDown` by symmetry, are priced
+   at `baseline * atk / 100 * potency / 100`, the HP a percentage of attack
+   adds to a hit before the toll (the toll is flat, so it does not scale).
+   `DefDown` becomes `target_def * potency / 200` per hit; no content uses
+   it. RNG draws are untouched: `baseline_hp` is computed from the target
+   that `choose` already drew.
+3. **Found and left for its own issue.** `DefUp` treats `potency` as flat
+   defence points; `state.rs` applies it as a percentage of the holder's
+   defence. At shipped stats Josuke's guard prevents 29 per hit, not 30, and
+   Jotaro's 24. Not fixed here: one change per measurement.
+
+### Predictions, written before the run
+
+Derived by scoring each actor's candidates by hand, old and new, against the
+targets it actually faces. "Right" means the right direction and within two
+points.
+
+| Encounter | 0.4.1 | Prediction | Mechanism |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100.0 | bit-identical | Jotaro's ordering unchanged (rush 196 net vs halt below zero) |
+| `matchup.assassin_ambush` | 69.3 | 62 | Kakyoin's slow is now priced at his own hit (about 80 HP) rather than at 105 nominal, so `emerald_splash` outbids `emerald_snare` while both foes stand; the Brawler is slowed less |
+| `matchup.dio_boss` | 61.0 | 56 | the same flip for Kakyoin while the Flame Assassin stands; Dio's stun and lock rise a little at two party members |
+| `matchup.dancer_rush` | 85.3 | 80 | as the ambush |
+| `matchup.weaver_gambit` | 81.0 | 77 | as the ambush, partly offset: under `wither_hex` Jotaro's guard no longer inflates as his attack falls (68 -> 60 points against a 54-61 strike) |
+| `matchup.bell_race` | 74.7 | 69 | as the ambush |
+| `matchup.diavolo_boss` | 38.7 | bit-identical | every ordering checked unchanged: Diavolo's lock still wins at 50 SP, Josuke's slam, Polnareff's rage over riposte, Kakyoin's snare against one foe |
+
+Behaviour, scored the same way: in the four Iron Brawler fights Kakyoin's
+`emerald_splash` share rises from 14-19% to at least 40%; the Flame
+Assassin, Hex Weaver, Blade Dancer, Requiem Bell and Iron Brawler move by
+under two points of share each; Jotaro's `guard_stance` share in
+`matchup.weaver_gambit` falls from 8% to at most 5%.
+
+### Measured, the scorer change alone, 300 seeds
+
+The 0.4.1 table was reproduced first, battle for battle (208, 183, 256, 243,
+224 and 116 wins; Diavolo's median 73 turns), so the binary and the content
+are the ones the 0.4.1 entry measured. Two runs of the new build are
+byte-identical.
+
+| Encounter | 0.4.1 | Predicted | Measured | 95% interval | Band | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100.0 | bit-identical | 100.0, bit-identical | -- | 85..100 | right |
+| `matchup.assassin_ambush` | 69.3 | 62 | **97.3** (292) | 95.5..99.2 | 45..90 | wrong, direction |
+| `matchup.dio_boss` | 61.0 | 56 | 61.3 (184) | 55.8..66.8 | 35..75 | wrong |
+| `matchup.dancer_rush` | 85.3 | 80 | **92.0** (276) | 88.9..95.1 | 60..90 | wrong, direction |
+| `matchup.weaver_gambit` | 81.0 | 77 | **91.0** (273) | 87.8..94.2 | 58..86 | wrong, direction |
+| `matchup.bell_race` | 74.7 | 69 | **80.7** (242) | 76.2..85.1 | 48..80 | wrong, direction |
+| `matchup.diavolo_boss` | 38.7 | bit-identical | 38.0 (114), median 73 | 32.5..43.5 | 25..55 | wrong |
+
+Behaviour: Kakyoin's `emerald_splash` share in the four Iron Brawler fights
+is 61-70% (right); Jotaro's `guard_stance` in `matchup.weaver_gambit` is 4%
+(right); the other enemies hold their shares within two points (**wrong**:
+the Flame Assassin's `sun_flare` falls from 19% to **0** in the ambush and from
+7% to 0 against Dio, and `rage_focus` rises from 44% to 65%).
+
+**Scorecard: three of ten.** Four encounters leave their bands, and three of
+them on the side the prediction said they would not. Two mechanisms were
+missed:
+
+1. **The slow was the overpriced side, not the splash.** The prediction
+   assumed a slowed Brawler was worth more than Kakyoin's second target. The
+   fights say otherwise: dancer, weaver and bell have no Flame Assassin, no
+   enemy moved a share by more than five points, and all three rose by six
+   to ten points as Kakyoin switched to the splash.
+2. **The attack buff now scales with the attack it has already raised.**
+   `attack_share_hp` reads the actor's *current* attack, which includes an
+   active `rage_focus`. Once the Flame Assassin is buffed its next
+   `rage_focus` is priced higher than the first, while re-applying a status
+   only refreshes it (`state.rs` keeps the stronger potency). The scorer has
+   never known which statuses are already active; 0.4.1 priced the buff on a
+   nominal baseline that did not grow, and that hid it. The assassin now
+   spends its turns refreshing a buff it already holds.
+
+`matchup.diavolo_boss` is not bit-identical because a lone Jotaro now guards
+(64 uses): alone against one enemy the guard prevents 60 HP against a 58 HP
+strike, where it was 50 power points before.
+
+### Retune probes: predictions, written before the runs
+
+Each P and O probe changes content in a copy of `data/` and runs through
+`--combatants`, `--stands` or `--skills`. Q1 and Q2 are temporary scorer
+builds, measured and reverted; neither is on the branch. P runs on the new
+scorer; O combines a Q build with one content number, each of which was
+first measured alone.
+
+| Probe | Change | Prediction |
+| --- | --- | --- |
+| P1 | `npc.iron_brawler` `atk` 135 -> 150 | ambush 95, dancer 88, weaver 87, bell 76; the other three bit-identical |
+| P2 | `npc.iron_brawler` `atk` 135 -> 165 | ambush 91, dancer 83, weaver 82, bell 70; the other three bit-identical |
+| P3 | `npc.iron_brawler` `hp` 620 -> 720 | ambush 95, dancer 89, weaver 88, bell 77; the other three bit-identical |
+| P4 | `skill.emerald_splash` `sp_cost` 22 -> 28 | ambush 95, dio 60, dancer 89, weaver 88, bell 78; thug and diavolo bit-identical |
+| P5 | `stand.magicians_red` without `skill.rage_focus` (diagnostic) | ambush 85, dio 58; the other five bit-identical |
+| P6 | `npc.flame_assassin` `hp` 640 -> 760 | ambush 95, dio 58; the other five bit-identical |
+| Q1 | a status the recipient already carries is priced at zero (a buff on the actor, a debuff on the chosen target) | ambush 80, dio 58, dancer 92, weaver 85, bell 81, diavolo 42; thug bit-identical |
+| Q2 | `attack_share_hp` reads the actor's base attack, so an active buff does not raise the next one's price | ambush 85, dio 59; dancer, weaver and bell within one point; diavolo within one point; thug bit-identical |
+| O1 | Q2 and P1 together (`atk` 150) | additive: ambush 64, dio 55.7, dancer 81.7, weaver 84.7, bell 71.7, diavolo 38.0, thug 100 |
+| O2 | Q2 and `npc.iron_brawler` `atk` 135 -> 145 | ambush 66, dio 55.7, dancer 85, weaver 87, bell 75, diavolo 38.0, thug 100 |
+| O3 | Q1 and P1 together | ambush 64, dio 54.7, dancer 81, weaver 86, bell 72, diavolo 39.7, thug 100 |
+| O4 | Q2 and `npc.iron_brawler` `atk` 135 -> 155 | ambush 56, dio 55.7, dancer 79, weaver 82, bell 69, diavolo 38.0, thug 100 |
+| O5 | Q2 and P3 together (`hp` 720) | ambush 62, dio 55.7, dancer 84.0, weaver 82.0, bell 73.0, diavolo 38.0, thug 100 |
+
+### Retune probes: results, 300 seeds
+
+Win rates in percent; `thug_solo` won 300 of 300 in every probe. A
+prediction of "bit-identical" was checked on win counts only, and every
+such count matched.
+
+| Probe | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| scorer alone | 97.3 | 61.3 | 92.0 | 91.0 | 80.7 | 38.0 | -- |
+| P1 | 92.3 | 61.3 | 81.7 | 84.7 | 71.7 | 38.0 | wrong |
+| P2 | 81.7 | 61.3 | 76.0 | 77.7 | 65.3 | 38.0 | wrong |
+| P3 | 91.0 | 61.3 | 84.0 | 82.0 | 73.0 | 38.0 | wrong |
+| P4 | 96.0 | 59.7 | 91.3 | 92.7 | 80.0 | 38.0 | wrong, weaver direction |
+| P5 | 76.3 | 58.7 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| P6 | 96.7 | 53.3 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| Q1 | 69.3 | 54.7 | 91.7 | 93.3 | 80.3 | 39.7 | wrong |
+| Q2 | 68.7 | 55.7 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| O1 | 59.3 | 55.7 | 81.7 | 84.7 | 71.7 | 38.0 | wrong (ambush; the other five exact) |
+| O2 | 62.3 | 55.7 | 85.3 | **86.7** | 75.0 | 38.0 | wrong (ambush) |
+| O3 | 58.7 | 54.7 | 81.3 | **88.3** | 70.7 | 39.7 | wrong |
+| O4 | 56.7 | 55.7 | 80.0 | 82.3 | 70.3 | 38.0 | right |
+| O5 | 54.3 | 55.7 | 84.0 | 82.0 | 73.0 | 38.0 | wrong (ambush) |
+
+**Scorecard: one of thirteen**, four of twenty-three for the entry. Once Q2
+is in, the Brawler's numbers move the three fights without the Flame
+Assassin exactly as they did alone (O1 against P1, O5 against P3: the same
+win counts), and move the ambush by more than they did alone: with the
+assassin no longer refreshing its buff, the Brawler is the fight.
+
+### What the probes say
+
+1. **Q2 is a correction to this change, not a new rule.** `state.rs` stacks
+   a modifier additively on the *base* stat, `base * (100 + sum) / 100`, so
+   a +35% buff adds `base * 35 / 100` whether or not another buff is
+   active. Pricing it off the current attack, as the scorer-alone build
+   does, counts the active buff twice. Q2 prices it the way the rules apply
+   it, and with it the ambush returns to 68.7, within a point of 0.4.1.
+   P5 says the same from the content side: take `rage_focus` away from the
+   assassin and the ambush falls 21 points.
+2. **Q1 is the deeper defect, and it is not this issue.** The scorer has
+   never known which statuses are active, so it re-buffs a buffed actor and
+   re-debuffs a debuffed target. Q1 fixes the ambush as Q2 does, and also
+   moves `matchup.weaver_gambit` to 93.3 (the Hex Weaver's `wither_hex` falls
+   from 803 uses to 535 and its strike rises from 470 to 693) and Diavolo
+   to 39.7. It is a second rules change with its own boundary; it should be
+   its own issue.
+3. **The three Brawler fights without the assassin rose because Kakyoin now
+   plays better.** Nothing else changed in them: no enemy moved a share by
+   more than five points, and Q2 leaves them exactly where the scorer alone
+   put them. The 0.4.1 entry already named the answer for them: the regular
+   enemies' numbers, not a wider band. The Iron Brawler is in all four.
+4. **Repricing the splash is the wrong lever.** P4 (`sp_cost` 28) lowers
+   nothing that needs lowering and raises `matchup.weaver_gambit` to 92.7.
+5. **`matchup.dio_boss` falls to 55.7 under Q2**, inside its band (35..75)
+   and five points under 0.4.1. It needs no re-centring to pass; whether it
+   should be re-centred is the owner's call under the boss rule.
+
+The options, with their measurements, are in the owner's hands; this entry
+records the decision and the final measurement once one exists.
 
 ## Known limitations of the harness itself
 
