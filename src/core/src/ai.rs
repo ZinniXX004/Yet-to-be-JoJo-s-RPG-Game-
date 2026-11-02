@@ -36,10 +36,10 @@
 //!
 //! - damage and drain: the hit itself, against the chosen target;
 //! - bleed and a guard: already HP, so no conversion at all;
-//! - an attack buff or debuff: a percentage of the HP a hit carries before
-//!   the toll, since the toll is flat and does not scale with attack;
+//! - an attack buff or debuff: a percentage, of the base attack, of the HP a
+//!   hit carries before the toll, since the toll is flat and does not scale;
 //! - anything measured in *actions* -- a tempo lock, a stun, a speed buff or
-//!   debuff -- at [`Situation::baseline_hp`], what one of the actor's actions
+//!   debuff -- at `Situation::baseline_hp`, what one of the actor's actions
 //!   is worth against this target right now.
 //!
 //! # The price of SP
@@ -130,6 +130,11 @@ struct Situation {
     /// Actor's current effective attack: what turns a `power` value into the
     /// HP a hit carries before the defence toll.
     atk: i32,
+    /// Actor's attack before any status: the stat a percentage modifier is a
+    /// percentage *of*. `state.rs` sums every modifier and applies the total
+    /// to this, so one more +35% always adds `base_atk * 35 / 100`, however
+    /// many buffs are already active.
+    base_atk: i32,
     /// Living hostiles, which is both the target count of an area attack and
     /// the number of incoming hits per round.
     enemies: i32,
@@ -137,8 +142,8 @@ struct Situation {
     /// effect, and the number of bodies those incoming hits are spread over.
     allies: i32,
     /// Nominal power of the best single hit this actor can currently pay for.
-    /// `baseline * atk / 100` is the HP that hit carries before the defence
-    /// toll, which is what an attack buff or debuff scales.
+    /// The share of it that a percentage of attack moves is what an attack
+    /// buff or debuff is worth (see `attack_share_hp`).
     baseline: i32,
     /// HP per target of the best hit this actor can currently pay for,
     /// against `target_def` and `target_resist`, through the same toll,
@@ -173,6 +178,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
     let profile = st.combatants[actor].ai;
     let sp = st.combatants[actor].sp;
     let atk = st.combatants[actor].atk();
+    let base_atk = st.combatants[actor].base.atk;
     let skills: Vec<Id> = st.combatants[actor].skills.clone();
 
     let enemies = st.alive_on(team.opposite());
@@ -224,6 +230,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
             let situation = Situation {
                 sp,
                 atk,
+                base_atk,
                 enemies: enemy_count,
                 allies: ally_count,
                 baseline,
@@ -246,6 +253,7 @@ pub fn choose(db: &Database, st: &mut BattleState, actor: usize) -> Command {
                 let situation = Situation {
                     sp,
                     atk,
+                    base_atk,
                     enemies: enemy_count,
                     allies: ally_count,
                     baseline,
@@ -429,11 +437,19 @@ fn baseline_hp(db: &Database, skills: &[Id], at: &Situation) -> i32 {
 /// HP a percentage of attack adds to (or, as a debuff, takes from) one hit.
 ///
 /// The defence toll is flat, so it does not scale with attack and drops out of
-/// the difference; what scales is the hit before the toll,
-/// `baseline * atk / 100`. Resistance is not applied, which overstates the
-/// delta against a target that resists the actor's best hit.
+/// the difference; what scales is the hit before the toll. And a percentage
+/// modifier is a percentage of the *base* stat (`state.rs` sums modifiers
+/// before applying them), so the delta is `baseline * base_atk / 100` times
+/// the potency, not the current attack: reading the current attack counts an
+/// active buff twice and prices each refresh above the buff it refreshes.
+/// The harness measured that once, in the #63 entry of docs/BALANCE-LOG.md:
+/// the Flame Assassin stopped using `sun_flare` and spent 65% of its turns on
+/// `rage_focus`.
+///
+/// Resistance is not applied, which overstates the delta against a target
+/// that resists the actor's best hit.
 fn attack_share_hp(potency: i32, at: &Situation) -> i32 {
-    at.baseline * at.atk / 100 * potency / 100
+    at.baseline * at.base_atk / 100 * potency / 100
 }
 
 /// Whether this skill is a candidate for the action slot at all.
@@ -692,6 +708,7 @@ mod tests {
         Situation {
             sp,
             atk: 120,
+            base_atk: 120,
             enemies: 2,
             allies: 1,
             baseline: 100,
@@ -1297,5 +1314,28 @@ mod tests {
         assert_eq!(priced.sp, 7);
         assert_eq!(priced.baseline, 100);
         assert_eq!(priced.target_def, 40);
+    }
+
+    /// The #63 measurement, pinned: an actor already under a +35% buff has a
+    /// current attack of 162 on a base of 120, and the next +35% must still
+    /// be priced at 35% of the base. Priced off the current attack it came to
+    /// 56 per turn instead of 42, so every refresh outbid the buff it
+    /// refreshed.
+    #[test]
+    fn an_attack_buff_is_priced_on_the_base_attack_not_the_buffed_one() {
+        let rage = status(StatusKind::AtkUp, 35, 2, 100);
+        let fresh = healthy(0);
+        let buffed = Situation {
+            atk: 162,
+            ..healthy(0)
+        };
+        // 100 power at base 120 is 120 HP; 35% of it is 42, for one own turn.
+        assert_eq!(effect_points(&rage, &fresh, 1), 42);
+        assert_eq!(effect_points(&rage, &buffed, 1), 42);
+        // The debuff mirrors it, on the actor's own exchange rate.
+        let wither = status(StatusKind::AtkDown, 35, 1, 100);
+        assert_eq!(effect_points(&wither, &buffed, 1), 42);
+        // The hit itself does use the buffed attack: 162 against no defence.
+        assert_eq!(effect_points(&damage(100), &buffed, 1), 162);
     }
 }
