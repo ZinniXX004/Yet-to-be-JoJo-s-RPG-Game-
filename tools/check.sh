@@ -74,18 +74,19 @@ run_py() {
 }
 
 # The typos version CI uses is read from ci.yml, so this script never needs
-# editing when Dependabot bumps the pin.
+# editing when Dependabot bumps the pin. The hint says +stable because
+# typos-cli 1.51.1 needs rustc 1.95, newer than rust-toolchain.toml's 1.94.1.
 typos_check() {
   if ! command -v typos > /dev/null 2>&1; then
     echo "error: typos not installed. CI pins crate-ci/typos@v$typos_pin:" >&2
-    echo "  cargo install typos-cli --version $typos_pin --locked" >&2
+    echo "  cargo +stable install typos-cli --version $typos_pin --locked" >&2
     return 1
   fi
   have=$(typos --version | awk '{print $2}')
   if [ -n "$typos_pin" ] && [ "$have" != "$typos_pin" ]; then
     echo "warning: local typos $have, CI pins $typos_pin. Dictionaries differ between"
     echo "         releases, so a pass here may still fail in CI (PR #36). To match:"
-    echo "         cargo install typos-cli --version $typos_pin --locked"
+    echo "         cargo +stable install typos-cli --version $typos_pin --locked"
   fi
   typos
 }

@@ -173,7 +173,7 @@ def import_project(godot: Path) -> None:
     command = [str(godot), "--headless", "--path", str(GAME), "--import"]
     code, output = run(command, timeout=IMPORT_TIMEOUT_S)
     if code != 0 and (GAME / ".godot" / "extension_list.cfg").exists():
-        # Observed with Godot 4.7.1 + godot-rust 0.5.4 on Linux: the first
+        # Observed with Godot 4.7.1 + godot-rust 0.5.4/0.5.5 on Linux: the first
         # import of a project with no .godot/ aborts (SIGABRT, no message) while
         # shutting down, after the import itself has completed and registered
         # the extension. A second import exits 0. A project without the

@@ -29,7 +29,7 @@ document assumes it.
 | --- | --- | --- | --- |
 | Rust toolchain | **1.94.1** (pinned) | Simulation and GDExtension library. `godot` 0.5 sets the floor at 1.94.0 | [rustup.rs](https://rustup.rs) |
 | MSVC Build Tools | 2022, workload *Desktop development with C++* | Rust on Windows uses `link.exe`. Without it, every build fails at link time | [Visual Studio downloads](https://visualstudio.microsoft.com/downloads/) |
-| Godot | **4.6 or newer**, standard build (not .NET) | Runs the GDExtension. `godot` 0.5.3 compiles against the Godot 4.6 API, so 4.6 is a hard floor, not a preference. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
+| Godot | **4.7** (tested on 4.7.1), standard build (not .NET) | Runs the project and the GDExtension. `project.godot` declares the 4.7 feature, CI tests 4.7.1 only, and the release notes say to open the project in 4.7. `godot` 0.5.5 compiles against the Godot 4.6 API, so 4.6 is the floor of the extension (`compatibility_minimum`), not of the project. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
 | Python | 3.11+ | Content validator in CI and locally | [python.org](https://www.python.org/downloads/) |
 | Git | any recent | Version control | [git-scm.com](https://git-scm.com/downloads) |
 | Git LFS | any recent | `.gitattributes` routes binary assets to LFS. **Install before your first asset commit** | [git-lfs.com](https://git-lfs.com) |
@@ -49,7 +49,7 @@ library and the synced content, both gitignored.
 | --- | --- | --- |
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
-| `typos-cli` | `cargo install typos-cli --version 1.49.0 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml` |
+| `typos-cli` | `cargo +stable install typos-cli --version 1.51.1 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml`; section 4 says why `+stable` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
 | LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
@@ -64,7 +64,7 @@ needs.
 | --- | --- | --- | --- |
 | `serde` | `1` (feature `derive`) | `rpg-core` | Serialise state, content and events |
 | `serde_json` | `1` | `rpg-core`, `rpg-bridge` | JSON at the content and FFI boundaries |
-| `godot` | `=0.5.3` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
+| `godot` | `=0.5.5` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
 
 `rpg-core` has **zero engine dependencies** and builds and tests without Godot
 installed. That is enforced by the CI job that compiles and tests it alone.
@@ -243,8 +243,8 @@ that still takes a playthrough.
 One behaviour it works around, stated so it is not mistaken for flakiness: the
 first `--import` of a project with no `.godot/` folder can abort while shutting
 down, after the import has finished, when the GDExtension is present (seen with
-Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
-the extension was registered, and the second run has to exit cleanly.
+Godot 4.7.1 and godot-rust 0.5.4 and 0.5.5 on Linux). The script retries once,
+only when the extension was registered, and the second run has to exit cleanly.
 
 ### 3.3 Recording a playthrough
 
@@ -332,8 +332,12 @@ releases, and PR #36 went red on a dictionary update alone. The scripts read the
 version CI pins from `ci.yml` and warn when yours differs. To match it:
 
 ```powershell
-cargo install typos-cli --version 1.49.0 --locked   # the pin in ci.yml at the time of writing
+cargo +stable install typos-cli --version 1.51.1 --locked   # the pin in ci.yml at the time of writing
 ```
+
+`+stable` is there because typos-cli 1.51.1 needs rustc 1.95 or newer, and
+inside this repository rustup otherwise applies the 1.94.1 that
+`rust-toolchain.toml` pins to every cargo command, so the install fails.
 
 ### 4.1 Pre-push hook (once per clone)
 
@@ -374,7 +378,7 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | Alias `godot` reports the full path as unrecognized | The archive extracted into a directory named after the archive, so the path points at a folder | `Get-ChildItem -Recurse C:\Tools\Godot\*.exe`, flatten the directory, then `. $PROFILE` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
-| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.6+, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
+| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.7, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
 | `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |

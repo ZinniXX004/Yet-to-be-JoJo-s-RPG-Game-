@@ -11,8 +11,8 @@ with Godot 4 doing nothing but showing you what happened.**
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![Rust](https://img.shields.io/badge/Rust-1.94.1-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
-[![Godot](https://img.shields.io/badge/Godot-4.6%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
-[![godot-rust](https://img.shields.io/badge/godot--rust-0.5.4-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
+[![Godot](https://img.shields.io/badge/Godot-4.7-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![godot-rust](https://img.shields.io/badge/godot--rust-0.5.5-8B4513?logo=rust&logoColor=white)](https://github.com/godot-rust/gdext)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](docs/DEVELOPMENT.md)
 
@@ -134,7 +134,7 @@ is recorded as ADR-0001 in [docs/ENGINE-DECISION.md](docs/ENGINE-DECISION.md).
 
 ## Quickstart (Windows)
 
-Requires the Rust toolchain, MSVC Build Tools, Godot 4.6+ and Python 3.11+ —
+Requires the Rust toolchain, MSVC Build Tools, Godot 4.7 and Python 3.11+ —
 exact versions and install links in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 Every block below is PowerShell, not `cmd.exe`, and paths are relative to the
