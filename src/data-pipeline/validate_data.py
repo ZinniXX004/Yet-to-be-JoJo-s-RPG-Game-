@@ -591,6 +591,8 @@ def validate_matchups(rows: list[dict[str, Any]], filename: str,
         if not isinstance(band, dict):
             report.error(where, "'band' must be an object")
         else:
+            # Mirrors `WinRateBand` in src/core/src/report.rs, which refuses
+            # any other key as well since 0.5.0 (#65).
             unknown = set(band) - {"min_percent", "max_percent"}
             if unknown:
                 report.error(where, f"unknown band keys: {sorted(unknown)}")

@@ -22,7 +22,15 @@ use crate::data::{Id, Team};
 /// test fragile and the encounter boring; what actually matters is that the
 /// fight is neither a guaranteed win nor a guaranteed loss, and that is an
 /// interval.
+///
+/// An unknown key fails the parse, as on [`crate::sim::Matchup`] that holds
+/// the band (#65). Before 0.5.0 a band such as `{"min_percent": 45,
+/// "max_percent": 90, "target": 70}` loaded and `target` vanished, so an
+/// author could believe the harness checked a number it never read. A report
+/// only ever serializes the two declared fields, so this refuses nothing a
+/// release has written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WinRateBand {
     pub min_percent: i32,
     pub max_percent: i32,

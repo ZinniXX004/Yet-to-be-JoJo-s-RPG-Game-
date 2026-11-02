@@ -25,6 +25,15 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **A matchup's `band` refuses a key it does not declare** (#65).
+  `deny_unknown_fields` on `Matchup` does not reach the `WinRateBand` nested
+  inside it, so a band such as `{"min_percent": 45, "max_percent": 90,
+  "target": 70}` still loaded and `target` vanished. `WinRateBand` is now
+  `#[serde(deny_unknown_fields)]` too, and the error names the key, as the
+  validator's `unknown band keys` already did. A report serializes only the
+  two declared fields, so every report a release has written still loads.
+  The shipped `data/` and `tools/probe/` load unchanged, and the `balance`
+  report is byte-identical.
 - **`score_action` prices every effect in HP** (#63). Since #33 damage was
   priced in HP after the defence toll while `Bleed` and `DefUp` were
   converted into power units and every action-valued effect rode on a
