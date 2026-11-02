@@ -96,6 +96,12 @@ with prebuilt libraries. A section here without a tag is not a release.
   `unknown variant`. The docstring in `validate_data.py` now says so, and
   why the validator still reports it first: its message names the
   combatant and lists every bad element in one run.
+- **`docs/DEVELOPMENT.md` section 4 shows `.\tools\check.ps1` again.** Since
+  d0a70c8 (0.4.0) both PowerShell lines read `.`, a TAB, then
+  `ools\check.ps1`: a scripted edit had turned the `\t` of `.\tools` into a
+  TAB, so a pasted command failed. A search of every tracked text file for
+  control characters finds nothing else; the TABs left are GDScript
+  indentation.
 - **Five documents meant for 0.4.1 missed its release commit.** The README
   status, the `0.5.0` rows in the milestone tables of `docs/ROADMAP.md` and
   `docs/RELEASING.md`, the release checklist retargeted at 0.4.1, and the

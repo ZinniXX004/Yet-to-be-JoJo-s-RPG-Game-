@@ -302,8 +302,8 @@ all five CI failures recorded between late July and September 2026 (#22, #29,
 when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
-.	ools\check.ps1          # full gate: run before opening a pull request
-.	ools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
+.\tools\check.ps1          # full gate: run before opening a pull request
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
 ```
 
 ```sh
