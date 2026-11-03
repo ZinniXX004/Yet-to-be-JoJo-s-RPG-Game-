@@ -10,6 +10,15 @@
 > this sweep depends on, so the table below still stands. What they did add
 > is a sensitivity figure and three tests of the ratio axis, both folded in
 > below. The working is in docs/BALANCE-M3-ENEMIES.md.
+>
+> **Not re-swept since five rules changes.** After `60667aa0`, `ai.rs`
+> changed under #29 (allies as candidates), #22 (resistance in the score),
+> #33 (defence in the score), #60 (the guard's divisor) and #63 (every effect
+> priced in HP), and `npc.iron_brawler`, the foe every row clones, moved to
+> `def` 15 and `atk` 155. *Re-running this* below says any change to `ai.rs`
+> invalidates the table, so it describes the rules of 2026-07-30, not the
+> shipped game; read its shape as history and its numbers as void until the
+> sweep is run again.
 
 ## Why this exists
 

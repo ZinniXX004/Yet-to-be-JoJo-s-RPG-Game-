@@ -188,6 +188,19 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Fixed
 
+- **Three stale statements found by the 0.5.0 release audit.**
+  `docs/BALANCE-CURVE.md` said its table still stood, and the README pointed
+  at it for the current margin; the sweep dates from `60667aa0` (2026-07-30),
+  and `ai.rs` has changed under #29, #22, #33, #60 and #63 since, which its
+  own *Re-running this* section says voids it. Its header now says so, and
+  the README points at the intervals in `docs/BALANCE-LOG.md` instead. The
+  README still summarised the curve that sweep retracted ("a plateau to
+  0.81, then 8% by parity"); it now quotes the re-sweep, a smooth decline
+  from 96% at a ratio of 0.61 to 12% at 1.36. The README also said the AI
+  "always takes the strongest affordable skill"; an aggressive combatant
+  uses a skill on 65% of its turns (`AGGRESSIVE_SKILL_CHANCE`), and an
+  aggressive or support combatant picks the weakest foe on 55%
+  (`FOCUS_FIRE_CHANCE`). Documentation only.
 - **Two stale statements found by the M4 balance audit (#80).** The `ai.rs`
   module documentation said SP does not regenerate; it has, 4 a turn
   (`SP_REGEN_PER_TURN`), since #9. The `tools/balance_diff.py` docstring
