@@ -78,6 +78,12 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **`docs/DEVELOPMENT.md` points LLVM at its GitHub releases page** rather
+  than `releases.llvm.org`, which stopped answering GitHub's runners on
+  2026-11-03. The link check passed on it at 12:45 UTC and then failed on it
+  three runs in a row from 14:50, and since `ci` needs that job, no pull
+  request into `development` could merge. The row is for an optional tool:
+  LLVM is only needed if godot-rust is switched to `api-custom`.
 - **The task form's milestone dropdown follows the roadmap after `0.5.0`:**
   `0.5.x patch`, `M4 (1.0.0)` and "Unplanned". The `0.4.x` option is gone.
 - **`src/game/rpg.gdextension` no longer suggests pinning a lower `api-*`

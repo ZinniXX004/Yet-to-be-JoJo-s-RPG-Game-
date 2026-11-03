@@ -51,7 +51,7 @@ library and the synced content, both gitignored.
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
 | `typos-cli` | `cargo +stable install typos-cli --version 1.51.1 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml`; section 4 says why `+stable` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
-| LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
+| LLVM/clang | [LLVM releases on GitHub](https://github.com/llvm/llvm-project/releases) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
 
 ### 1.3 Rust dependencies
