@@ -13,8 +13,8 @@ checked against each other.
 | M1 Playable battle loop | `0.2.0` | One battle playable start to finish | Released |
 | M2 Balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
 | M3 Content depth | `0.4.0` | Full roster, statuses and elemental resistances | Released |
-| Scorer and schema | `0.5.0` | `score_action` in one unit; unknown content keys fail the load | Next |
-| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds | Planned |
+| Scorer and schema | `0.5.0` | `score_action` in one unit; unknown content keys fail the load | Released |
+| M4 Portfolio polish | `1.0.0` | A stranger can play it in under 60 seconds | Next |
 
 ## M0 - Foundation (done)
 
@@ -813,10 +813,14 @@ so the milestone cannot quietly absorb them:
 
 ---
 
-## 0.5.0 - Scorer and schema
+## 0.5.0 - Scorer and schema (done)
 
 **Exit criterion:** `score_action` prices every effect in one unit, and a
 content key the core does not read fails the load instead of being dropped.
+
+**Met** on 2026-11-03: every effect is priced in HP (#63), every content
+struct and a matchup's band refuse an unknown key and name it (#65), and
+all seven encounters are inside their bands over 300 seeds.
 
 Two defects M3 left behind. Each changes something `0.4.x` guaranteed (every
 band, or which content files load), so they make a minor version rather than

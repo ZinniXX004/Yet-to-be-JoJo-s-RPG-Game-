@@ -42,8 +42,8 @@ with Godot 4 doing nothing but showing you what happened.**
 </div>
 
 > [!NOTE]
-> **Status: `0.4.1` released (M3 patch). Next: `0.5.0`, then `1.0.0` (M4, polish).**
-> `0.5.0` puts the AI's scoring back on one unit (#63) and makes the loader
+> **Status: `0.5.0` released (scorer and schema). Next: `1.0.0` (M4, polish).**
+> `0.5.0` put the AI's scoring back on one unit (#63) and made the loader
 > refuse content keys it does not read (#65). `1.0.0` is about a stranger being
 > able to play it: a standalone export, audio and art. Plan in
 > [ROADMAP.md](docs/ROADMAP.md), reporting rules in [TRIAGE.md](docs/TRIAGE.md),
@@ -79,6 +79,12 @@ shows what the log says, with floating numbers, status badges and a tempo panel
 every enemy aimed at its holder (#60), Kakyoin's main skill cost him most of his
 damage (#61), and Diavolo's resistance table had never loaded (#62). Both bosses
 were re-centred where their fights stood at `0.4.0`.
+
+`0.5.0` fixed the two defects M3 left behind. The AI prices every effect in HP
+now, where it had mixed HP and power points (#63), and the Iron Brawler's `atk`
+went from 135 to 155 to keep its fights in band. The loader refuses any content
+key it does not declare, so a misspelling like the one that hid Diavolo's
+resistance table stops the load and names the key (#65).
 
 </details>
 
@@ -304,17 +310,22 @@ repository rather than an appendix to it:
   with the prediction written *before* the run. Seven of nine predictions were
   wrong, which is the argument for measuring rather than against it.
 - **[docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md)**: how much win rate a point
-  of enemy damage actually buys. Flat below a ratio of 0.65, a bend to 67%, a
-  plateau to 0.81, then 8% by parity. Six changes were spent moving a number
-  along the flat part of a curve nobody had plotted yet.
+  of enemy damage actually bought, measured under the rules of July 2026: 96%
+  at an exchange ratio of 0.61, 53% at 0.92, 12% at 1.36, a smooth decline
+  with no plateau. Five scorer changes have landed since, and the curve has
+  not been swept again. Six changes were spent moving a number along the flat
+  part of a curve nobody had plotted yet.
 
 > [!NOTE]
 > A win rate here is a **floor for a competent player**, not a forecast: the AI
-> always takes the strongest affordable skill and never sets up for later. The
-> seed list runs to 300 now, not twelve, which narrows the noise considerably;
-> the exact current margin is in [docs/BALANCE-CURVE.md](docs/BALANCE-CURVE.md),
-> along with this limit and several more at the end of the balance log. If you
-> want to dispute a number, [TRIAGE.md](docs/TRIAGE.md) says what a balance
+> scores one action at a time and never sets up for later, an aggressive
+> combatant uses a skill on only 65% of its turns, and an aggressive or
+> support combatant aims at the weakest foe 55% of the time and at a random
+> one otherwise. The seed list runs to 300 now, not twelve, which narrows the
+> noise considerably; the 95% interval of every encounter is in the "Current
+> status" of [docs/BALANCE-LOG.md](docs/BALANCE-LOG.md), and the limits of the
+> method are listed at the end of the balance log. If you want to dispute a
+> number, [TRIAGE.md](docs/TRIAGE.md) says what a balance
 > finding has to contain before it can be acted on.
 
 <p align="right"><sub><a href="#top">Back to top</a></sub></p>

@@ -12,6 +12,31 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-03
+
+Scorer and schema. The two defects M3 left behind are fixed, and each changes
+something `0.4.x` guaranteed, so this is a minor version rather than a patch
+(`docs/RELEASING.md` section 1). `score_action` prices every effect in HP
+instead of a mix of HP and power points (#63), and `npc.iron_brawler`'s `atk`
+went from 135 to 155, the owner's choice of three measured levers, to keep
+the Iron Brawler fights in band. The loader refuses any content key it does
+not declare, at every level and inside a matchup's `band`, and skills, stands
+and combatants may declare a `provenance` block (#65): content that loaded in
+`0.4.x` with a key the core does not read no longer loads. No FFI method
+changed. Every win rate except `matchup.thug_solo`'s crossed a comparability
+boundary; the figures and the scorecard are in the #63 entry of
+[docs/BALANCE-LOG.md](docs/BALANCE-LOG.md).
+
+| Encounter | Win rate | Wilson 95% | Declared band | Median length |
+| --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 98.7..100.0 | 85..100 | 3 turns |
+| `matchup.assassin_ambush` | 57% | 51.0..62.2 | 45..90 | 19 turns |
+| `matchup.dio_boss` | 56% | 50.0..61.2 | 35..75 | 52 turns |
+| `matchup.dancer_rush` | 80% | 75.1..84.1 | 60..90 | 19 turns |
+| `matchup.weaver_gambit` | 82% | 77.6..86.2 | 58..86 | 23 turns |
+| `matchup.bell_race` | 70% | 64.9..75.2 | 48..80 | 15 turns |
+| `matchup.diavolo_boss` | 38% | 32.7..43.6 | 25..55 | 73 turns |
+
 ### Added
 
 - **`docs/BALANCE-LOG.md` records an M4 audit of four balance questions**,
@@ -88,6 +113,13 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **The release checklist stages every document a release changes.**
+  Step 4 of `docs/RELEASING.md` added only the manifest, the lockfile and
+  this file, which is how five documents meant for 0.4.1 missed its release
+  commit (see *Fixed*); it now stages the README, `docs/ROADMAP.md` and
+  `docs/RELEASING.md` as well, and step 7 runs `git --no-pager log`, because a
+  pager in `cmd.exe` can swallow the next pasted line. The checklist's
+  commands are written for 0.5.0.
 - **`docs/DEVELOPMENT.md` points LLVM at its GitHub releases page** rather
   than `releases.llvm.org`, which stopped answering GitHub's runners on
   2026-11-03. The link check passed on it at 12:45 UTC and then failed on it
@@ -188,6 +220,19 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Fixed
 
+- **Three stale statements found by the 0.5.0 release audit.**
+  `docs/BALANCE-CURVE.md` said its table still stood, and the README pointed
+  at it for the current margin; the sweep dates from `60667aa0` (2026-07-30),
+  and `ai.rs` has changed under #29, #22, #33, #60 and #63 since, which its
+  own *Re-running this* section says voids it. Its header now says so, and
+  the README points at the intervals in `docs/BALANCE-LOG.md` instead. The
+  README still summarised the curve that sweep retracted ("a plateau to
+  0.81, then 8% by parity"); it now quotes the re-sweep, a smooth decline
+  from 96% at a ratio of 0.61 to 12% at 1.36. The README also said the AI
+  "always takes the strongest affordable skill"; an aggressive combatant
+  uses a skill on 65% of its turns (`AGGRESSIVE_SKILL_CHANCE`), and an
+  aggressive or support combatant picks the weakest foe on 55%
+  (`FOCUS_FIRE_CHANCE`). Documentation only.
 - **Two stale statements found by the M4 balance audit (#80).** The `ai.rs`
   module documentation said SP does not regenerate; it has, 4 a turn
   (`SP_REGEN_PER_TURN`), since #9. The `tools/balance_diff.py` docstring
@@ -217,6 +262,22 @@ with prebuilt libraries. A section here without a tag is not a release.
   as `docs/RELEASING.md` requires of a published one.
 - **0.4.1's date.** Its section said 2026-10-26, the day its notes were
   written; the tag and the release were published on 2026-10-29.
+
+### Known limitations
+
+- **A hostile status is priced at its raw chance** (#85). `resolve.rs`
+  rolls it after the target's will, so `concussive_slam`'s stun, priced at
+  40%, lands 4.7% of the time. Pricing the real chance alone sends
+  `matchup.dio_boss` to 9.3% and `matchup.diavolo_boss` to 2.0%, because the
+  scorer cannot see a status its target already holds and Polnareff then
+  buys `rage_focus` again on most of his turns. Both wait for a scorer that
+  can see active statuses.
+- **`matchup.weaver_gambit` sits close to its ceiling.** Its Wilson
+  interval reaches 86.2 against a ceiling of 86, the gate fails it at 260
+  wins (13 more than now), and a 10 HP edit to either of its foes moves it
+  out of band, because the party's focus follows the lower HP (#81).
+- **`docs/BALANCE-CURVE.md` describes the rules of July 2026.** Five scorer
+  changes have landed since its sweep, and it has not been run again.
 
 ## [0.4.1] - 2026-10-29
 
@@ -1216,7 +1277,8 @@ recorded rather than squashed away, because the reasoning is the useful part.
   `Time.get_unix_time_from_system()` is far below that ceiling; a full-range
   `u64` seed would have to cross the boundary as a string.
 
-[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ZinniXX004/Yet-to-be-JoJo-s-RPG-Game-/compare/v0.2.0...v0.3.0
