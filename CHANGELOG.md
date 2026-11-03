@@ -14,6 +14,16 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Added
 
+- **`docs/BALANCE-LOG.md` records an M4 audit of four balance questions**,
+  measured on throwaway builds with nothing shipped changed. `weaver_gambit`
+  leaves its band under 9 of 22 single changes, because the Hex Weaver's 690
+  HP sits just under the Iron Brawler's 700 and the party's focus follows the
+  lower HP; pricing `guard_stance`'s tempo lowers every fight the guard is used
+  in; Dio is downed holding another volley's SP in 74 of his 167 losses; and
+  Jotaro and Kakyoin beat every foe alone. It also found that a hostile status
+  is priced at its raw chance while `resolve.rs` rolls it after the target's
+  will (#85). The owner kept every encounter as it is (#81 to #84).
+
 - **Tests for what cargo-mutants showed `rpg-core` leaving unchecked.**
   cargo-mutants 27.1.0 made 719 mutants of `rpg-core`, and 149 of them
   survived the suite. Several were rules a balance band cannot see: a debuff
