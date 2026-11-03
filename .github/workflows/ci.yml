@@ -262,6 +262,10 @@ jobs:
       # lists files with git ls-files, so it runs from the repository root.
       - name: Prose punctuation
         run: python tools/check_prose.py
+      # The fixtures of the script the `balance diff` job runs. That job never
+      # blocks a merge, so its script is tested here, where a failure does.
+      - name: Balance diff self-test
+        run: python tools/balance_diff.py --self-test
 
   links:
     name: markdown links

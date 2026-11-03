@@ -10,8 +10,9 @@
 # with the LFS pre-push call. Removing any of them silently breaks LFS.
 #
 # Only the fast gate runs here: formatting, content plus the probe mirror,
-# spelling and prose punctuation. The first three are every check that had
-# failed in CI when this hook was written, and all four take seconds. Clippy
+# spelling, prose punctuation and the balance diff self-test. The first three
+# are every check that had failed in CI when this hook was written, and all of
+# them take seconds. Clippy
 # and tests stay with `sh tools/check.sh` before a PR and with CI, because a
 # hook slow enough to annoy is a hook that gets bypassed.
 #

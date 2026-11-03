@@ -20,9 +20,9 @@
     Windows PowerShell 5.1 compatible; pwsh is not required.
 
 .PARAMETER Fast
-    Formatting, content, spelling and prose punctuation only. Takes seconds,
-    and covers every check that has actually failed in CI so far. This is what
-    the pre-push hook runs. Run the full gate before opening a pull request.
+    Formatting, content, spelling, prose punctuation and the balance diff
+    self-test only. Takes seconds, and covers every check that has actually
+    failed in CI so far. This is what the pre-push hook runs. Run the full gate before opening a pull request.
 
 .EXAMPLE
     .\tools\check.ps1
@@ -135,6 +135,7 @@ Invoke-Step 'content: tools/probe mirrors data/' {
 # --- job: spelling ---
 Invoke-Step 'spelling (typos)' { Invoke-Typos }
 Invoke-Step 'prose punctuation' { Invoke-Python tools/check_prose.py }
+Invoke-Step 'balance diff: self-test' { Invoke-Python tools/balance_diff.py --self-test }
 
 if (-not $Fast) {
     # --- job: core ---
