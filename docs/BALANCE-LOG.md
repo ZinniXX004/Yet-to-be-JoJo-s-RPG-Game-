@@ -2509,6 +2509,476 @@ the owner. Neither boss was re-centred.
 - [x] All seven encounters inside their bands; `matchup.thug_solo`
       bit-identical; no band widened
 
+## M4 audit: four balance questions, measured, nothing shipped changed
+
+**No rule, content or band changed, so this entry opens no comparability
+boundary.** It answers four questions asked while planning `1.0.0`: which
+single change would push the encounters closest to their ceilings out (Q1),
+what pricing the guard's tempo would do (Q2), how Dio wins and loses on SP
+(Q3), and what bounds the thug and Iron Brawler fights after #63 (Q4). Every
+probe ran on a throwaway local build or on a copy of one `data/` file, and none
+of them is in the repository. Each section ends with the options its
+measurements leave; choosing between them is the owner's decision, and this
+entry makes none.
+
+### Method
+
+- **Baseline.** `development` at `8b51e34` (#79). Its `--json` report is
+  byte-identical to the one `f575394` (#76) writes, so #77 to #79 moved
+  nothing, and it reproduces the #63 table win for win: 300, 170, 167, 240,
+  247, 211 and 114, with Diavolo's median at 73 turns.
+- **Sample and interval.** Seeds 1 to 300 per encounter. Intervals are the
+  Wilson score interval at 95%, the one `tools/balance_diff.py` computes. The
+  #63 entry and "Current status" quote the normal approximation instead
+  (`weaver_gambit` 78.0..86.6 there, 77.6..86.2 here, from the same 247 of
+  300), although that script's docstring says this file quotes Wilson; at
+  these counts the two differ by under half a point.
+- **One change per probe**, always against the shipped build and never
+  stacked. Rule probes are patches on local `exp/*` branches; content probes
+  are copies of one data file passed with `--combatants`, `--skills` or
+  `--matchups`.
+- **Traces** come from a throwaway tracer that replays the loop of
+  `Battle::run_to_completion` one step at a time and records the state before
+  every action. Over all seven encounters it reproduces every win, loss and
+  median of the report.
+- **Predictions** were written in seven sittings between 13:08 and 13:27 UTC
+  on 2026-11-03, each before the runs it covers. "Right" means the right
+  direction and within two points; a measured change of zero has no direction
+  to miss; a row is wrong if any claim on it is.
+- **Gate edges.** The gate compares the whole percent, rounded half up, so
+  `weaver_gambit` fails at 260 wins (13 more than now),
+  `dancer_rush` at 272 (32 more) and `bell_race` at 242 (31 more).
+
+| Encounter | Won of 300 | Win rate | Wilson 95% | Band | Median turns |
+| --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 300 | 100.0 | 98.7..100.0 | 85..100 | 3 |
+| `matchup.assassin_ambush` | 170 | 56.7 | 51.0..62.2 | 45..90 | 19 |
+| `matchup.dio_boss` | 167 | 55.7 | 50.0..61.2 | 35..75 | 52 |
+| `matchup.dancer_rush` | 240 | 80.0 | 75.1..84.1 | 60..90 | 19 |
+| `matchup.weaver_gambit` | 247 | 82.3 | 77.6..86.2 | 58..86 | 23 |
+| `matchup.bell_race` | 211 | 70.3 | 64.9..75.2 | 48..80 | 15 |
+| `matchup.diavolo_boss` | 114 | 38.0 | 32.7..43.6 | 25..55 | 73 |
+
+### Q1: what would push `weaver_gambit`, `dancer_rush` and `bell_race` out
+
+Fourteen single changes in Round C (written at 13:21 UTC), five more in
+Rounds F and G (13:24 and 13:26) aimed at what Round C found, and the three
+guard prototypes of Q2. C1 to C3 are scorer defects this file already names,
+C4 is one this entry found (see the last section), C11 is a rule constant,
+and C5 to C14 are content.
+
+| Probe | Change | Prediction |
+| --- | --- | --- |
+| C1 | a buff the actor already carries, or a debuff the chosen target carries, is priced at zero (#63's probe Q1) | thug bit-identical; ambush 55.0, dio 54.7, dancer 80.0, weaver 84.6, bell 70.0, diavolo 39.7 |
+| C2 | `DefUp` priced as a percentage of the actor's base defence, as `state.rs` applies it: 24 per hit for Jotaro and 29 for Josuke, not 30 | thug bit-identical; ambush 58.7, dio 56.2, dancer 80.5, weaver 83.3, bell 70.8, diavolo 39.0 |
+| C3 | a stun, lock or slow priced at the target's basic strike on the actor, not at the actor's own best hit | thug bit-identical; ambush 54.0, dio 55.7, dancer 75.0, weaver 77.0, bell 66.0, diavolo 38.0 |
+| C4 | a hostile status priced at the chance `resolve.rs` rolls, `chance - will / 2` floored at 5 | thug bit-identical; ambush 62.0, dio 35.0, dancer 82.0, weaver 84.0, bell 72.0, diavolo 25.0 |
+| C11 | `SP_REGEN_PER_TURN` 4 -> 5 | thug bit-identical; ambush 58.0, dio 54.0, dancer 81.5, weaver 83.5, bell 71.5, diavolo 37.0 |
+| C5 | `npc.iron_brawler` `atk` 155 -> 145 | #63's O2 win for win: ambush 62.3, dancer 85.3, weaver 86.7, bell 75.0; thug, dio and diavolo bit-identical |
+| C6 | `npc.iron_brawler` `atk` 155 -> 165 | ambush 51.5, dancer 75.5, weaver 78.0, bell 65.5; the other three bit-identical |
+| C7 | `npc.iron_brawler` `hp` 620 -> 560 | ambush 64.5, dancer 84.5, weaver 87.5, bell 75.0; the other three bit-identical |
+| C8 | `pc.kakyoin` `atk` 70 -> 75 | thug bit-identical; ambush 61.5, dio 58.5, dancer 84.5, weaver 86.0, bell 75.0, diavolo 40.0 |
+| C9 | `pc.kakyoin` `hp` 520 -> 570 | thug bit-identical; ambush 59.5, dio 57.5, dancer 83.0, weaver 85.0, bell 73.5, diavolo 39.5 |
+| C10 | `pc.jotaro` `atk` 95 -> 100 | thug 100 but not bit-identical; ambush 61.0, dio 59.0, dancer 84.5, weaver 86.5, bell 74.5, diavolo 42.0 |
+| C12 | each third foe's `hp` 10% lower: Hex Weaver 620, Blade Dancer 560, Requiem Bell 500 | dancer 83.0, weaver 84.8, bell 73.8; the other four bit-identical |
+| C13 | `skill.emerald_splash` power 105 -> 115 | ambush 61.5, dio 57.0, dancer 85.0, weaver 87.0, bell 75.0; thug and diavolo bit-identical |
+| C14 | `skill.concussive_slam` stun chance 40 -> 30; it lands at the 5% floor on every target either way, so only prices move | dio within a point and not bit-identical; the other six bit-identical |
+| C, ranking | across C1 to C14 | the largest rise in weaver is party-side (C10 or C13); at least three of C5, C7, C8, C10 and C13 push weaver out; none pushes dancer or bell out |
+| F1 | `npc.iron_brawler` `hp` 620 -> 590, to see whether C7 is a slope | ambush 60.5, dancer 81.5, weaver 88.5, bell 73.0; the other three bit-identical |
+| F2 | `npc.hex_weaver` `hp` 690 -> 760 | weaver 76.8; the other six bit-identical |
+| F3 | `skill.wither_hex` potency 26 -> 30 | weaver 78.3; the other six bit-identical |
+| G1 | `npc.hex_weaver` `hp` 690 -> 700, a tie with the Brawler that breaks toward the Weaver | weaver 81.0, and the Weaver downed first in at least 70% of battles |
+| G2 | `npc.hex_weaver` `hp` 690 -> 710 | weaver 89.0, and the Brawler downed first in at least 60% of battles |
+
+Results, 300 seeds. "bit" is a report bit-identical to the shipped one for
+that encounter; bold is outside its band.
+
+| Probe | thug | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| C1 | bit | 56.0 | 54.7 | 79.3 | 85.7 | 69.7 | 39.7 | right |
+| C2 | bit | bit | bit | 80.0 | 85.0 | bit | 38.7 | right |
+| C3 | bit | 50.0 | 57.0 | 75.0 | 84.7 | 72.3 | bit | wrong: ambush, weaver and bell |
+| C4 | bit | 89.7 | **9.3** (out) | bit | bit | bit | **2.0** (out) | wrong: ambush, dio, diavolo |
+| C11 | bit | 55.7 | 62.0 | 79.0 | 82.7 | 72.0 | 44.3 | wrong: four directions |
+| C5 | bit | 62.3 | bit | 85.3 | **86.7** (out) | 75.0 | bit | right, O2 win for win |
+| C6 | bit | 49.3 | bit | 76.0 | 77.7 | 65.3 | bit | wrong: ambush by 2.2 |
+| C7 | bit | 64.0 | bit | 83.0 | **95.0** (out) | 75.7 | bit | wrong: weaver |
+| C8 | bit | 61.7 | 57.3 | 82.0 | **86.7** (out) | 73.7 | 41.7 | wrong: dancer by 2.5 |
+| C9 | bit | 64.3 | 58.7 | 88.0 | 84.3 | 76.7 | 42.0 | wrong: four |
+| C10 | 100.0 | 62.7 | 58.7 | 81.7 | **87.7** (out) | 74.7 | 42.3 | wrong: dancer by 2.8 |
+| C12 | bit | bit | bit | 84.0 | **88.3** (out) | 78.3 | bit | wrong: weaver and bell |
+| C13 | bit | 63.7 | 58.0 | 82.3 | **86.7** (out) | 74.7 | bit | wrong: ambush, dancer |
+| C14 | bit | bit | bit | bit | bit | bit | bit | wrong: dio is bit-identical too |
+| C, ranking | | | | | | | | wrong: the largest rise is C7, a Brawler number |
+| F1 | bit | 60.3 | bit | 81.3 | **92.0** (out) | 72.3 | bit | wrong: weaver |
+| F2 | bit | bit | bit | bit | **89.0** (out) | bit | bit | wrong: direction |
+| F3 | bit | bit | bit | bit | 80.7 | bit | bit | wrong: by 2.4 |
+| G1 | bit | bit | bit | bit | 81.3 | bit | bit | right: Weaver first in 212 of 300 |
+| G2 | bit | bit | bit | bit | **89.0** (out) | bit | bit | wrong: Brawler first in 179 of 300, 59.7% |
+
+The three encounters in wins, with their Wilson intervals, for every probe
+that moved one of them:
+
+| Probe | dancer won, Wilson 95% | weaver won, Wilson 95% | bell won, Wilson 95% |
+| --- | --- | --- | --- |
+| shipped | 240, 75.1..84.1 | 247, 77.6..86.2 | 211, 64.9..75.2 |
+| B1 | 227, 70.5..80.2 | 243, 76.2..85.0 | 200, 61.2..71.8 |
+| B2 | 177, 53.4..64.4 | 173, 52.0..63.1 | 170, 51.0..62.2 |
+| B3 | 232, 72.3..81.7 | 247, 77.6..86.2 | 203, 62.2..72.7 |
+| C1 | 238, 74.4..83.5 | 257, 81.2..89.2 | 209, 64.2..74.6 |
+| C2 | 240, 75.1..84.1 | 255, 80.5..88.6 | 211, 64.9..75.2 |
+| C3 | 225, 69.8..79.6 | 254, 80.2..88.3 | 217, 67.0..77.1 |
+| C11 | 237, 74.0..83.2 | 248, 78.0..86.5 | 216, 66.7..76.8 |
+| C5 | 256, 80.9..88.9 | 260, 82.4..90.1 | 225, 69.8..79.6 |
+| C6 | 228, 70.9..80.5 | 233, 72.6..82.0 | 196, 59.8..70.5 |
+| C7 | 249, 78.3..86.8 | 285, 91.9..96.9 | 227, 70.5..80.2 |
+| C8 | 246, 77.3..85.9 | 260, 82.4..90.1 | 221, 68.4..78.3 |
+| C9 | 264, 83.8..91.2 | 253, 79.8..88.0 | 230, 71.6..81.1 |
+| C10 | 245, 76.9..85.6 | 263, 83.5..90.9 | 224, 69.5..79.3 |
+| C12 | 252, 79.4..87.7 | 265, 84.2..91.5 | 235, 73.3..82.6 |
+| C13 | 247, 77.6..86.2 | 260, 82.4..90.1 | 224, 69.5..79.3 |
+| F1 | 244, 76.5..85.3 | 276, 88.4..94.6 | 217, 67.0..77.1 |
+| F2 | 240, 75.1..84.1 | 267, 85.0..92.1 | 211, 64.9..75.2 |
+| F3 | 240, 75.1..84.1 | 242, 75.8..84.7 | 211, 64.9..75.2 |
+| G1 | 240, 75.1..84.1 | 244, 76.5..85.3 | 211, 64.9..75.2 |
+| G2 | 240, 75.1..84.1 | 267, 85.0..92.1 | 211, 64.9..75.2 |
+
+What the measurements show:
+
+1. **`weaver_gambit` is the fragile one.** Nine of the 22 single changes
+   measured push it out (C5, C7, C8, C10, C12, C13, F1, F2, G2), by 0.7 to 9.0
+   points over its ceiling, and three of them (C5, C8, C13) by exactly the one
+   win the gate needs. `dancer_rush` and `bell_race` crossed their ceilings
+   under none of the 22. Their largest rises are 8.0 points each, C9 for the
+   dancer (264 wins against the 272 that fail it) and C12 for the bell (235
+   against 242).
+2. **The most likely way out for `weaver_gambit` is any hit-point edit that
+   reverses which of its two foes has fewer HP.** The Hex Weaver's 690 sits
+   under the Iron Brawler's 700 (620 plus Iron Hymn's 80), and each party
+   member aims at the foe with the lowest current HP 55% of the time and at a
+   random foe otherwise, so 83% of the single-target attacks among the
+   party's first four actions go at the Weaver, who falls first in 219 of 300
+   battles. At 700, a tie that breaks toward the Weaver, the opening is the
+   same (83%) and the result within three wins (244). At 710 the opening goes
+   58% at the Brawler, he falls first in 179 battles, and the party wins 267:
+   **7.7 points for 10 HP**, and no more at 760 (267 again). C7 is the same
+   flip from the Brawler's side: traced, 60% of the opening goes at the
+   Brawler and he falls first in 206. It is a threshold, not a slope, which is
+   why the prediction for F2 had the wrong sign: more HP on the Weaver makes
+   the fight easier, and so does less (C12, 265 wins, with the opening still
+   on the Weaver, 87%).
+3. **The pending scorer fixes push it the same way, by less.** C1 +3.3 (257
+   wins, three short of failing), C2 +2.7 (255), C3 +2.3 (254). None fails
+   alone, and each is inside one run's noise of shipped. Whether two of them
+   together fail it is not measured.
+4. **`dancer_rush`'s nearest measured exit is its floor.** B2, tempo priced
+   for every skill, takes it to 59.0, with Kakyoin back on the snare for 99%
+   of his turns. `bell_race` left its band under none of the 22.
+5. **The Brawler's attack stays the smooth lever #63 used.** `atk` 145
+   reproduces #63's O2 win for win (187, 167, 256, 260, 225, 114), and 165
+   lowers the four Brawler fights by 4.0 to 7.3 points.
+
+Options for Q1, measured:
+
+- **A. Leave the encounter as it is**, and treat any `hp` edit to the Hex
+  Weaver or the Iron Brawler as a change to `weaver_gambit` that must be
+  re-measured. Nine of the 22 measured single changes fail it today.
+- **B. Widen its margin with a Weaver-only number that keeps the Weaver the
+  first target**: `skill.wither_hex` potency 26 -> 30 reads 80.7 (242 wins, 18
+  from failing instead of 13) and moves nothing else. A Weaver `hp` edit does
+  not do it: 620 and 710 both raise the win rate (88.3 and 89.0), and 700 is
+  within three wins of shipped.
+- **C. Raise the Brawler's attack**, `atk` 155 -> 165: weaver 77.7 (233 wins,
+  27 from failing), at the cost of the ambush (49.3, four points above its
+  floor), the dancer (76.0) and the bell (65.3).
+
+### Q2: pricing the guard's tempo
+
+The 0.4.1 entry noted this and did not measure it: `guard_stance` costs 600
+tempo against `strike`'s 1000, and no score prices tempo at all. Three
+prototypes, each measured alone:
+
+- **B1** multiplies the guard's price by `1000 / tempo_cost`, 5/3 for the
+  guard. Only `DefUp` reads it, and in shipped content only `guard_stance`
+  carries `DefUp`.
+- **B3** prices the guard over the window it really covers. Its holder's next
+  turn comes after 600 tempo rather than 1000, so the two rounds it is priced
+  over are 1.6, and the turn it costs is 0.6: `(600 + 1000) / 600` in place of
+  2, which is 4/3 of the shipped price.
+- **B2** multiplies every candidate's score by `1000 / tempo_cost`: tempo
+  priced for every skill, in one unit, which is what the question becomes once
+  it is asked of more than the guard.
+
+Predictions (Round B, written at 13:16 UTC):
+
+| Probe | Prediction |
+| --- | --- |
+| B1 | thug bit-identical; ambush 54.7, dio 53.7, dancer 79.0, weaver 80.3, bell 68.3, diavolo 36.0; Josuke's guard share 11 -> 20% against Dio and 10 -> 18% against Diavolo; Jotaro's 5 to 12% in the four Brawler fights |
+| B2 | thug bit-identical; ambush 52, dio 48, dancer 74, weaver 77, bell 65, diavolo 32: Kakyoin back to the snare, Jotaro's lock dropped, Polnareff's `rage_focus` over `riposte` |
+| B3 | thug bit-identical; every other encounter within 1.5 points of shipped |
+
+Results, 300 seeds:
+
+| Probe | thug | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B1 | bit | 45.7 | 54.3 | 75.7 | 81.0 | 66.7 | 33.0 | wrong: ambush, dancer, diavolo, two guard shares |
+| B2 | bit | 60.3 | **11.7** (out) | **59.0** (out) | 57.7 | 56.7 | **2.3** (out) | wrong: all but the thug |
+| B3 | bit | 47.7 | 55.3 | 77.3 | 82.3 | 67.7 | bit | wrong: ambush, dancer, bell |
+
+| Build | Jotaro's guard share: ambush, dancer, weaver, bell | Jotaro alive, ambush | Josuke's guard share: dio, diavolo |
+| --- | --- | --- | --- |
+| shipped | 3, 1, 5, 2% | 52% | 11, 10% |
+| B1 | 15, 9, 15, 10% | 42% | 22, 25% |
+| B3 | 11, 8, 13, 7% | 43% | 11, 10% |
+| C2 | 3, 1, 2, 2% | 52% | 11, 10% |
+
+What the measurements show:
+
+1. **Pricing the guard's tempo raises the guard's use and lowers the party's
+   win rate wherever the guard is used.** B1 takes the ambush down 11.0
+   points to 45.7, under a point above its floor, diavolo down 5.0, the other
+   Brawler fights down 1.3 to 4.3 and Dio's fight down 1.3. B3, the smaller
+   correction, takes the ambush down 9.0 and the dancer and bell 2.7, and
+   leaves both bosses within 0.4 points. In the ambush Jotaro guards five
+   times as often under B1 and survives less, 52% -> 42%.
+2. **Inference** [medium confidence, resting on C2 and on B1 and B3 moving the
+   opposite way]: the guard is already priced above what it delivers, so a
+   correct tempo term lands on a price that is too high for other reasons. It
+   prices 30 HP a hit where `state.rs` gives Jotaro 24 and Josuke 29, it
+   spreads every enemy hit evenly over the holder's side, and it counts two
+   rounds of cover. C2, which corrects only the first, lowers Jotaro's guard
+   share in `weaver_gambit` from 5% to 2% and raises that encounter 2.7
+   points; nothing else moves by more than 0.7.
+3. **B2 is not a guard change, and it fails three bands** (dio 11.7, dancer
+   59.0, diavolo 2.3). What breaks is not tempo. Polnareff's `rage_focus`, at
+   700 tempo, becomes his best action on 80% of his turns against Dio and 86%
+   against Diavolo, buying again a buff he already holds because the scorer
+   cannot see it (the defect C1 removes), and his `riposte` falls from 2543
+   casts to 559 against Dio and from 2020 to none against Diavolo. Kakyoin goes
+   back to the snare on 95 to 99% of his turns in the Brawler fights, the
+   reverse of the change #63 measured there.
+4. **`matchup.thug_solo` is bit-identical under all three.** Jotaro never
+   holds less than `rush_barrage`'s 18 SP there, so the guard never wins a
+   turn.
+
+Options for Q2, measured:
+
+- **A. Do not price the guard's tempo.** The shipped scorer stays; the item
+  0.4.1 noted is now measured. No effect.
+- **B. Correct the `DefUp` percentage first (C2)**, then measure B3 on top of
+  it as a change of its own. C2 alone: weaver 85.0 (+2.7), diavolo 38.7
+  (+0.7), dancer on the same wins, the other four bit-identical. The pair is
+  not measured.
+- **C. Price tempo for every skill (B2) only after the status-aware scorer
+  (C1).** Alone it fails three bands; on top of C1 it is not measured.
+
+### Q3: Dio's SP economy
+
+Round A (13:08 UTC) and Round A2 (13:10 UTC, after Round A's results) read
+the shipped traces of `matchup.dio_boss`. Dio is downed in 167 battles and
+outlives the party in 133.
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| A1 | Dio opens with `blade_volley` in 60..70% | 193 of 300, 64.3% | right |
+| A2 | his SP when downed: median 15..35, and at least 36 in under 25% | median 24, mean 41.3; at least 36 in 74 of 167, 44.3% | wrong |
+| A3 | his SP when the party falls: median 10..30 | median 8, mean 11.5 | wrong |
+| A4 | mean SP at his death exceeds mean SP at the party's wipe by at least 5 | by 29.8 | right |
+| A5 | more volleys into a full party in his wins, by at least 0.5 | 4.57 in his wins, 4.81 in his losses | wrong |
+| A6 | his fifth volley, where there is one, by his ninth action (median) | seventh action, 256 battles | right |
+| A7 | the Flame Assassin downed before any party member in at least 70% | 289 of 300, 96.3% | right |
+| A8 | Kakyoin the first party member down in at least half | 109 of 253, 43.1% | wrong |
+| A9 | `blade_volley` at least 60% of his damage | 78.8% | right |
+| A15 | strikes while holding at least 36 SP (the skill roll) differ by under 0.3 a battle between his wins and losses | 2.47 in his wins, 3.65 in his losses | wrong |
+| A16 | at his dry point (the first action that leaves him under 36 SP) the party holds under half its HP in at least 60% of his wins and over half in at least 60% of his losses | under half in 124 of 124 wins, and in 89 of 94 losses | wrong |
+| A17 | where he dies holding at least 36 SP, after 9 actions or fewer on average | 9.36 | wrong |
+| A18 | Josuke heals more in Dio's losses, by at least 0.5 a battle | 4.47 in Dio's wins, 4.03 in his losses | wrong |
+
+**How he spends.** The pool is spent up front, at the pace the skill roll
+allows. His SP before each action averages 200, 179, 159, 140, 120, 101, 81,
+65, 50 and 38 over his first ten. What he does with a given amount is a
+ladder:
+
+| SP held | Actions | Chosen |
+| --- | --- | --- |
+| 45 or more | 2470 | volley 62%, strike 35%, slam 3% |
+| 36..44 | 167 | volley 46%, strike 41%, slam 13% |
+| 22..35 | 87 | slam 63%, strike 37% |
+| 12..21 | 410 | drain 65%, strike 35% |
+| 0..11 | 326 | strike 100% |
+
+In every band but the lowest, 35 to 41% of his turns are strikes, and most
+of that is `AGGRESSIVE_SKILL_CHANCE` (65), rolled before any score is read:
+not a choice. `skill.tempo_halt` is never chosen.
+
+**How he wins** (133). He lives longer, 13.3 actions against 10.1, spends
+everything (236.5 SP a battle, his 200 plus regeneration) and finishes dry:
+his SP when the party falls has a median of 8, and is under 10 in 87 of the
+133. He reaches his dry point in 124 of them, and the party then holds 12% of
+its pool on average (median 11%). The volleys do most of the damage (78.8%
+of his total); strikes and drains finish it.
+
+**How he loses** (167), by one of two routes:
+
+- **Killed mid-budget**: 74 of the 167 (44.3%) die holding at least the 36 SP
+  of another volley, median 64, after 9.4 actions on average. The party
+  out-raced the volley phase, and SP was never what limited him.
+- **Dry against a party still standing**: 94 reach the dry point, with the
+  party at 28% of its pool on average (median 27%), and lose the rest of the
+  fight on strikes and drains. The two routes share one battle, in which he
+  went dry and had regained 36 SP when he fell.
+
+Across both outcomes, the party's share of its pool at his dry point
+separates them: Dio wins 98 of 125 battles where it is under 20%, 23 of 57
+between 20 and 30%, 3 of 22 between 30 and 40%, and none of 14 above that.
+What does not separate his wins from his losses: the volleys he casts into a
+full party (4.57 against 4.81), and Josuke's heals (4.47 against 4.03). What
+does: the rolled strikes while he could afford a volley, 2.47 a battle in his
+wins and 3.65 in his losses. That is a correlation within one batch, since a
+slower spend also leaves him holding SP for longer; E1 below is the causal
+test.
+
+Round E (13:21 UTC) measured three Dio-only changes, and Round C's C11 is the
+rule constant:
+
+| Probe | Change | Prediction | dio won, Wilson 95% | Win rate | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| E1 | Dio's skill roll still drawn, no longer obeyed | 40.0 | 91, 25.4..35.8 | **30.3** (out) | wrong |
+| E2 | `npc.dio` `sp` 160 -> 124, a pool of 164 | 60.5 | 190, 57.7..68.6 | 63.3 | wrong |
+| E3 | `skill.blade_volley` `sp_cost` 36 -> 30 | 48.0 | 160, 47.7..58.9 | 53.3 | wrong |
+| C11 | `SP_REGEN_PER_TURN` 4 -> 5, for everyone | 54.0 | 186, 56.4..67.3 | 62.0 | wrong (scored in Round C) |
+
+The other six encounters are bit-identical in E1, E2 and E3. The skill roll
+is the largest brake on him: without it his drains go from 266 to 660 and his
+volleys from 1606 to 1768 over the batch, he outlives the party in 69.7% of
+battles, and the fight leaves its band. A smaller pool moves the fight more
+than a cheaper volley (+7.7 points for the party against -2.3), and faster
+regeneration helps the party of four more than it helps him (+6.3; his
+volleys move from 1606 to 1620).
+
+Options for Q3, measured:
+
+- **A. Leave Dio as he is.** 55.7, in band; the economy works as described
+  above.
+- **B. A smaller pool**, `sp` 160 -> 124 (a pool of 164): 63.3, in band.
+- **C. Let a boss spend every turn its score allows**, the roll drawn and not
+  obeyed. That needs a profile or a flag in the schema, and it reads 30.3, out
+  of band, so it would come with a re-centre of its own.
+
+### Q4: what bounds the thug and the Iron Brawler fights
+
+Round A (13:08 UTC) read the shipped traces of the five fights first:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| A10 | the thug deals at most 60 in any battle, and Jotaro never ends below 558 HP | at most 42; Jotaro's lowest finish 578 | right |
+| A11 | the thug acts at most twice in any battle | 0, 1 or 2 times | right |
+| A12 | in the losses of each Brawler fight, Kakyoin falls before Jotaro in at least 70% | 77.7, 85.0, 71.7, 76.4% (ambush, dancer, weaver, bell) | right |
+| A13 | in the wins of each, the Brawler is downed after the other foe in at least 70% | 81.8, 93.3, 70.4, 91.0% | right |
+| A14 | the Brawler deals at least 55% of what the party takes in each, and at least 60% in the ambush | 67.8, 72.0, 95.1, 68.6% | right |
+
+**`matchup.thug_solo` is bounded by Jotaro's kill clock.** The thug acts
+never (63 battles), once (214) or twice (23), deals at most 42 in a battle,
+and Jotaro never ends below 578 of 620. Round D (13:21 UTC) asked what it
+would take:
+
+| # | Change | Prediction | Measured | Verdict |
+| --- | --- | --- | --- | --- |
+| D1 | `npc.thug` `atk` 58 -> 350 | 96.5 (95..98) | 293 of 300, 97.7 (95.3..98.9) | right |
+| D2 | `npc.thug` `atk` 58 -> 700 | 33 (30..36) | 92 of 300, **30.7** (25.7..36.1), out | right |
+| D3 | `npc.thug` `hp` 300 -> 600 | 100; median 6 or 7 turns; at most 100 damage in any battle | 300 of 300, median 6, at most 72 | right |
+
+Its floor of 85 holds against a thug that hits for half of Jotaro's HP
+(`atk` 350) and falls only when one hit can kill him (`atk` 700). The fight
+was also bit-identical under all nine rule prototypes in this entry (B1, B2,
+B3, C1, C2, C3, C4, C11, E1), including the three that failed a boss: it is a
+control for the engine, and it saw none of them.
+
+**The four Iron Brawler fights are bounded by the pair, not by either foe.**
+Round D's last probe put Jotaro and Kakyoin against each foe alone:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| D4 | Brawler alone 88; Flame Assassin 97; Blade Dancer 99; Hex Weaver 100; Requiem Bell 98 | 300 of 300 against every one | wrong: Brawler and Assassin |
+
+Alone, the Brawler deals 340 a battle and Kakyoin survives 96.7% of the
+fights. In the shipped pairs he deals 647, 593, 704 and 591 a battle (ambush,
+dancer, weaver, bell), 67.8, 72.0, 95.1 and 68.6% of what the party takes,
+and the other foe falls before him in 81.8, 93.3, 70.4 and 91.0% of the wins.
+The likely mechanism [inference, from A13 and D4]: the party's focus takes
+the other foe first, which leaves the Brawler acting for longer than he lasts
+alone. In `weaver_gambit` the order itself is the bound, as Q1 found: a 10 HP
+edit that reverses it is worth 7.7 points.
+
+Kakyoin also finishes some of these fights alone now: 14, 21, 16 and 13 of
+the 300. In a party of two, the win rate is Jotaro's survival plus those
+battles, so the tracking the #16 annotation recorded nine times within three
+points now reads 4.3 to 7.0 points apart (52.0 against 56.7, 73.0 against
+80.0, 77.0 against 82.3, 66.0 against 70.3).
+
+Options for Q4, measured:
+
+- **A. Keep `matchup.thug_solo` as the engine control it is**, and record
+  that its band fails only somewhere between a thug six and twelve times as
+  strong (97.7 at `atk` 350, 30.7 at 700).
+- **B. Check the control as a control**: pin its report byte for byte in a
+  test, since it stayed bit-identical under every rule prototype here and its
+  band cannot detect a change short of D2. No win rate moves.
+- **C. Retune a single Brawler fight through its third foe, and all four
+  through the Brawler.** C12 (each third foe's `hp` 10% lower) moved the
+  dancer 4.0, the weaver 6.0 and the bell 8.0 and nothing else; C5 to C7 and
+  F1 move all four together, and in `weaver_gambit` an `hp` edit to either foe
+  can cross the focus threshold.
+
+### What the measurements do not show
+
+- **Any combination.** Every probe is one change against shipped. None were
+  stacked, including the ones that plainly need each other: C4 and B2 both
+  need C1, and Q2's option B is a pair.
+- **The best version of each rule.** The prototypes are the least code that
+  states the idea, and their simplifications set their numbers. C3 values a
+  denied action at the target's basic strike on the actor; C3 and C4 read
+  the chosen target's attack or will for every target of an area skill; B1
+  and B3 reach `DefUp` and so, in shipped content, the guard alone.
+- **A cause for every contrast in Q3.** Dio's wins and losses are compared
+  within one batch; E1 is the only causal test, and it removes the roll for
+  him alone.
+- **How a person plays.** Every figure is the AI against the AI.
+- **Differences smaller than one run's noise.** The Wilson half-width is 4.3
+  to 5.6 points at these rates; a smaller gap between two probes is not a
+  finding. The gate's verdict is exact for the seed list, which is why the
+  edges above are given in wins.
+- **The removal probes as exact bounds.** A foe taken out of a fight also
+  changes what Kakyoin's splash is worth, so D4 shows each foe beatable
+  alone, not what tuning one of them could reach.
+
+### Found and not fixed
+
+No issue was opened and no file outside this entry changed.
+
+1. **Hostile statuses are priced at their raw `chance`, while `resolve.rs`
+   rolls `chance - target will / 2`, floored at 5.** Round H (13:26 UTC)
+   predicted the landing rates from that formula and got all four right:
+   `concussive_slam`'s stun, priced at 40, lands on 4.7% of rolls (146 of
+   3128); `riposte`'s cut lands on Dio 13.4% (priced at 75); the snare's slow
+   lands on the Brawler 44.2% (priced at 80); `wither_hex` lands on Jotaro
+   33.9% and on Kakyoin 28.9% (priced at 85). C4 corrects the price and sends
+   both bosses out through Polnareff's buying the same buff again, so it is a
+   change that depends on C1, not a patch.
+2. **`ai.rs`'s module documentation still says SP does not regenerate.** It
+   has, 4 a turn, since #9.
+3. **`tools/balance_diff.py`'s docstring says this file quotes Wilson
+   intervals**; the #63 entry and "Current status" quote the normal
+   approximation (see Method).
+
+**Scorecard: twenty-one of fifty-two.** Round A ten of fourteen, A2 none of
+four, B none of three, C three of fifteen, D three of four, E none of three,
+F none of three, G one of two, H four of four. Predictions derived from the
+code or from an earlier measurement held (C5, D1 to D3, H). Predictions of
+how the AI would answer a new price or budget mostly failed (B1 to B3, C3,
+C4, C11, E1 to E3, against C1 and C2 right), and nothing before Round F
+foresaw the focus threshold in `weaver_gambit`.
+
 ## Known limitations of the harness itself
 
 Recorded here so a number is not over-read:
