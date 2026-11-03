@@ -354,6 +354,7 @@ the jobs below. `core` and `bridge` build on Linux, Windows and macOS.
 | Supply chain: advisories, licences, sources | [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) |
 | Spelling | [`typos`](https://github.com/crate-ci/typos) |
 | Prose punctuation | `tools/check_prose.py`: no em dash, en dash or double hyphen used as punctuation in Markdown |
+| Balance diff, pull requests only, never blocking | `tools/balance_diff.py`: the 300-seed win rate of every encounter on the base and on the pull request, with the change, the Wilson 95% interval and the band, posted as one pull request comment through the GitHub REST API |
 | Dead Markdown links | [`lychee`](https://github.com/lycheeverse/lychee) |
 | Code scanning | CodeQL default setup: Actions, Python and Rust |
 | Dependency updates | Dependabot, weekly and grouped |

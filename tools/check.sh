@@ -2,7 +2,8 @@
 # The local gate: the same checks .github/workflows/ci.yml runs, in one command.
 #
 #   sh tools/check.sh          full gate, run before opening a pull request
-#   sh tools/check.sh --fast   formatting, content, spelling, prose (seconds);
+#   sh tools/check.sh --fast   formatting, content, spelling, prose and the
+#                              balance diff self-test (seconds);
 #                              this is what the pre-push hook runs
 #
 # Why this file exists: all five CI failures between late July and September
@@ -30,7 +31,7 @@ fast=0
 case "${1:-}" in
   --fast) fast=1 ;;
   "") ;;
-  -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
   *) echo "unknown argument: $1 (expected --fast or nothing)" >&2; exit 2 ;;
 esac
 
@@ -105,6 +106,7 @@ step "content: tools/probe mirrors data/" run_py src/data-pipeline/validate_data
 # --- job: spelling ----------------------------------------------------------
 step "spelling (typos)" typos_check
 step "prose punctuation" run_py tools/check_prose.py
+step "balance diff: self-test" run_py tools/balance_diff.py --self-test
 
 if [ "$fast" -eq 0 ]; then
   # --- job: core ------------------------------------------------------------

@@ -14,6 +14,26 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Added
 
+- **Every pull request gets its win-rate diff as a comment.** A new CI job,
+  `balance diff`, runs the balance harness, 300 seeds per encounter, on the
+  pull request merged into its base and on the base commit, and
+  `tools/balance_diff.py` (standard library only) turns the two JSON reports
+  into one Markdown table: base and head win percent, the change in
+  percentage points, the head's Wilson 95% interval, the band and the
+  harness's in-band verdict, with a change in bold when it is larger than the
+  half-width of the base interval. The job writes the table to its summary
+  and creates or updates a single pull request comment through the GitHub
+  REST API, found again by a hidden marker. Its token holds `contents: read`
+  and `pull-requests: write` and reaches only the posting step. It is not in
+  the `needs` list of `ci`, so it never blocks a merge, and on a fork or
+  Dependabot pull request, whose token is read-only, it keeps the summary
+  and succeeds. The script decodes a report by its byte order mark, so a
+  UTF-16 file written by PowerShell reads as it is, and its `--self-test`
+  runs in the fast gate of `tools/check.sh` and `tools/check.ps1`, in the
+  pre-push hook and in CI's `spelling` job. The pull request template no
+  longer asks for the reports to be pasted, only for the change to be
+  explained.
+
 - **`provenance` is declared on skills, stands and combatants** (#65). The
   block `docs/DATA-SOURCES.md` section 2 reserved is now the `Provenance`
   struct in `src/core/src/data.rs`: a required `origin` (`hand-authored`,

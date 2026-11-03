@@ -303,7 +303,7 @@ when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
 .\tools\check.ps1          # full gate: run before opening a pull request
-.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos, prose: seconds
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos, prose, balance diff self-test: seconds
 ```
 
 ```sh
@@ -351,6 +351,30 @@ alone:
 ```powershell
 py -3 tools\check_prose.py
 ```
+
+[`tools/balance_diff.py`](../tools/balance_diff.py) compares two balance
+reports. On every pull request, CI's `balance diff` job runs the harness, 300
+seeds per encounter, on the pull request merged into its base and on the base
+commit itself, and posts one comment that it updates on every push: each
+encounter's base and head win percent, the change in percentage points, the
+head's Wilson 95% interval, the band and the harness's in-band verdict. A
+change in bold is larger than the half-width of the base interval, which is
+the noise of one run. The job is not in the `needs` list of `ci`, so it never
+blocks a merge. On a fork or Dependabot pull request the token is read-only,
+and the table appears only in the job's summary. The comment replaces pasting
+the reports by hand; it does not replace explaining them in the pull request.
+The fast gate runs the script's `--self-test`. To make the same table locally,
+write one report on the base commit and one on your branch, then compare them:
+
+```sh
+cd src
+cargo run -q -p rpg-core --bin balance -- --json --no-fail > target/head.json
+cd ..
+python3 tools/balance_diff.py src/target/base.json src/target/head.json
+```
+
+A report redirected with `>` in Windows PowerShell 5.1 is UTF-16; the script
+decodes every input by its byte order mark, so such a file reads as it is.
 
 ### 4.1 Pre-push hook (once per clone)
 
