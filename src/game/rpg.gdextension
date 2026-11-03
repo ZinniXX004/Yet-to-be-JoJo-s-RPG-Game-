@@ -15,8 +15,6 @@
 ; GDExtension is forward-compatible, so any Godot >= 4.6 can load this.
 ; Lowering this number does NOT widen support; it only delays the failure
 ; until the engine tries to resolve symbols that do not exist.
-; To genuinely support older engines, pin a lower API feature in
-; src/bridge/Cargo.toml (e.g. features = ["api-4-2"]) and lower this to match.
 ; See https://godot-rust.github.io/book/toolchain/godot-version.html
 
 [configuration]

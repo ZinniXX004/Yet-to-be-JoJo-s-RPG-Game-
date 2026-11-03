@@ -15,8 +15,8 @@ body:
     attributes:
       label: Milestone
       options:
-        - M3 patch (0.4.x) - fixes and re-centring after the content pass
-        - M4 (1.0.0) - the shipping pass
+        - 0.5.x patch - fixes after the scorer and schema release
+        - M4 (1.0.0) - portfolio polish, a stranger can play it
         - Unplanned, proposing it now
     validations:
       required: true

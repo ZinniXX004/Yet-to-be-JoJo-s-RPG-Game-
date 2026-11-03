@@ -379,6 +379,10 @@ simulation is deterministic, so those three reproduce the fight exactly. A
 balance finding needs the pasted harness output, not an impression. Labels,
 severity and the triage rules are in [docs/TRIAGE.md](docs/TRIAGE.md).
 
+A security vulnerability is not an issue: report it privately as
+[SECURITY.md](SECURITY.md) describes, which also lists the supported
+versions and the scope.
+
 Pull requests carry the local gate as a checklist. Run it before opening one;
 the commands are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-checks-to-run-before-pushing).

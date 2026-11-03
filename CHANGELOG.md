@@ -14,6 +14,18 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Added
 
+- **`SECURITY.md`: a security policy.** Only the latest released minor gets
+  security fixes (`0.x` has no long-term support). Reports go through
+  GitHub's private vulnerability reporting, with no email address. In scope:
+  `rpg-core`, the `rpg-bridge` FFI boundary, the content loader, the CI and
+  release workflows and the release archives; the Godot engine and upstream
+  crates are reported upstream. It promises an acknowledgement in about a
+  week and no bounty. `CONTRIBUTING.md`, the README and `docs/README.md`
+  link it.
+- **`.github/CODEOWNERS` gives the whole tree to `@ZinniXX004`.** Its
+  comment records why review from code owners is deliberately not required:
+  GitHub does not let the author of a pull request approve it, so the rule
+  would block every pull request the owner opens.
 - **Every pull request gets its win-rate diff as a comment.** A new CI job,
   `balance diff`, runs the balance harness, 300 seeds per encounter, on the
   pull request merged into its base and on the base commit, and
@@ -45,6 +57,10 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Changed
 
+- **The task form's milestone dropdown follows the roadmap after `0.5.0`:**
+  `0.5.x patch`, `M4 (1.0.0)` and "Unplanned". The `0.4.x` option is gone.
+- **`src/game/rpg.gdextension` no longer suggests pinning a lower `api-*`
+  feature** to support an older engine. The project requires Godot 4.7.
 - **Markdown prose uses no dash as punctuation, and a check keeps it that
   way.** Every em dash, en dash and double hyphen used as punctuation in the
   tracked Markdown, 378 of them in ten files, became a comma, a colon, a
