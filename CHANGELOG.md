@@ -14,6 +14,14 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Added
 
+- **`SECURITY.md`: a security policy.** Only the latest released minor gets
+  security fixes (`0.x` has no long-term support). Reports go through
+  GitHub's private vulnerability reporting, with no email address. In scope:
+  `rpg-core`, the `rpg-bridge` FFI boundary, the content loader, the CI and
+  release workflows and the release archives; the Godot engine and upstream
+  crates are reported upstream. It promises an acknowledgement in about a
+  week and no bounty. `CONTRIBUTING.md`, the README and `docs/README.md`
+  link it.
 - **Every pull request gets its win-rate diff as a comment.** A new CI job,
   `balance diff`, runs the balance harness, 300 seeds per encounter, on the
   pull request merged into its base and on the base commit, and

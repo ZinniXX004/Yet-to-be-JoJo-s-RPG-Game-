@@ -46,6 +46,12 @@ is a failure.
 6. External data requires a provenance entry. See
    [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
+## Reporting a vulnerability
+
+Not in an issue or a pull request. Use GitHub's private vulnerability
+reporting, as [SECURITY.md](SECURITY.md) describes; it also lists the
+supported versions and what is in scope.
+
 ## Releasing
 
 See [docs/RELEASING.md](docs/RELEASING.md). Every fixation gets a version bump, a

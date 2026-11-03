@@ -27,6 +27,7 @@ the question it answers. Start with the [README](../README.md) for the overview.
 | [RELEASING.md](RELEASING.md) | Versioning rules, the two pull requests of a release, and the checklist that keeps a tag honest |
 | [TRIAGE.md](TRIAGE.md) | What a defect report or a balance finding must contain, labels and severity |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Branches, commits, what a pull request needs, and the design rules no change may break |
+| [SECURITY.md](../SECURITY.md) | Which versions get security fixes, how to report a vulnerability privately, and what is in scope |
 
 ## How the balance is measured
 
