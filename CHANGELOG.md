@@ -14,6 +14,27 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Added
 
+- **Tests for what cargo-mutants showed `rpg-core` leaving unchecked.**
+  cargo-mutants 27.1.0 made 719 mutants of `rpg-core`, and 149 of them
+  survived the suite. Several were rules a balance band cannot see: a debuff
+  that stopped lowering its stat, a tempo lock that never landed, a drain that
+  healed four times over and a different random generator each kept all seven
+  encounters inside their bands. 48 new tests (100 to 148) kill 118 of the
+  149. They pin the generator against reference SplitMix64 values,
+  `range_i32` and `chance` against a twin generator, status modifiers,
+  refreshes and stun, the tempo lock, drain, variance and crit, the cost of
+  waiting and the built-in guard, the Support heal threshold and the
+  Trickster's choices, and the events Godot reads: `downed` only on a lethal
+  hit, `status_expired` for the status that ran out, no heal or damage event
+  of zero. They also cover the report's verdict, rounding and JSON, the
+  outcome counters, the loader's defaults and reference check, and the exit
+  code of the `balance` binary, in the new `core/tests/balance_cli.rs`. The
+  31 survivors left are text formatting in that binary, three equivalent
+  mutants and five unused public accessors. Only tests changed: the balance
+  report is byte-identical, and the suite runs about 5% longer.
+  `docs/DEVELOPMENT.md` section 4.2 says how to rerun the tool, and
+  `.gitignore` keeps its `mutants.out/` out of Git.
+
 - **`SECURITY.md`: a security policy.** Only the latest released minor gets
   security fixes (`0.x` has no long-term support). Reports go through
   GitHub's private vulnerability reporting, with no email address. In scope:

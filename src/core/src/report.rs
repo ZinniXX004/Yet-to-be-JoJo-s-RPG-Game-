@@ -413,6 +413,106 @@ mod tests {
         assert_eq!(percent(0, 0), 0, "an empty run must not divide by zero");
     }
 
+    /// The rounding the band verdict reads, on an even battle count where
+    /// truncation and rounding disagree: 170 wins in 300 is 56.67%, so 57,
+    /// and one in eight is 12.5%, so 13. The class of defect #25 fixed.
+    #[test]
+    fn a_win_rate_rounds_up_from_a_half_rather_than_truncating() {
+        assert_eq!(percent(170, 300), 57);
+        assert_eq!(percent(169, 300), 56);
+        assert_eq!(percent(1, 8), 13);
+    }
+
+    #[test]
+    fn a_band_may_be_a_single_value() {
+        let exact = WinRateBand {
+            min_percent: 50,
+            max_percent: 50,
+        };
+        assert!(exact.issues().is_empty());
+        assert!(exact.contains(50));
+    }
+
+    #[test]
+    fn per_battle_columns_divide_by_battles_and_round_half_up() {
+        let mut fighter = stats();
+        fighter.battles = 4;
+        fighter.damage_dealt = 10;
+        fighter.damage_received = 9;
+        fighter.survived = 3;
+        assert_eq!(fighter.damage_dealt_per_battle(), 3, "2.5 rounds up");
+        assert_eq!(fighter.damage_received_per_battle(), 2, "2.25 rounds down");
+        assert_eq!(fighter.survival_percent(), 75);
+    }
+
+    /// The verdict the balance binary turns into its exit code: inside the
+    /// band and no stalemate, both.
+    #[test]
+    fn a_matchup_is_healthy_only_inside_its_band_and_without_a_stalemate() {
+        let healthy = report(Vec::new());
+        assert!(healthy.is_healthy());
+
+        let stalled = MatchupReport {
+            id: "matchup.stalled".to_string(),
+            stalemates: 1,
+            ..report(Vec::new())
+        };
+        assert!(stalled.within_band());
+        assert!(!stalled.is_healthy());
+
+        let outside = MatchupReport {
+            id: "matchup.outside".to_string(),
+            band: WinRateBand {
+                min_percent: 0,
+                max_percent: 90,
+            },
+            ..report(Vec::new())
+        };
+        assert!(!outside.is_healthy());
+
+        let mixed = BatchReport {
+            matchups: vec![healthy.clone(), stalled, outside],
+        };
+        assert!(!mixed.all_healthy());
+        let unhealthy: Vec<&str> = mixed
+            .unhealthy()
+            .iter()
+            .map(|report| report.id.as_str())
+            .collect();
+        assert_eq!(unhealthy, vec!["matchup.stalled", "matchup.outside"]);
+
+        let clean = BatchReport {
+            matchups: vec![healthy],
+        };
+        assert!(clean.all_healthy());
+        assert!(clean.unhealthy().is_empty());
+    }
+
+    #[test]
+    fn missing_every_roll_is_not_an_accounting_defect() {
+        let mut wild = stats();
+        wild.attack_rolls = 3;
+        wild.misses = 3;
+        assert!(report(vec![wild]).miscounted_combatants().is_empty());
+    }
+
+    /// `tools/balance_diff.py` reads this JSON in CI, so it must carry the
+    /// whole report and read back as the same one.
+    #[test]
+    fn the_json_report_reads_back_as_the_same_report() {
+        let mut fighter = stats();
+        fighter.battles = 1;
+        fighter.actions = 2;
+        fighter.record_skill_use("skill.strike");
+        fighter.record_skill_use("skill.strike");
+        let batch = BatchReport {
+            matchups: vec![report(vec![fighter])],
+        };
+        let json = batch.to_json().expect("a report serializes");
+        let back: BatchReport = serde_json::from_str(&json).expect("the JSON reads back");
+        assert_eq!(back, batch);
+    }
+
     #[test]
     fn a_band_is_inclusive_at_both_ends() {
         let band = WinRateBand {

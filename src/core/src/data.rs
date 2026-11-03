@@ -525,6 +525,68 @@ mod tests {
         assert_eq!(db.counts(), (0, 1, 1));
     }
 
+    /// `accuracy`, `tempo_cost` and a status's `chance` may be left out of
+    /// the content (the validator allows it, and `STRIKE` above does), so
+    /// their defaults are part of the schema: a sure hit, one full turn, a
+    /// sure application.
+    #[test]
+    fn omitted_optional_numbers_take_their_defaults() {
+        let hex = r#"{
+            "id": "skill.hex",
+            "name": "Hex",
+            "target": "one_enemy",
+            "effects": [{ "kind": "status", "status": "atk_down", "potency": 10, "duration": 2 }]
+        }"#;
+        let db = load("", &format!("{STRIKE}, {hex}"), HERO).expect("the content loads");
+        let strike = db.skill("skill.strike").expect("the strike loaded");
+        assert_eq!(strike.accuracy, 100);
+        assert_eq!(strike.tempo_cost, 1000);
+        match db
+            .skill("skill.hex")
+            .expect("the hex loaded")
+            .effects
+            .as_slice()
+        {
+            [Effect::Status { chance, .. }] => assert_eq!(*chance, 100),
+            other => panic!("expected one status effect, got {other:?}"),
+        }
+    }
+
+    /// The loader's own reference check, which is the only one on the path
+    /// from Godot: the bridge loads content without the Python validator.
+    #[test]
+    fn a_reference_to_missing_content_fails_the_load_and_names_it() {
+        let stand = r#"{ "id": "stand.ghost", "name": "Ghost", "skills": ["skill.nothing"] }"#;
+        let hero = HERO.replace(
+            r#""skills": ["skill.strike"]"#,
+            r#""stand": "stand.absent", "skills": ["skill.strike", "skill.missing"]"#,
+        );
+        match load(stand, STRIKE, &hero) {
+            Err(DataError::Invalid(issues)) => {
+                for expected in [
+                    "stand 'stand.ghost' references unknown skill 'skill.nothing'",
+                    "combatant 'pc.hero' references unknown stand 'stand.absent'",
+                    "combatant 'pc.hero' references unknown skill 'skill.missing'",
+                ] {
+                    assert!(issues.iter().any(|issue| issue == expected), "{issues:?}");
+                }
+            }
+            Err(other) => panic!("expected a validation error, got: {other}"),
+            Ok(_) => panic!("content with dangling references must not load"),
+        }
+    }
+
+    #[test]
+    fn a_load_error_prints_every_issue_on_its_own_line() {
+        let invalid = DataError::Invalid(vec!["first".to_string(), "second".to_string()]);
+        assert_eq!(
+            invalid.to_string(),
+            "content validation failed (2 issue(s)):\n  - first\n  - second\n"
+        );
+        let parse = DataError::Parse("skills: oops".to_string());
+        assert_eq!(parse.to_string(), "content parse error: skills: oops");
+    }
+
     /// The real defect: `npc.diavolo` wrote `resistances` from #17 to 0.4.1,
     /// serde dropped it, and the boss fought with no table.
     #[test]
