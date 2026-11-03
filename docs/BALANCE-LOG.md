@@ -2954,7 +2954,8 @@ Options for Q4, measured:
 
 ### Found and not fixed
 
-No issue was opened and no file outside this entry changed.
+This entry changed no file outside itself; Decisions, below, says where
+each item went.
 
 1. **Hostile statuses are priced at their raw `chance`, while `resolve.rs`
    rolls `chance - target will / 2`, floored at 5.** Round H (13:26 UTC)
@@ -2978,6 +2979,30 @@ code or from an earlier measurement held (C5, D1 to D3, H). Predictions of
 how the AI would answer a new price or budget mostly failed (B1 to B3, C3,
 C4, C11, E1 to E3, against C1 and C2 right), and nothing before Round F
 foresaw the focus threshold in `weaver_gambit`.
+
+### Decisions, recorded on 2026-11-03
+
+The owner chose from the options above and filed each question on the
+`1.0.0` milestone. Nothing in `data/` or the rules changes, so every figure
+in this entry stays the shipped game's.
+
+- **Q1, #81: option A.** `weaver_gambit` stays as it is, and an `hp` edit to
+  the Hex Weaver or the Iron Brawler counts as a change to that encounter, to
+  be re-measured. Not taken: B (`wither_hex` potency 30) and C (Brawler `atk`
+  165). Each pending scorer fix moves the encounter by 2.3 to 3.3 points, so
+  a retune measured on today's scorer would have to be redone.
+- **Q2, #82: option A now, and option B if the scorer is reopened.** The
+  guard's tempo stays unpriced. If `score_action` changes again, the `DefUp`
+  percentage (C2) goes first and B3 is measured on top of it as a change of
+  its own. Not taken: C, tempo for every skill, which fails three bands alone
+  and waits on the status-aware scorer.
+- **Q3, #83: option A.** Dio stays as he is. Not taken: B (`sp` 124: 63.3)
+  and C (a boss that obeys its scored choice every turn: 30.3, out of band).
+- **Q4, #84: option A, then option B.** `matchup.thug_solo` stays the engine
+  control, and pinning its report byte for byte in a test comes next, as a
+  change of its own. Not taken: C, since no Brawler fight is being retuned.
+- **The first item under "Found and not fixed" is #85.** The other two go to
+  a follow-up docs branch.
 
 ## Known limitations of the harness itself
 
