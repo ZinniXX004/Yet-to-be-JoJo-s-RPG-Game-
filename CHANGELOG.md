@@ -22,6 +22,10 @@ with prebuilt libraries. A section here without a tag is not a release.
   crates are reported upstream. It promises an acknowledgement in about a
   week and no bounty. `CONTRIBUTING.md`, the README and `docs/README.md`
   link it.
+- **`.github/CODEOWNERS` gives the whole tree to `@ZinniXX004`.** Its
+  comment records why review from code owners is deliberately not required:
+  GitHub does not let the author of a pull request approve it, so the rule
+  would block every pull request the owner opens.
 - **Every pull request gets its win-rate diff as a comment.** A new CI job,
   `balance diff`, runs the balance harness, 300 seeds per encounter, on the
   pull request merged into its base and on the base commit, and
