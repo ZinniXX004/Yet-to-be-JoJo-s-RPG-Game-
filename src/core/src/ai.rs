@@ -44,9 +44,10 @@
 //!
 //! # The price of SP
 //!
-//! Points on their own are only half of a decision. SP does not regenerate, so
-//! a battle hands each combatant one fixed budget and every skill spends from
-//! it; a skill worth 220 points at 45 SP and one worth 195 at 18 are not
+//! Points on their own are only half of a decision. SP comes back only at
+//! [`crate::state::SP_REGEN_PER_TURN`] a turn, so a battle hands each
+//! combatant its pool plus a slow trickle, and every skill spends from that;
+//! a skill worth 220 points at 45 SP and one worth 195 at 18 are not
 //! comparable until the SP is priced too.
 //!
 //! Treating "affordable" as "free" is not a rounding error. The harness

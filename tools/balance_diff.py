@@ -15,11 +15,13 @@ Win percentages here carry one decimal and are wins over battles, so they
 are finer than the harness's whole-percent win_rate_percent. The band verdict
 is the harness's own: win_rate_percent against the declared band, inclusive
 at both ends, exactly as WinRateBand::contains judges it. The interval is the
-Wilson score interval at 95 percent (z = 1.96), the one docs/BALANCE-LOG.md
-quotes. A change is printed in bold when it is larger than the half-width of
-the base interval, that is, when it is larger than the noise of one 300-seed
-run alone. An encounter present on one side only is listed as added or
-removed.
+Wilson score interval at 95 percent (z = 1.96). Not every interval in
+docs/BALANCE-LOG.md is: its #63 entry and its "Current status" table quote
+the normal approximation, which differs from Wilson by under half a point at
+the rates recorded there. A change is printed in bold when it is larger than
+the half-width of the base interval, that is, when it is larger than the noise
+of one 300-seed run alone. An encounter present on one side only is listed as
+added or removed.
 
 Floating point is fine here: this is a reporting tool outside rpg-core, and
 nothing it prints feeds back into a rule.

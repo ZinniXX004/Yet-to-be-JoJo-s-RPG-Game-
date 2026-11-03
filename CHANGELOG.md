@@ -178,6 +178,14 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 ### Fixed
 
+- **Two stale statements found by the M4 balance audit (#80).** The `ai.rs`
+  module documentation said SP does not regenerate; it has, 4 a turn
+  (`SP_REGEN_PER_TURN`), since #9. The `tools/balance_diff.py` docstring
+  said `docs/BALANCE-LOG.md` quotes the Wilson interval the script
+  computes; the log's #63 entry and "Current status" table quote the normal
+  approximation, which differs by under half a point at the rates recorded
+  there. Comments and a docstring only: the `balance` report is
+  byte-identical.
 - **`check_resistances` no longer says serde ignores a misspelled element**
   (#65). It never did: a `resist` table's keys are the `Element` enum, which
   has no fallback variant, so `"fyre"` has always failed the load with
