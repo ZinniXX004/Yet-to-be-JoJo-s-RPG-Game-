@@ -399,6 +399,49 @@ in [`.lycheeignore`](../.lycheeignore), one regex per line, each with the reason
 it is there. Add to that list only when the failure is genuinely outside the
 repository's control.
 
+### 4.2 Mutation testing (occasional, not a gate)
+
+[cargo-mutants](https://github.com/sourcefrog/cargo-mutants) changes one
+operator or return value of `rpg-core` at a time and runs the tests; a change
+that every test survives marks behaviour no test checks. Run it before a
+release or after a large rules change. Neither CI nor the check scripts run it.
+
+Install it once, with `+stable` for the same reason as `typos` above:
+
+```powershell
+cargo +stable install --locked cargo-mutants
+```
+
+Do not run it in your own checkout as it stands. Its default mode copies only
+the `src/` workspace to a temporary directory, the tests and the `balance`
+binary read `data/` from outside it with `include_str!`, and the unmutated
+baseline then fails to build, so nothing is tested. Run it in place instead,
+inside a throwaway clone, so that an interrupted run can never leave a mutated
+file in your working tree:
+
+```powershell
+git clone --shared . target\mutants\a
+cd target\mutants\a\src
+cargo mutants -p rpg-core --in-place --all-features --cargo-test-arg=--all-targets
+```
+
+```sh
+git clone --shared . target/mutants/a
+cd target/mutants/a/src
+cargo mutants -p rpg-core --in-place --all-features --cargo-test-arg=--all-targets
+```
+
+The two flags run the tests exactly as the gate does. Results land in
+`mutants.out/` next to `Cargo.toml`, and `missed.txt` is the list to read;
+`.gitignore` keeps that directory out of Git wherever it appears. A full run
+is about 720 mutants. To halve the wall time, make a second clone and run
+`--shard 0/2` in one and `--shard 1/2` in the other at the same time; that took
+11 minutes on a 4-core Linux machine. Delete `target/mutants` afterwards.
+
+A survivor in the text formatting of the `balance` binary (`print_report`,
+`verdict`, `truncate` and the like) needs no test: CI reads its exit code and
+its `--json` report, and `core/tests/balance_cli.rs` checks both.
+
 ---
 
 ## 5. Troubleshooting
