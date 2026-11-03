@@ -59,6 +59,8 @@ with prebuilt libraries. A section here without a tag is not a release.
 
 - **The task form's milestone dropdown follows the roadmap after `0.5.0`:**
   `0.5.x patch`, `M4 (1.0.0)` and "Unplanned". The `0.4.x` option is gone.
+- **`src/game/rpg.gdextension` no longer suggests pinning a lower `api-*`
+  feature** to support an older engine. The project requires Godot 4.7.
 - **Markdown prose uses no dash as punctuation, and a check keeps it that
   way.** Every em dash, en dash and double hyphen used as punctuation in the
   tracked Markdown, 378 of them in ten files, became a comma, a colon, a
