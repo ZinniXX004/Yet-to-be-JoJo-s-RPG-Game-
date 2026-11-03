@@ -154,6 +154,131 @@ jobs:
       - name: Every encounter inside its declared band
         run: cargo run -q -p rpg-core --bin balance
 
+  # The 300-seed win-rate diff of a pull request, posted as one comment.
+  #
+  # Informational, never a gate: it is deliberately NOT in the `needs` list of
+  # `ci`, so neither a failure nor a skip here can block a merge. The gate is
+  # the `balance` job above. This job only answers "what did this pull request
+  # do to every win rate", which the PR template used to ask authors to paste
+  # by hand.
+  #
+  # What is compared: actions/checkout on a pull_request event checks out the
+  # merge of the pull request into its base, and that merge is measured
+  # against the base commit itself (github.event.pull_request.base.sha), built
+  # in a git worktree so it reads its own compiled-in data/. The difference is
+  # then this pull request's effect and nothing else, even when the branch is
+  # behind its base.
+  #
+  # Security: the PR's own code is built and run here, so the token that can
+  # write comments is handed to the posting step only, and checkout does not
+  # persist it into .git/config. Every value a pull request controls reaches
+  # a script through env, never by expansion inside it (as in pr-guard.yml).
+  #
+  # Permissions, from docs.github.com/en/rest/issues/comments: listing issue
+  # comments needs "Issues" or "Pull requests" read, creating and updating
+  # one needs "Issues" or "Pull requests" write. pull-requests: write is the
+  # narrower of the two, since issues: write would also reach every issue.
+  # Fork and Dependabot pull requests get a read-only token; then the table
+  # stays in the job summary and the job still succeeds.
+  balance-diff:
+    name: balance diff
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history, so the base commit is present for the worktree
+          # without a second, authenticated fetch.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Resolved toolchain
+        working-directory: src
+        run: rustup show active-toolchain && cargo --version
+      # Its own cache: rust-cache keys on the job id, so sharing the balance
+      # job's cache would mean changing that job's key too.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src
+          key: balance-diff-ubuntu-latest
+      - name: Balance report of the head (the merge into the base)
+        working-directory: src
+        run: |
+          mkdir -p "$RUNNER_TEMP/balance"
+          cargo run -q -p rpg-core --bin balance -- --json --no-fail > "$RUNNER_TEMP/balance/head.json"
+      # Same target directory as the head build, so only rpg-core itself is
+      # rebuilt when Cargo.lock is unchanged.
+      - name: Balance report of the base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CARGO_TARGET_DIR: ${{ github.workspace }}/src/target
+        run: |
+          merge_base=$(git rev-parse HEAD^1)
+          if [ "$merge_base" != "$BASE_SHA" ]; then
+            echo "::warning::The merge commit's base parent is $merge_base, the event's base is $BASE_SHA; the diff may include base commits."
+          fi
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE_SHA"
+          cd "$RUNNER_TEMP/base/src"
+          cargo run -q -p rpg-core --bin balance -- --json --no-fail > "$RUNNER_TEMP/balance/base.json"
+      - name: Diff table into the job summary
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo "<!-- balance-diff -->"
+            echo "### Balance diff, 300 seeds per encounter"
+            echo
+            python tools/balance_diff.py \
+              --base-ref "${BASE_SHA:0:7}" --head-ref "${HEAD_SHA:0:7} merged into ${BASE_SHA:0:7}" \
+              "$RUNNER_TEMP/balance/base.json" "$RUNNER_TEMP/balance/head.json"
+            echo
+            echo "Posted by the \`balance diff\` job of \`.github/workflows/ci.yml\` and updated on every push. The author still explains the change in the pull request."
+          } > "$RUNNER_TEMP/balance/comment.md"
+          cat "$RUNNER_TEMP/balance/comment.md" >> "$GITHUB_STEP_SUMMARY"
+      # REST only. One comment per pull request: the previous one is found by
+      # the hidden marker on its first line and by its author, the Actions
+      # bot, then PATCHed; otherwise a new one is POSTed.
+      - name: Create or update the pull request comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ "$HEAD_REPO" != "$REPO" ] || [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "::notice::Read-only token for $HEAD_REPO by $ACTOR; the table is in the job summary only."
+            exit 0
+          fi
+          jq -n --rawfile body "$RUNNER_TEMP/balance/comment.md" '{body: $body}' > "$RUNNER_TEMP/balance/payload.json"
+          comment_id=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- balance-diff -->"))) | .id' \
+            | head -n 1)
+          if [ -n "$comment_id" ]; then
+            method=PATCH
+            endpoint="repos/$REPO/issues/comments/$comment_id"
+          else
+            method=POST
+            endpoint="repos/$REPO/issues/$PR_NUMBER/comments"
+          fi
+          if gh api --method "$method" "$endpoint" --input "$RUNNER_TEMP/balance/payload.json" \
+              --jq '.html_url' 2> "$RUNNER_TEMP/balance/gh.err"; then
+            exit 0
+          fi
+          cat "$RUNNER_TEMP/balance/gh.err" >&2
+          if grep -q "HTTP 403" "$RUNNER_TEMP/balance/gh.err"; then
+            echo "::warning::The token cannot write comments here (HTTP 403); the table is in the job summary only."
+            exit 0
+          fi
+          exit 1
+
   bridge:
     name: bridge (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

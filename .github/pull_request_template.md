@@ -11,9 +11,11 @@ Closes #
 ## Evidence
 
 <!--
-Paste the output that proves it works. For a balance change, paste the
-balance report before and after. For a defect fix, name the test that
-fails without the fix.
+Paste the output that proves it works. For a defect fix, name the test that
+fails without the fix. For a balance change, CI's `balance diff` job posts
+the 300-seed win-rate table, base against this pull request, as a comment;
+do not paste it again, but explain here which rows moved, why, and whether
+the move is beyond the base interval.
 -->
 
 ## Local gate
