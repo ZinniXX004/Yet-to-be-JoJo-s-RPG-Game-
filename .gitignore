@@ -22,6 +22,9 @@ src/game/data/
 **/target/
 **/*.rs.bk
 *.pdb
+# cargo-mutants output, at any depth (docs/DEVELOPMENT.md section 4.2)
+mutants.out/
+mutants.out.old/
 
 # NOTE: Cargo.lock is intentionally NOT ignored.
 # This repo builds a binary (a game), so the lockfile must be committed

@@ -22,7 +22,7 @@ override it locally.
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), scoped
 by layer: `feat(core):`, `fix(bridge):`, `ci:`, `docs(readme):`.
 
-The body should explain *why* a change happened — the diff already shows
+The body should explain *why* a change happened; the diff already shows
 *what* changed.
 
 ## Before opening a PR
@@ -45,6 +45,12 @@ is a failure.
    seed, that is a bug, not a flaky test.
 6. External data requires a provenance entry. See
    [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
+
+## Reporting a vulnerability
+
+Not in an issue or a pull request. Use GitHub's private vulnerability
+reporting, as [SECURITY.md](SECURITY.md) describes; it also lists the
+supported versions and what is in scope.
 
 ## Releasing
 

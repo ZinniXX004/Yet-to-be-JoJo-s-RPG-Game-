@@ -35,8 +35,8 @@ not ad hoc.
 ## 2. Content schema provenance fields
 
 Any entry that is ever derived from an external source must carry its own
-provenance. Reserved for `SkillDef`, `StandDef` and `CombatantDef`, though
-not yet declared in them (see below):
+provenance. `SkillDef`, `StandDef` and `CombatantDef` declare it, as the
+optional field `provenance` (`Provenance` in `src/core/src/data.rs`):
 
 ```json
 {
@@ -53,15 +53,21 @@ not yet declared in them (see below):
 }
 ```
 
-Entries without a `provenance` block are, by definition, `hand-authored`. Since
-0.4.1 the validator rejects any key it does not know, and `provenance` on these
-three kinds of entry is the one it accepts beyond what the game reads. It
-checks nothing inside the block yet, and the loader drops the block, because
-the structs in `src/core/src/data.rs` do not declare it. Declaring it, and
-making the loader refuse unknown keys as the validator does, is a schema
-change and is planned for 0.5.0. When the first derived entry lands, add a
-rule that requires `source_url` and `retrieved` whenever
-`origin != "hand-authored"`.
+Entries without a `provenance` block are, by definition, `hand-authored`.
+Inside the block, `origin` is required and is one of the three values above,
+spelled with a hyphen; every other field is an optional string. No rule reads
+the block: it changes no number in any battle.
+
+Since 0.5.0 (#65) the loader and the validator refuse the same keys. Every
+content struct is `#[serde(deny_unknown_fields)]`, so a key the game does not
+declare, at any level and inside `provenance` too, stops the content from
+loading and the error names the key; `validate_data.py` reports the same keys,
+every one in every file at once, along with an unknown `origin` and a field
+that is not a string. Until 0.5.0 the loader dropped an unknown key without a
+word, which is how `npc.diavolo` lost its resistance table from #17 to 0.4.1.
+
+When the first derived entry lands, add a rule that requires `source_url` and
+`retrieved` whenever `origin != "hand-authored"`.
 
 ---
 

@@ -39,8 +39,11 @@ fn default_max_turns() -> u64 {
 /// considered acceptable.
 ///
 /// This is content, not code. Adding an encounter must never require a
-/// recompile, so the whole struct is deserialized from `data/matchups.json`.
+/// recompile, so the whole struct is deserialized from `data/matchups.json`,
+/// and an unknown key fails the parse rather than being dropped, as on every
+/// struct in [`crate::data`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Matchup {
     pub id: Id,
     #[serde(default)]
@@ -322,6 +325,7 @@ mod tests {
                 element: Element::Physical,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -346,6 +350,7 @@ mod tests {
             // a resistance here would change those figures without changing
             // anything the tests claim to measure.
             resist: Resistances::new(),
+            provenance: None,
         }
     }
 
@@ -380,6 +385,150 @@ mod tests {
             min_percent: 0,
             max_percent: 100,
         }
+    }
+
+    /// `max_turn` for `max_turns` used to load as a 500-turn default without a
+    /// word; the encounter would run, under a budget nobody chose.
+    #[test]
+    fn a_misspelled_matchup_key_fails_the_parse_and_names_the_key() {
+        let json = r#"[{
+            "id": "m.typo",
+            "party": ["hero"],
+            "foes": ["weakling"],
+            "seeds": [1],
+            "band": { "min_percent": 0, "max_percent": 100 },
+            "max_turn": 40
+        }]"#;
+        match parse_matchups(json) {
+            Err(DataError::Parse(message)) => {
+                assert!(message.starts_with("matchups:"), "{message}");
+                assert!(message.contains("unknown field `max_turn`"), "{message}");
+            }
+            Err(other) => panic!("expected a parse error, got: {other}"),
+            Ok(_) => panic!("a matchup with an unknown key must not parse"),
+        }
+    }
+
+    /// The last #65 gap: `deny_unknown_fields` on `Matchup` does not reach the
+    /// band nested inside it, so `target` used to load and vanish.
+    #[test]
+    fn an_unknown_key_inside_a_band_fails_the_parse_and_names_the_key() {
+        let json = r#"[{
+            "id": "m.target",
+            "party": ["hero"],
+            "foes": ["weakling"],
+            "seeds": [1],
+            "band": { "min_percent": 45, "max_percent": 90, "target": 70 }
+        }]"#;
+        match parse_matchups(json) {
+            Err(DataError::Parse(message)) => {
+                assert!(message.starts_with("matchups:"), "{message}");
+                assert!(message.contains("unknown field `target`"), "{message}");
+            }
+            Err(other) => panic!("expected a parse error, got: {other}"),
+            Ok(_) => panic!("a band with an unknown key must not parse"),
+        }
+    }
+
+    #[test]
+    fn a_matchup_without_max_turns_gets_a_budget_of_five_hundred() {
+        let json = r#"[{
+            "id": "m.default",
+            "party": ["hero"],
+            "foes": ["weakling"],
+            "seeds": [1],
+            "band": { "min_percent": 0, "max_percent": 100 }
+        }]"#;
+        let parsed = parse_matchups(json).expect("a matchup without max_turns parses");
+        assert_eq!(parsed[0].max_turns, 500);
+    }
+
+    #[test]
+    fn a_matchup_is_labelled_by_its_name_or_else_by_its_id() {
+        let mut declared = matchup("m.weak", "weakling", wide_band());
+        assert_eq!(declared.label(), "m.weak");
+        declared.name = "Weakling".to_string();
+        assert_eq!(declared.label(), "Weakling");
+    }
+
+    /// Wins, losses and stalemates each counted where they happen, and
+    /// survival per combatant. The stalemate case is the one the shipped
+    /// encounters never produce, so without it `no_encounter_stalls` could
+    /// not tell a stall from a counter that never moves.
+    #[test]
+    fn every_outcome_and_every_survivor_is_counted() {
+        let db = db();
+
+        let won = run_matchup(&db, &matchup("m.weak", "weakling", wide_band()))
+            .expect("matchup must run");
+        assert_eq!((won.wins, won.losses, won.stalemates), (4, 0, 0));
+        assert_eq!(won.combatants[0].survived, 4);
+        assert_eq!(won.combatants[1].survived, 0);
+
+        let lost =
+            run_matchup(&db, &matchup("m.titan", "titan", wide_band())).expect("matchup must run");
+        assert_eq!((lost.wins, lost.losses, lost.stalemates), (0, 4, 0));
+        assert_eq!(lost.combatants[0].survived, 0);
+        assert_eq!(lost.combatants[1].survived, 4);
+
+        // Two 400 HP heroes trading 95-point hits cannot finish in one turn.
+        let mirror = Matchup {
+            foes: vec!["hero".to_string()],
+            max_turns: 1,
+            ..matchup("m.mirror", "hero", wide_band())
+        };
+        let stalled = run_matchup(&db, &mirror).expect("matchup must run");
+        assert_eq!(
+            (stalled.wins, stalled.losses, stalled.stalemates),
+            (0, 0, 4)
+        );
+        assert!(!stalled.is_healthy());
+    }
+
+    /// Status damage, SP spent and misses, credited from the event stream
+    /// to the combatant each one belongs to.
+    #[test]
+    fn status_damage_spending_and_misses_are_credited_to_their_owner() {
+        let mut stats = vec![
+            CombatantStats::new("a", "A", Team::Party),
+            CombatantStats::new("b", "B", Team::Foe),
+        ];
+        let events = vec![
+            Event::StatusDamaged {
+                target: 1,
+                status: StatusKind::Bleed,
+                amount: 7,
+            },
+            Event::StatusDamaged {
+                target: 1,
+                status: StatusKind::Bleed,
+                amount: 5,
+            },
+            Event::SpConsumed {
+                actor: 0,
+                amount: 12,
+            },
+            Event::SpConsumed {
+                actor: 0,
+                amount: 3,
+            },
+            Event::Missed {
+                actor: 0,
+                target: 1,
+            },
+            Event::Missed {
+                actor: 0,
+                target: 1,
+            },
+        ];
+        accumulate(&mut stats, &events);
+
+        assert_eq!(stats[1].damage_received, 12);
+        assert_eq!(stats[1].status_damage_received, 12);
+        assert_eq!(stats[0].damage_received, 0);
+        assert_eq!(stats[0].sp_spent, 15);
+        assert_eq!((stats[0].misses, stats[0].attack_rolls), (2, 2));
+        assert_eq!((stats[1].misses, stats[1].attack_rolls), (0, 0));
     }
 
     #[test]

@@ -357,6 +357,7 @@ mod tests {
                 element: Element::Physical,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -374,6 +375,7 @@ mod tests {
             // an uncontrolled variable in all three. Resistance behaviour is
             // tested where it is implemented, in resolve.rs.
             resist: Resistances::new(),
+            provenance: None,
         }
     }
 
@@ -553,6 +555,121 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event, Event::Healed { .. })),
             "no event may credit a heal nobody performed: {events:?}"
+        );
+    }
+
+    /// Two combatants too sturdy to finish each other inside a short budget.
+    fn standoff() -> Battle {
+        let db = Database::new(
+            vec![],
+            vec![strike()],
+            vec![
+                combatant("hero", Team::Party, 10_000, 100, 120),
+                combatant("foe", Team::Foe, 10_000, 100, 40),
+            ],
+        )
+        .expect("fixture content must be valid");
+        Battle::new(db, &["hero".to_string()], &["foe".to_string()], 42)
+            .expect("fixture battle must build")
+    }
+
+    /// Speed 120 against a threshold of 1000 is ready on the ninth tick, and
+    /// the scheduler says so in the event the presentation layer reads.
+    #[test]
+    fn the_scheduler_counts_the_ticks_before_a_turn() {
+        let mut battle = battle(120, 40);
+        assert_eq!(battle.advance(), Phase::AwaitingCommand { actor: 0 });
+        assert_eq!(battle.state.tick, 9);
+        assert!(battle
+            .log()
+            .iter()
+            .any(|event| matches!(event, Event::TurnStarted { actor: 0, tick: 9 })));
+    }
+
+    #[test]
+    fn an_unattended_battle_stops_at_its_turn_budget() {
+        let mut battle = standoff();
+        assert_eq!(battle.run_to_completion(3), BattleOutcome::Stalemate);
+        assert_eq!(battle.state.turn, 3);
+        assert!(matches!(
+            battle.log().last(),
+            Some(Event::BattleEnded {
+                outcome: BattleOutcome::Stalemate
+            })
+        ));
+    }
+
+    /// A stunned actor is skipped when its turn comes, pays a full turn of
+    /// tempo for it, and the stun runs out on that skipped turn.
+    #[test]
+    fn a_stunned_actor_loses_its_turn_and_pays_for_it() {
+        let mut battle = battle(120, 40);
+        battle.state.combatants[0].apply_status(StatusKind::Stun, 0, 1);
+
+        assert_eq!(battle.advance(), Phase::AwaitingCommand { actor: 0 });
+        assert!(battle.log().iter().any(|event| matches!(
+            event,
+            Event::TurnSkipped { actor: 0, reason } if reason == "stun"
+        )));
+        // Skipped at tick 9 with 1080 tempo, left with 80, ready again at 17.
+        assert_eq!(battle.state.turn, 1);
+        assert_eq!(battle.state.tick, 17);
+        assert!(!battle.state.combatants[0].has(StatusKind::Stun));
+    }
+
+    #[test]
+    fn a_status_expires_on_its_bearers_turn_and_the_event_names_it() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        battle.state.combatants[actor].apply_status(StatusKind::AtkUp, 10, 1);
+        battle.state.combatants[actor].apply_status(StatusKind::DefUp, 10, 3);
+        battle.take_events();
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+        let expired: Vec<StatusKind> = battle
+            .take_events()
+            .iter()
+            .filter_map(|event| match event {
+                Event::StatusExpired { target: 0, status } => Some(*status),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(expired, vec![StatusKind::AtkUp]);
+        let left: Vec<(StatusKind, u8)> = battle.state.combatants[actor]
+            .statuses
+            .iter()
+            .map(|status| (status.kind, status.remaining))
+            .collect();
+        assert_eq!(left, vec![(StatusKind::DefUp, 2)]);
+    }
+
+    /// No bleed means no bleed tick, and regeneration at full HP restores
+    /// nothing, so neither may put a zero-amount event in front of the UI.
+    #[test]
+    fn a_status_tick_that_changes_nothing_is_not_logged() {
+        let mut battle = battle(120, 40);
+        let Phase::AwaitingCommand { actor } = battle.advance() else {
+            panic!("expected a command request");
+        };
+        battle.state.combatants[actor].apply_status(StatusKind::Regen, 9, 3);
+        battle.take_events();
+
+        battle
+            .submit(&Command::Attack { target: 1 })
+            .expect("attacking the living foe is legal");
+        let events = battle.take_events();
+
+        assert!(
+            !events.iter().any(|event| matches!(
+                event,
+                Event::StatusDamaged { .. } | Event::StatusHealed { .. }
+            )),
+            "{events:?}"
         );
     }
 }

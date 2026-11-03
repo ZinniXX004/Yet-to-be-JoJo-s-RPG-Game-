@@ -20,9 +20,9 @@
     Windows PowerShell 5.1 compatible; pwsh is not required.
 
 .PARAMETER Fast
-    Formatting, content and spelling only. Takes seconds, and covers every
-    check that has actually failed in CI so far. This is what the pre-push hook
-    runs. Run the full gate before opening a pull request.
+    Formatting, content, spelling, prose punctuation and the balance diff
+    self-test only. Takes seconds, and covers every check that has actually
+    failed in CI so far. This is what the pre-push hook runs. Run the full gate before opening a pull request.
 
 .EXAMPLE
     .\tools\check.ps1
@@ -89,19 +89,21 @@ function Invoke-Python {
 }
 
 # The typos version CI uses, read from ci.yml so a Dependabot bump needs no edit here.
+# The hint says +stable because typos-cli 1.51.1 needs rustc 1.95, newer than
+# rust-toolchain.toml's 1.94.1.
 $typosPin = $null
 $pinLine = Select-String -Path '.github/workflows/ci.yml' -Pattern 'crate-ci/typos@v([0-9][0-9.]*)' | Select-Object -First 1
 if ($pinLine) { $typosPin = $pinLine.Matches[0].Groups[1].Value }
 
 function Invoke-Typos {
     if (-not (Get-Command typos -ErrorAction SilentlyContinue)) {
-        throw "typos not installed. CI pins crate-ci/typos@v${typosPin}: cargo install typos-cli --version $typosPin --locked"
+        throw "typos not installed. CI pins crate-ci/typos@v${typosPin}: cargo +stable install typos-cli --version $typosPin --locked"
     }
     $have = ((& typos --version) -split ' ')[1]
     if ($typosPin -and $have -ne $typosPin) {
         Write-Host "warning: local typos $have, CI pins $typosPin. Dictionaries differ between releases," -ForegroundColor Yellow
         Write-Host "         so a pass here may still fail in CI (PR #36). To match:" -ForegroundColor Yellow
-        Write-Host "         cargo install typos-cli --version $typosPin --locked" -ForegroundColor Yellow
+        Write-Host "         cargo +stable install typos-cli --version $typosPin --locked" -ForegroundColor Yellow
     }
     & typos
 }
@@ -132,6 +134,8 @@ Invoke-Step 'content: tools/probe mirrors data/' {
 
 # --- job: spelling ---
 Invoke-Step 'spelling (typos)' { Invoke-Typos }
+Invoke-Step 'prose punctuation' { Invoke-Python tools/check_prose.py }
+Invoke-Step 'balance diff: self-test' { Invoke-Python tools/balance_diff.py --self-test }
 
 if (-not $Fast) {
     # --- job: core ---

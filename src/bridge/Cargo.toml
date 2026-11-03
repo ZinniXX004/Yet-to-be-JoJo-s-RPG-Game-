@@ -22,9 +22,11 @@ serde_json = { workspace = true }
 # time. Bump this deliberately, read the migration guide, and note it in
 # CHANGELOG.md.
 #
-# godot 0.5.4 requires rustc >= 1.94.0, unchanged from 0.5.3, so the pinned
-# 1.94.1 toolchain still builds it. 0.5.4 also adds the api-4-7 level, so the API
-# version this compiles against may no longer be 4.6. No cargo command reports
-# that number: read the godot-rust startup line in Godot and keep
+# godot 0.5.5 requires rustc >= 1.94 (its rust-version), unchanged since 0.5.3,
+# so the pinned 1.94.1 toolchain still builds it. 0.5.4 added the api-4-7 level,
+# but the default level is still 4.6: with 0.5.5 on Godot 4.7.1 the startup line
+# reads "Initialize godot-rust (API v4.6.stable.official, runtime
+# v4.7.1.stable.official, ...)" (2026-11-02). No cargo command reports that
+# number: after every bump, read the startup line in Godot and keep
 # compatibility_minimum in src/game/rpg.gdextension equal to it.
-godot = "=0.5.4"
+godot = "=0.5.5"

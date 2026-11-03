@@ -28,7 +28,15 @@ impl Team {
     }
 }
 
+/// Every content struct below refuses a key it does not declare.
+///
+/// serde's default is to drop one, and that is how `npc.diavolo` fought from
+/// #17 until 0.4.1 with no resistance table: its data said `"resistances"`, the
+/// struct reads `resist`, and nothing complained. `validate_data.py` rejects an
+/// unknown key too, so the two checks agree, and a key only one of them knows
+/// fails the other one in CI instead of drifting apart silently (#65).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Stats {
     #[serde(default)]
     pub hp: i32,
@@ -128,8 +136,10 @@ fn default_tempo_cost() -> u32 {
     crate::state::TEMPO_THRESHOLD
 }
 
+/// `deny_unknown_fields` applies per variant here: a `damage` effect may carry
+/// `kind`, `power`, `element` and `variance`, and nothing else.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Effect {
     Damage {
         power: i32,
@@ -160,7 +170,47 @@ pub enum Effect {
     },
 }
 
+/// Where an entry's numbers came from; see `docs/DATA-SOURCES.md` section 2.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProvenanceOrigin {
+    /// Written for this project. An entry with no `provenance` block is this
+    /// by definition, so the block is only worth writing for the other two.
+    HandAuthored,
+    /// Computed from an external source by a stated transform.
+    Derived,
+    /// Copied from an external source as it stands.
+    Imported,
+}
+
+/// The optional `provenance` block on a skill, stand or combatant.
+///
+/// Inert: no rule reads it. It is declared, rather than tolerated as an unknown
+/// key, so that the loader can refuse every other unknown key and still load an
+/// entry that documents its source. `origin` is required because a block that
+/// does not say what kind of source it describes says nothing; the other
+/// fields are free text, and which of them a `derived` or `imported` entry
+/// must fill in is a validator rule that waits for the first such entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Provenance {
+    pub origin: ProvenanceOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_url: Option<String>,
+    /// The date the source was read, as written in the file. Kept a string:
+    /// the core has no clock and no use for a parsed date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retrieved: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub licence: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SkillDef {
     pub id: Id,
     pub name: String,
@@ -174,9 +224,12 @@ pub struct SkillDef {
     #[serde(default = "default_tempo_cost")]
     pub tempo_cost: u32,
     pub effects: Vec<Effect>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StandDef {
     pub id: Id,
     pub name: String,
@@ -186,6 +239,8 @@ pub struct StandDef {
     pub bonus: Stats,
     #[serde(default)]
     pub skills: Vec<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,6 +253,7 @@ pub enum AiProfile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CombatantDef {
     pub id: Id,
     pub name: String,
@@ -214,6 +270,8 @@ pub struct CombatantDef {
     /// it does not make its user fireproof.
     #[serde(default)]
     pub resist: Resistances,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
 }
 
 impl CombatantDef {
@@ -407,5 +465,247 @@ impl Database {
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const STRIKE: &str = r#"{
+        "id": "skill.strike",
+        "name": "Strike",
+        "target": "one_enemy",
+        "effects": [{ "kind": "damage", "power": 100, "element": "physical" }]
+    }"#;
+
+    const HERO: &str = r#"{
+        "id": "pc.hero",
+        "name": "Hero",
+        "team": "party",
+        "stats": { "hp": 100, "atk": 10, "def": 10, "spd": 100, "will": 10 },
+        "skills": ["skill.strike"]
+    }"#;
+
+    /// A block with every field `docs/DATA-SOURCES.md` section 2 names.
+    const FULL_PROVENANCE: &str = r#"{
+        "origin": "derived",
+        "source": "Example wiki",
+        "source_url": "https://example.org/stand",
+        "retrieved": "2026-07-27",
+        "licence": "CC BY-SA 4.0",
+        "transform": "speed rank A mapped to spd 120"
+    }"#;
+
+    fn load(stands: &str, skills: &str, combatants: &str) -> Result<Database, DataError> {
+        Database::from_json(
+            &format!("[{stands}]"),
+            &format!("[{skills}]"),
+            &format!("[{combatants}]"),
+        )
+    }
+
+    /// The parse message for `json`, which must fail to load.
+    fn parse_error(stands: &str, skills: &str, combatants: &str) -> String {
+        match load(stands, skills, combatants) {
+            Err(DataError::Parse(message)) => message,
+            Err(other) => panic!("expected a parse error, got: {other}"),
+            Ok(_) => panic!("content with an unknown key must not load"),
+        }
+    }
+
+    /// Inserts `extra` as the first key of the JSON object `object`.
+    fn with_key(object: &str, extra: &str) -> String {
+        object.replacen('{', &format!("{{ {extra},"), 1)
+    }
+
+    #[test]
+    fn the_fixture_loads_without_provenance() {
+        let db = load("", STRIKE, HERO).expect("fixture content must load");
+        assert_eq!(db.counts(), (0, 1, 1));
+    }
+
+    /// `accuracy`, `tempo_cost` and a status's `chance` may be left out of
+    /// the content (the validator allows it, and `STRIKE` above does), so
+    /// their defaults are part of the schema: a sure hit, one full turn, a
+    /// sure application.
+    #[test]
+    fn omitted_optional_numbers_take_their_defaults() {
+        let hex = r#"{
+            "id": "skill.hex",
+            "name": "Hex",
+            "target": "one_enemy",
+            "effects": [{ "kind": "status", "status": "atk_down", "potency": 10, "duration": 2 }]
+        }"#;
+        let db = load("", &format!("{STRIKE}, {hex}"), HERO).expect("the content loads");
+        let strike = db.skill("skill.strike").expect("the strike loaded");
+        assert_eq!(strike.accuracy, 100);
+        assert_eq!(strike.tempo_cost, 1000);
+        match db
+            .skill("skill.hex")
+            .expect("the hex loaded")
+            .effects
+            .as_slice()
+        {
+            [Effect::Status { chance, .. }] => assert_eq!(*chance, 100),
+            other => panic!("expected one status effect, got {other:?}"),
+        }
+    }
+
+    /// The loader's own reference check, which is the only one on the path
+    /// from Godot: the bridge loads content without the Python validator.
+    #[test]
+    fn a_reference_to_missing_content_fails_the_load_and_names_it() {
+        let stand = r#"{ "id": "stand.ghost", "name": "Ghost", "skills": ["skill.nothing"] }"#;
+        let hero = HERO.replace(
+            r#""skills": ["skill.strike"]"#,
+            r#""stand": "stand.absent", "skills": ["skill.strike", "skill.missing"]"#,
+        );
+        match load(stand, STRIKE, &hero) {
+            Err(DataError::Invalid(issues)) => {
+                for expected in [
+                    "stand 'stand.ghost' references unknown skill 'skill.nothing'",
+                    "combatant 'pc.hero' references unknown stand 'stand.absent'",
+                    "combatant 'pc.hero' references unknown skill 'skill.missing'",
+                ] {
+                    assert!(issues.iter().any(|issue| issue == expected), "{issues:?}");
+                }
+            }
+            Err(other) => panic!("expected a validation error, got: {other}"),
+            Ok(_) => panic!("content with dangling references must not load"),
+        }
+    }
+
+    #[test]
+    fn a_load_error_prints_every_issue_on_its_own_line() {
+        let invalid = DataError::Invalid(vec!["first".to_string(), "second".to_string()]);
+        assert_eq!(
+            invalid.to_string(),
+            "content validation failed (2 issue(s)):\n  - first\n  - second\n"
+        );
+        let parse = DataError::Parse("skills: oops".to_string());
+        assert_eq!(parse.to_string(), "content parse error: skills: oops");
+    }
+
+    /// The real defect: `npc.diavolo` wrote `resistances` from #17 to 0.4.1,
+    /// serde dropped it, and the boss fought with no table.
+    #[test]
+    fn a_misspelled_combatant_key_fails_the_load_and_names_the_key() {
+        let hero = with_key(HERO, r#""resistances": { "physical": 20 }"#);
+        let message = parse_error("", STRIKE, &hero);
+        assert!(message.starts_with("combatants:"), "{message}");
+        assert!(message.contains("unknown field `resistances`"), "{message}");
+    }
+
+    /// The attribute is per variant on the internally tagged enum: `potency`
+    /// is a key of `status`, not of `damage`.
+    #[test]
+    fn a_key_of_another_effect_kind_fails_the_load_and_names_the_key() {
+        let skill = STRIKE.replace(r#""power": 100"#, r#""power": 100, "potency": 30"#);
+        let message = parse_error("", &skill, HERO);
+        assert!(message.starts_with("skills:"), "{message}");
+        assert!(message.contains("unknown field `potency`"), "{message}");
+    }
+
+    #[test]
+    fn a_misspelled_stat_fails_the_load_and_names_the_key() {
+        let hero = HERO.replace(r#""spd": 100"#, r#""spd": 100, "speed": 120"#);
+        let message = parse_error("", STRIKE, &hero);
+        assert!(message.contains("unknown field `speed`"), "{message}");
+    }
+
+    #[test]
+    fn a_misspelled_stand_key_fails_the_load_and_names_the_key() {
+        let stand = r#"{ "id": "stand.example", "name": "Example", "skill": ["skill.strike"] }"#;
+        let message = parse_error(stand, STRIKE, HERO);
+        assert!(message.starts_with("stands:"), "{message}");
+        assert!(message.contains("unknown field `skill`"), "{message}");
+    }
+
+    #[test]
+    fn a_full_provenance_block_loads_on_all_three_kinds() {
+        let block = format!(r#""provenance": {FULL_PROVENANCE}"#);
+        let stand = with_key(
+            r#"{ "id": "stand.example", "name": "Example", "skills": ["skill.strike"] }"#,
+            &block,
+        );
+        let skill = with_key(STRIKE, &block);
+        let hero = with_key(HERO, &block);
+        let db = load(&stand, &skill, &hero).expect("a declared provenance block must load");
+
+        let expected = Provenance {
+            origin: ProvenanceOrigin::Derived,
+            source: Some("Example wiki".to_string()),
+            source_url: Some("https://example.org/stand".to_string()),
+            retrieved: Some("2026-07-27".to_string()),
+            licence: Some("CC BY-SA 4.0".to_string()),
+            transform: Some("speed rank A mapped to spd 120".to_string()),
+        };
+        let stand = db.stand("stand.example").expect("stand");
+        let skill = db.skill("skill.strike").expect("skill");
+        let hero = db.combatant("pc.hero").expect("combatant");
+        assert_eq!(stand.provenance.as_ref(), Some(&expected));
+        assert_eq!(skill.provenance.as_ref(), Some(&expected));
+        assert_eq!(hero.provenance.as_ref(), Some(&expected));
+    }
+
+    #[test]
+    fn every_origin_value_loads_under_its_documented_spelling() {
+        for (text, origin) in [
+            ("hand-authored", ProvenanceOrigin::HandAuthored),
+            ("derived", ProvenanceOrigin::Derived),
+            ("imported", ProvenanceOrigin::Imported),
+        ] {
+            let block = format!(r#""provenance": {{ "origin": "{text}" }}"#);
+            let db = load("", STRIKE, &with_key(HERO, &block)).expect(text);
+            let provenance = db.combatant("pc.hero").and_then(|c| c.provenance.clone());
+            assert_eq!(provenance.map(|p| p.origin), Some(origin), "{text}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_key_inside_provenance_fails_the_load_and_names_the_key() {
+        let block = r#""provenance": { "origin": "derived", "url": "https://example.org" }"#;
+        let message = parse_error("", &with_key(STRIKE, block), HERO);
+        assert!(message.contains("unknown field `url`"), "{message}");
+    }
+
+    #[test]
+    fn an_unknown_origin_fails_the_load() {
+        let block = r#""provenance": { "origin": "hand_authored" }"#;
+        let message = parse_error("", STRIKE, &with_key(HERO, block));
+        assert!(
+            message.contains("unknown variant `hand_authored`"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn a_provenance_block_without_origin_fails_the_load() {
+        let block = r#""provenance": { "source": "Example wiki" }"#;
+        let message = parse_error("", STRIKE, &with_key(HERO, block));
+        assert!(message.contains("missing field `origin`"), "{message}");
+    }
+
+    /// An entry without the block serialises exactly as it did before the
+    /// field existed, so nothing that writes these structs back out changes.
+    #[test]
+    fn nothing_is_serialised_when_provenance_is_absent() {
+        let db = load("", STRIKE, HERO).expect("fixture content must load");
+        let skill = serde_json::to_value(db.skill("skill.strike")).expect("skill");
+        let hero = serde_json::to_value(db.combatant("pc.hero")).expect("combatant");
+        assert!(skill.get("provenance").is_none(), "{skill}");
+        assert!(hero.get("provenance").is_none(), "{hero}");
+    }
+
+    #[test]
+    fn only_the_fields_present_are_serialised_inside_provenance() {
+        let block = r#""provenance": { "origin": "imported", "licence": "CC0" }"#;
+        let db = load("", STRIKE, &with_key(HERO, block)).expect("must load");
+        let hero = serde_json::to_value(db.combatant("pc.hero")).expect("combatant");
+        assert_eq!(
+            hero["provenance"],
+            serde_json::json!({ "origin": "imported", "licence": "CC0" })
+        );
     }
 }

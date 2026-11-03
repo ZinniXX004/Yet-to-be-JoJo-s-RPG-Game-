@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Content as data</title>
+  <path d="M22 10c-6 0-8 3-8 8v7c0 4-2 6-6 7 4 1 6 3 6 7v7c0 5 2 8 8 8" fill="none" stroke="#2EC4D6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 10c6 0 8 3 8 8v7c0 4 2 6 6 7-4 1-6 3-6 7v7c0 5-2 8-8 8" fill="none" stroke="#2EC4D6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="24" y="22" width="16" height="5" rx="2.5" fill="#E0338C"/>
+  <rect x="24" y="30" width="12" height="5" rx="2.5" fill="#F5B82E"/>
+  <rect x="24" y="38" width="16" height="5" rx="2.5" fill="#7B4DFF"/>
+</svg>

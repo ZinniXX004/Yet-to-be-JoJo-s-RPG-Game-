@@ -1,0 +1,16 @@
+# Code owners: who is asked to review a pull request that touches a path.
+#
+# The whole tree belongs to the maintainer. GitHub requests his review on
+# every pull request someone else opens; it does not make that review
+# mandatory.
+#
+# "Require review from Code Owners" is deliberately NOT enabled in the branch
+# rules for main or development. This is a one-person project and GitHub does
+# not let the author of a pull request approve it, so with that rule on, no
+# pull request the owner opens could ever merge. The required `ci` check is
+# the gate instead (CONTRIBUTING.md, docs/RELEASING.md).
+#
+# The last matching pattern wins. Add narrower lines below this one only when
+# a second maintainer joins.
+
+*       @ZinniXX004

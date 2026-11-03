@@ -158,4 +158,19 @@ mod tests {
     fn invalid_json_is_reported_not_swallowed() {
         assert!(normalize_json_str("{ not json").is_err());
     }
+
+    /// The two edges the doc comment promises: an integer an f64 cannot hold
+    /// exactly stays as it is (a round trip through f64 would move it by
+    /// one), and a whole float outside i64 stays a float rather than
+    /// saturating to `i64::MAX`.
+    #[test]
+    fn integers_beyond_f64_precision_and_floats_beyond_i64_are_untouched() {
+        let precise = -9_007_199_254_740_993_i64; // -(2^53 + 1)
+        let mut value = json!({ "precise": precise, "huge": 1e20 });
+
+        normalize_integral_floats(&mut value);
+
+        assert_eq!(value["precise"], Value::from(precise));
+        assert_eq!(value["huge"], Value::from(1e20_f64));
+    }
 }

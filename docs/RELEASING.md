@@ -27,6 +27,7 @@ Milestone mapping, from [ROADMAP.md](ROADMAP.md):
 | M1 vertical slice | `0.2.0` | One battle playable start to finish in Godot | Released |
 | M2 balance harness | `0.3.0` | Headless mass simulation reporting win rates | Released |
 | M3 content pass | `0.4.0` | Full roster, statuses, elemental resistances | Released |
+| Scorer and schema | `0.5.0` | One unit in `score_action`; the loader refuses unknown keys | Released |
 | M4 polish | `1.0.0` | Exportable build with audio, art and UX | Next |
 
 **One tag per fixation.** If work is not worth a changelog entry, it is not worth
@@ -47,7 +48,7 @@ how projects end up with one release and no history.
 
 Automation refuses to publish if steps 2 and 3 are skipped, or if the tag from
 step 7 is not on `main`, by design. The commands are for `cmd.exe` and written
-for the next release, `0.4.0`; substitute the version you are actually cutting.
+for `0.5.0`; substitute the version you are actually cutting.
 
 Neither `development` nor `main` accepts a direct push (section 4), so steps 2
 to 5 happen on a branch of their own. Create it from the remote `development`,
@@ -55,7 +56,7 @@ so that a local copy which is behind cannot leak into the release:
 
 ```bat
 git fetch origin
-git switch -c chore/release-0.4.0 origin/development
+git switch -c chore/release-0.5.0 origin/development
 ```
 
 1. **CI green on `development`, and the local gate green on your machine.** No
@@ -64,7 +65,7 @@ git switch -c chore/release-0.4.0 origin/development
    documentation commit pushed afterwards is unverified until it runs. Run the
    full gate from
    [DEVELOPMENT.md](DEVELOPMENT.md#4-checks-to-run-before-pushing) before opening
-   the release PR. `0.3.0` learned this the direct way -- its branch failed the
+   the release PR. `0.3.0` learned this the direct way: its branch failed the
    `format` job because files authored through the GitHub API had never been near
    `cargo fmt`.
 2. **Update `CHANGELOG.md`.** Move items out of `Unreleased` into a
@@ -75,14 +76,14 @@ git switch -c chore/release-0.4.0 origin/development
 
    ```bat
    cd src
-   cargo set-version 0.4.0
+   cargo set-version 0.5.0
    cargo test -p rpg-core --all-targets
    cd ..
    ```
 
    `cargo set-version` comes from cargo-edit (`cargo install cargo-edit`); the
    test run also refreshes `Cargo.lock`, which is committed. `cmd.exe` has no
-   trailing `#` comments -- it passes them to the command as arguments -- so
+   trailing `#` comments (it passes them to the command as arguments), so
    the block carries none.
 
    The workflow compares the tag against `src/Cargo.toml` and aborts on a
@@ -97,9 +98,14 @@ git switch -c chore/release-0.4.0 origin/development
 4. **Commit.**
 
    ```bat
-   git add src/Cargo.toml src/Cargo.lock CHANGELOG.md
-   git commit -m "chore(release): 0.4.0"
+   git add src/Cargo.toml src/Cargo.lock CHANGELOG.md README.md docs/ROADMAP.md docs/RELEASING.md
+   git commit -m "chore(release): 0.5.0"
    ```
+
+   Stage every document the release changes: the README's status line, the
+   milestone tables in `docs/ROADMAP.md` and this file, and anything else
+   `git status` lists. `0.4.1` staged only the first three files, and its tag
+   and archives shipped the README of `0.4.0`.
 
 5. **Merge `main` back into the branch.**
 
@@ -112,7 +118,7 @@ git switch -c chore/release-0.4.0 origin/development
    `development`, so this merge changes no file; it adds history. Each release
    reaches `main` as a merge commit that `development` never gets, so without
    this step `development` falls one more commit behind `main` with every
-   release -- three by `0.4.0`. A pull request whose head is behind its base
+   release (three by `0.4.0`). A pull request whose head is behind its base
    can be held by `protect-main`'s up-to-date rule, and *Update branch* would
    then try to push to `development`, which only takes pull requests.
 
@@ -122,10 +128,10 @@ git switch -c chore/release-0.4.0 origin/development
 6. **Push, then merge twice.**
 
    ```bat
-   git push -u origin chore/release-0.4.0
+   git push -u origin chore/release-0.5.0
    ```
 
-   Open a pull request from `chore/release-0.4.0` into `development` and merge
+   Open a pull request from `chore/release-0.5.0` into `development` and merge
    it once `ci` is green. Then open a pull request from `development` into
    `main`. GitHub proposes `development` as the base, because it is the
    default branch, so pick `main` by hand. That pull request needs `ci` and
@@ -135,9 +141,9 @@ git switch -c chore/release-0.4.0 origin/development
 
    ```bat
    git fetch origin
-   git log -1 --oneline origin/main
-   git tag -a v0.4.0 origin/main -m "v0.4.0 - content depth"
-   git push origin v0.4.0
+   git --no-pager log -1 --oneline origin/main
+   git tag -a v0.5.0 origin/main -m "v0.5.0 - Scorer and schema"
+   git push origin v0.5.0
    ```
 
    `git log` should show the merge of the pull request from `development`. Tag
@@ -159,8 +165,8 @@ git switch -c chore/release-0.4.0 origin/development
    ```bat
    git switch development
    git pull
-   git branch -d chore/release-0.4.0
-   git push origin --delete chore/release-0.4.0
+   git branch -d chore/release-0.5.0
+   git push origin --delete chore/release-0.5.0
    git fetch origin main:main
    ```
 
@@ -200,13 +206,13 @@ Do not move a published tag. Delete the release and the tag, fix forward, and
 tag the next patch version. A rewritten tag breaks every checksum anyone already
 downloaded.
 
-A tag the release workflow refused -- not on `main`, or not matching the
-manifest -- published nothing, so it can be deleted and cut again at the right
+A tag the release workflow refused (not on `main`, or not matching the
+manifest) published nothing, so it can be deleted and cut again at the right
 commit:
 
 ```bat
-git push origin --delete refs/tags/v0.4.0
-git tag -d v0.4.0
+git push origin --delete refs/tags/v0.5.0
+git tag -d v0.5.0
 ```
 
 ---
@@ -217,7 +223,7 @@ Built by [`.github/workflows/release.yml`](../.github/workflows/release.yml) on
 every `v*.*.*` tag:
 
 ```text
-jojo-rpg-v0.4.0-x86_64-pc-windows-msvc.zip
+jojo-rpg-v0.5.0-x86_64-pc-windows-msvc.zip
 ├── bin/rpg_bridge.dll        # release build, LTO enabled
 ├── data/*.json               # the exact content the build was tested against
 ├── rpg.gdextension           # descriptor, so the library is usable immediately

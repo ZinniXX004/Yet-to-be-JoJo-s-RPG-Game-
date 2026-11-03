@@ -32,8 +32,8 @@ pub mod state;
 pub use battle::{Battle, BattleConfig, BattleOutcome, Phase};
 pub use command::Command;
 pub use data::{
-    AiProfile, CombatantDef, DataError, Database, Effect, Element, Id, SkillDef, StandDef, Stats,
-    StatusKind, TargetKind, Team,
+    AiProfile, CombatantDef, DataError, Database, Effect, Element, Id, Provenance,
+    ProvenanceOrigin, SkillDef, StandDef, Stats, StatusKind, TargetKind, Team,
 };
 pub use event::Event;
 pub use json_compat::{normalize_integral_floats, normalize_json_str};

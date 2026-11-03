@@ -41,6 +41,7 @@ fn fallback_attack() -> SkillDef {
             element: Element::Physical,
             variance: 10,
         }],
+        provenance: None,
     }
 }
 
@@ -59,6 +60,7 @@ fn fallback_guard() -> SkillDef {
             duration: 2,
             chance: 100,
         }],
+        provenance: None,
     }
 }
 
@@ -440,6 +442,7 @@ mod tests {
                 element,
                 variance: 0,
             }],
+            provenance: None,
         }
     }
 
@@ -462,6 +465,7 @@ mod tests {
             skills: skills.iter().map(|id| id.to_string()).collect(),
             ai: AiProfile::Aggressive,
             resist,
+            provenance: None,
         }
     }
 
@@ -561,6 +565,7 @@ mod tests {
             accuracy: 100,
             tempo_cost: TEMPO_THRESHOLD,
             effects: vec![Effect::Heal { power: 50 }],
+            provenance: None,
         };
         let siphon = SkillDef {
             id: "skill.siphon".to_string(),
@@ -574,6 +579,7 @@ mod tests {
                 power: 100,
                 element: Element::Physical,
             }],
+            provenance: None,
         };
 
         let db = Database::new(
@@ -649,5 +655,277 @@ mod tests {
             (0, 0),
             "a self-heal names the same combatant as healer and healed"
         );
+    }
+
+    fn skill(id: &str, target: TargetKind, sp_cost: i32, effects: Vec<Effect>) -> SkillDef {
+        SkillDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            sp_cost,
+            target,
+            accuracy: 100,
+            tempo_cost: TEMPO_THRESHOLD,
+            effects,
+            provenance: None,
+        }
+    }
+
+    /// One party fighter (index 0) against one foe (index 1), both knowing
+    /// every skill in `skills`, with the stats of [`fighter`], on seed 7.
+    fn duel(skills: Vec<SkillDef>) -> (Database, BattleState) {
+        let ids: Vec<String> = skills.iter().map(|def| def.id.clone()).collect();
+        let known: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let db = Database::new(
+            Vec::new(),
+            skills,
+            vec![
+                fighter("pc.a", Team::Party, Resistances::new(), &known),
+                fighter("npc.b", Team::Foe, Resistances::new(), &known),
+            ],
+        )
+        .expect("the test content is valid");
+        let party = vec!["pc.a".to_string()];
+        let foes = vec!["npc.b".to_string()];
+        let st = BattleState::build(&db, &party, &foes, 7).expect("the test battle instantiates");
+        (db, st)
+    }
+
+    fn act(db: &Database, st: &mut BattleState, command: &Command) -> (u32, Vec<Event>) {
+        let mut log: Vec<Event> = Vec::new();
+        let cost = resolve_command(db, st, 0, command, &mut log).expect("the command is legal");
+        (cost, log)
+    }
+
+    fn cast(skill: &str, target: usize) -> Command {
+        Command::Skill {
+            skill: skill.to_string(),
+            target,
+        }
+    }
+
+    fn damage(power: i32, variance: i32) -> Effect {
+        Effect::Damage {
+            power,
+            element: Element::Physical,
+            variance,
+        }
+    }
+
+    #[test]
+    fn waiting_costs_half_a_turn_and_is_logged() {
+        let (db, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+        let (cost, log) = act(&db, &mut st, &Command::Wait);
+        assert_eq!(cost, TEMPO_THRESHOLD / 2);
+        assert_eq!(cost, 500);
+        assert!(matches!(log.as_slice(), [Event::Waited { actor: 0 }]));
+    }
+
+    #[test]
+    fn a_downed_actor_cannot_act_even_to_wait() {
+        let (db, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+        st.combatants[0].hp = 0;
+        let mut log: Vec<Event> = Vec::new();
+        let refused = resolve_command(&db, &mut st, 0, &Command::Wait, &mut log);
+        assert!(refused
+            .expect_err("a downed actor must be refused")
+            .contains("is down"));
+        assert!(log.is_empty());
+    }
+
+    /// Content without `skill.guard` still guards: the built-in stance costs
+    /// three fifths of a turn and raises defence by half for two turns.
+    #[test]
+    fn guarding_without_a_guard_skill_uses_the_built_in_stance() {
+        let (db, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+        assert!(
+            db.skill(GUARD_ID).is_none(),
+            "guard: the fallback must be in use"
+        );
+        let (cost, _) = act(&db, &mut st, &Command::Guard);
+        assert_eq!(cost, 600);
+        assert_eq!(
+            st.combatants[0].statuses,
+            vec![crate::state::Status {
+                kind: StatusKind::DefUp,
+                potency: 50,
+                remaining: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn a_free_skill_spends_no_sp_and_logs_no_spending() {
+        let paid = skill("skill.paid", TargetKind::OneEnemy, 10, vec![damage(100, 0)]);
+        let free = skill("skill.free", TargetKind::OneEnemy, 0, vec![damage(100, 0)]);
+        let (db, mut st) = duel(vec![paid, free]);
+        st.combatants[0].sp = 30;
+
+        let (_, log) = act(&db, &mut st, &cast("skill.free", 1));
+        assert!(!log.iter().any(|e| matches!(e, Event::SpConsumed { .. })));
+        assert_eq!(st.combatants[0].sp, 30);
+
+        let (_, log) = act(&db, &mut st, &cast("skill.paid", 1));
+        assert!(log.iter().any(|e| matches!(
+            e,
+            Event::SpConsumed {
+                actor: 0,
+                amount: 10
+            }
+        )));
+        assert_eq!(st.combatants[0].sp, 20);
+    }
+
+    #[test]
+    fn a_tempo_lock_lands_on_a_living_target_and_keeps_the_longer_lock() {
+        let lock = skill(
+            "skill.lock",
+            TargetKind::OneEnemy,
+            0,
+            vec![Effect::TempoLock { ticks: 6 }],
+        );
+        let (db, mut st) = duel(vec![lock]);
+
+        let (_, log) = act(&db, &mut st, &cast("skill.lock", 1));
+        assert_eq!(st.combatants[1].tempo_lock, 6);
+        assert!(log.iter().any(|e| matches!(
+            e,
+            Event::TempoLocked {
+                target: 1,
+                ticks: 6
+            }
+        )));
+
+        st.combatants[1].tempo_lock = 10;
+        act(&db, &mut st, &cast("skill.lock", 1));
+        assert_eq!(st.combatants[1].tempo_lock, 10, "locks do not sum");
+    }
+
+    #[test]
+    fn a_drain_returns_half_the_damage_actually_dealt() {
+        let siphon = skill(
+            "skill.siphon",
+            TargetKind::OneEnemy,
+            0,
+            vec![Effect::Drain {
+                power: 100,
+                element: Element::Physical,
+            }],
+        );
+        let (db, mut st) = duel(vec![siphon]);
+        st.combatants[0].hp = 500;
+
+        let (_, log) = act(&db, &mut st, &cast("skill.siphon", 1));
+        let dealt = log
+            .iter()
+            .find_map(|e| match e {
+                Event::Damaged { amount, .. } => Some(*amount),
+                _ => None,
+            })
+            .expect("a drain at 100 accuracy lands");
+        assert!(dealt >= 2, "guard: half of the hit must be at least one");
+        let healed: Vec<i32> = log
+            .iter()
+            .filter_map(|e| match e {
+                Event::Healed {
+                    actor: 0,
+                    target: 0,
+                    amount,
+                } => Some(*amount),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(healed, vec![dealt / 2]);
+        assert_eq!(st.combatants[0].hp, 500 + dealt / 2);
+    }
+
+    #[test]
+    fn a_heal_that_restores_nothing_is_not_logged() {
+        let siphon = skill(
+            "skill.siphon",
+            TargetKind::OneEnemy,
+            0,
+            vec![Effect::Drain {
+                power: 100,
+                element: Element::Physical,
+            }],
+        );
+        let mend = skill(
+            "skill.mend",
+            TargetKind::SelfOnly,
+            0,
+            vec![Effect::Heal { power: 50 }],
+        );
+        let (db, mut st) = duel(vec![siphon, mend]);
+
+        let (_, log) = act(&db, &mut st, &cast("skill.siphon", 1));
+        assert!(log.iter().any(|e| matches!(e, Event::Damaged { .. })));
+        assert!(!log.iter().any(|e| matches!(e, Event::Healed { .. })));
+
+        let (_, log) = act(&db, &mut st, &cast("skill.mend", 0));
+        assert!(!log.iter().any(|e| matches!(e, Event::Healed { .. })));
+    }
+
+    #[test]
+    fn healing_never_revives() {
+        let (_, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+        st.combatants[1].hp = 0;
+        assert_eq!(heal(&mut st, 1, 50), 0);
+        assert_eq!(st.combatants[1].hp, 0);
+        assert!(!st.combatants[1].alive());
+    }
+
+    #[test]
+    fn only_a_lethal_hit_reports_the_target_downed() {
+        let (db, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+
+        let (_, log) = act(&db, &mut st, &cast("skill.jab", 1));
+        assert!(st.combatants[1].alive());
+        assert!(!log.iter().any(|e| matches!(e, Event::Downed { .. })));
+
+        st.combatants[1].hp = 5;
+        let (_, log) = act(&db, &mut st, &cast("skill.jab", 1));
+        let downed = log
+            .iter()
+            .filter(|e| matches!(e, Event::Downed { target: 1 }))
+            .count();
+        assert_eq!(downed, 1);
+        assert!(!st.combatants[1].alive());
+    }
+
+    /// Variance 10 on a 100-damage hit draws every whole percent from 90 to
+    /// 110 and nothing outside it, before any crit.
+    #[test]
+    fn variance_spreads_a_hit_over_its_whole_declared_range() {
+        let (_, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..3_000 {
+            let (amount, crit) = compute_damage(&mut st, 0, 1, 100, Element::Physical, 10);
+            if crit {
+                assert!((135..=165).contains(&amount), "crit {amount}");
+            } else {
+                assert!((90..=110).contains(&amount), "hit {amount}");
+                seen.insert(amount);
+            }
+        }
+        assert_eq!(seen.len(), 21, "every value from 90 to 110 occurs");
+    }
+
+    /// Crit chance is 5% plus half the actor's lead in will. Equal wills give
+    /// 5% however high they are; a 60-point lead gives 35%.
+    #[test]
+    fn the_crit_chance_follows_the_difference_in_will() {
+        let crits = |will_actor: i32, will_target: i32| {
+            let (_, mut st) = duel(vec![attack("skill.jab", Element::Physical)]);
+            st.combatants[0].base.will = will_actor;
+            st.combatants[1].base.will = will_target;
+            (0..4_000)
+                .filter(|_| compute_damage(&mut st, 0, 1, 100, Element::Physical, 0).1)
+                .count()
+        };
+        let even = crits(40, 40);
+        assert!((120..=280).contains(&even), "5% of 4000, got {even}");
+        let ahead = crits(60, 0);
+        assert!((1_250..=1_550).contains(&ahead), "35% of 4000, got {ahead}");
     }
 }

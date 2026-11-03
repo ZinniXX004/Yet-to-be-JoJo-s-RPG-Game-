@@ -517,4 +517,16 @@ mod tests {
         let idle = CombatantStats::new("npc.spectator", "Spectator", Team::Foe);
         assert_eq!(skill_breakdown(&idle), "-");
     }
+
+    /// Without a path the compiled-in text is used as it is; with one, the
+    /// file is read, and a file that cannot be read is an error naming it.
+    #[test]
+    fn content_is_the_compiled_in_text_unless_a_path_is_given() {
+        assert_eq!(content(None, "[1, 2]"), Ok("[1, 2]".to_string()));
+        assert_eq!(content(None, STANDS), Ok(STANDS.to_string()));
+
+        let missing = "no/such/balance/override.json".to_string();
+        let error = content(Some(&missing), STANDS).unwrap_err();
+        assert!(error.contains("could not read 'no/such/balance/override.json'"));
+    }
 }

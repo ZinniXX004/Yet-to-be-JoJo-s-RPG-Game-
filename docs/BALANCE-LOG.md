@@ -9,10 +9,10 @@ have produced it. This is slower and it is the only version that produces
 knowledge rather than opinion.
 
 Predictions are written before the run, not after. A prediction recorded after
-the fact is a rationalisation, and the running record through the 0.4.1 entry is
-**one hundred and forty-seven predictions, seventy-three of them wrong**. The
+the fact is a rationalisation, and the running record through the #63 entry is
+**one hundred and seventy-two predictions, ninety-two of them wrong**. The
 scorecards are kept per entry so the rate is visible rather than asserted. That
-is the argument for the harness, not against it -- the same wrong guesses shipped
+is the argument for the harness, not against it: the same wrong guesses shipped
 as content, unmeasured, would have been indistinguishable from design.
 
 All numbers come from:
@@ -28,7 +28,7 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > **How to read a win rate in this file.** Every figure recorded here is an
 > estimate from a finite sample, and until issue #12 this file consistently
 > understated how coarse that estimate was. See
-> [the #12 entry](#issue-12----the-seed-list-widens-and-the-instrument-turns-out-to-have-been-misread)
+> [the #12 entry](#issue-12-the-seed-list-widens-and-the-instrument-turns-out-to-have-been-misread)
 > before comparing any two numbers. In short: readings taken at twelve seeds
 > carry roughly **+/-14 points** of standard error, not 8.3, and most of the
 > differences argued over in the entries below are inside that.
@@ -42,7 +42,7 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > entry describes rules in which three skills could never be chosen. Do not
 > compare across it either.
 
-> **Comparability boundary 3 -- what the earlier bands were really measuring.**
+> **Comparability boundary 3: what the earlier bands were really measuring.**
 > Issue #9 established that the pre-`0.4.0` AI did not merely ignore three
 > skills: it compared the ones it did use in **mixed units**, and it spent SP as
 > though SP were free. Every band in this file above the #9 entry was therefore
@@ -51,14 +51,14 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > could not price his own signature skill. Those bands are not a baseline to
 > return to.
 
-> **Comparability boundary 4 -- SP now comes back.** Issue #9 also found that no
+> **Comparability boundary 4: SP now comes back.** Issue #9 also found that no
 > combatant ever recovered a single point of SP in the entire history of this
 > project. `SP_REGEN_PER_TURN = 4` is new in `state.rs`. Every band, every ratio
 > and the whole curve in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) were measured in
 > an engine where a combatant's lifetime output was hard-capped by its starting
 > pool.
 
-> **Comparability boundary 5 -- elemental resistances now modify damage.** Issue
+> **Comparability boundary 5: elemental resistances now modify damage.** Issue
 > #10 adds resistance lookups to `resolve::compute_damage`. Any figure measured
 > before `feat/element-resistance` was built on a flat damage model where every
 > element hit for the same amount regardless of target. Do not compare across
@@ -66,13 +66,13 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > combatant in that fight carries a resistance table and no skill in it deals a
 > typed element, which is why the Street Thug is the explicit control row.
 
-> **Comparability boundary 6 -- `matchup.dio_boss` gains a fourth party member.**
+> **Comparability boundary 6: `matchup.dio_boss` gains a fourth party member.**
 > Issue #15 adds `pc.polnareff` to the boss encounter's party. Nothing in the
 > rules changed and no other encounter moved, but the boss fight now has four
 > party members where every figure recorded above it has three. 47% and 68% are
 > not two readings of the same encounter, and the difference between them is not
-> a measurement of anything. **This boundary applies to `matchup.dio_boss` only**
-> -- `thug_solo` and `assassin_ambush` reproduce bit for bit across it, which is
+> a measurement of anything. **This boundary applies to `matchup.dio_boss` only**:
+> `thug_solo` and `assassin_ambush` reproduce bit for bit across it, which is
 > what makes the scope of the boundary a measured claim rather than an assertion.
 >
 > It is also the first boundary in this file that comes from **content** rather
@@ -80,8 +80,8 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > `src/`, which made them easy to spot: change `resolve.rs` and obviously the
 > numbers move. A roster edit looks like ordinary tuning and is not. Adding a
 > combatant to a party changes the denominator of every per-battle average in
-> that encounter, changes how long the fight runs, and -- as this entry
-> discovered -- can change what the *enemy* chooses to do.
+> that encounter, changes how long the fight runs, and (as this entry
+> discovered) can change what the *enemy* chooses to do.
 
 > **Issues #11, #12, #14 and #16 created no boundary, and it matters that they
 > did not.** #11 changed reporting only; #12 changed the sample size only; #14
@@ -99,40 +99,40 @@ Seeds are fixed precisely so two rows of this table can be compared.
 > **Boundaries after #16 were declared in their own entries and never listed
 > here**, which made this list read as though there had been none. Rules: #29
 > (`is_candidate` admits ally-facing skills), #33 (the defence toll enters
-> `score_action`) and 0.4.1 (#60, a guard priced over the hits aimed at
-> its holder). Content: #24 (`matchup.diavolo_boss` only) and 0.4.1's snare
+> `score_action`), 0.4.1 (#60, a guard priced over the hits aimed at
+> its holder) and #63 (every effect priced in HP). Content: #24
+> (`matchup.diavolo_boss` only) and 0.4.1's snare
 > reprice, Diavolo's resistance table and the two boss `hp` values. #22 argued
 > it opened none; #33's reasoning, which is about the same kind of change, says
 > otherwise, so do not compare across it either. **Only `matchup.thug_solo` is
-> comparable across 0.4.1.**
+> comparable across 0.4.1, and across #63.**
 
 ## Current status
 
-At 0.4.1 (#60, #61, #62), measured over **300 seeds** per encounter:
+After #63 (every effect priced in HP, `npc.iron_brawler` `atk` 135 -> 155),
+measured over **300 seeds** per encounter:
 
 | Matchup | Win rate | 95% interval | Band | Status |
 | --- | --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | -- | 85..100 | ok |
-| `matchup.assassin_ambush` | 69% | 64..75 | 45..90 | ok |
-| `matchup.dio_boss` | 61% | 56..67 | 35..75 | ok |
-| `matchup.dancer_rush` | 85% | 81..89 | 60..90 | ok |
-| `matchup.weaver_gambit` | 81% | 77..85 | 58..86 | ok |
-| `matchup.bell_race` | 75% | 70..80 | 48..80 | ok |
-| `matchup.diavolo_boss` | 39% | 33..44 | 25..55 | ok |
+| `matchup.thug_solo` | 100% | n/a | 85..100 | ok |
+| `matchup.assassin_ambush` | 57% | 51..62 | 45..90 | ok |
+| `matchup.dio_boss` | 56% | 50..61 | 35..75 | ok |
+| `matchup.dancer_rush` | 80% | 76..85 | 60..90 | ok |
+| `matchup.weaver_gambit` | 82% | 78..87 | 58..86 | ok |
+| `matchup.bell_race` | 70% | 65..76 | 48..80 | ok |
+| `matchup.diavolo_boss` | 38% | 33..44 | 25..55 | ok |
 
-Seven encounters, 2100 battles, every interval inside its band. Three are
-inside by less than a point at the interval's upper end -- `dancer_rush`
-(89.3 against 90), `weaver_gambit` (85.4 against 86) and `bell_race` (79.6
-against 80), the Iron Brawler fights -- and they are the rows to watch; see the
-0.4.1 entry. Until 0.4.1 this section still showed the six encounters as issue
-#16 left them: three rules changes (#22, #29, #33) and one encounter (#17) out
-of date.
+Seven encounters, 2100 battles, every win rate inside its band. One interval
+crosses its ceiling at the upper end: `weaver_gambit` (86.6 against 86), the
+row to watch. The other two Iron Brawler fights that sat within a point of
+their ceilings at 0.4.1 now clear them by five (`dancer_rush`, 84.5 against
+90) and four and a half (`bell_race`, 75.5 against 80). See the #63 entry.
 
-## Issue #16 -- three enemies
+## Issue #16: three enemies
 
 The entry for issue #16 is a separate document:
 [`BALANCE-M3-ENEMIES.md`](BALANCE-M3-ENEMIES.md). It is separate because this
-file can only be written whole, and writing it whole truncated it -- twice. The
+file can only be written whole, and writing it whole truncated it, twice. The
 annotations #16 makes to the entries below sit beside the claims they amend; the
 entry proper, with the ten readings and the scorecards, is there.
 
@@ -170,7 +170,7 @@ focus-fires the softer target.
 **The sweep in [`BALANCE-CURVE.md`](BALANCE-CURVE.md) then found its ceiling.**
 Predicted against measured enemy damage per battle at `atk` 135, 165, 195 and
 225: -5%, -11%, -14%, -13%. The error grows with attack because **SP is a hard
-ceiling** -- `sp/b` reads 57 on every row of the sweep, so beyond that budget the
+ceiling**: `sp/b` reads 57 on every row of the sweep, so beyond that budget the
 extra attack only scales `skill.strike` and damage grows more slowly than the
 stat does. Use the model to size a change in ratio; do not trust it to convert a
 stat into damage past the point where a combatant runs out of SP.
@@ -193,7 +193,7 @@ stat into damage past the point where a combatant runs out of SP.
 > twelve-seed run, so each "measured" figure it was checked against carries about
 > 14 points of sampling error on win rate and a smaller but real error on the
 > per-battle averages. The agreements of 5-9% quoted above are therefore better
-> than the data could actually support -- they are partly luck. The model is
+> than the data could actually support; they are partly luck. The model is
 > still the right way to size a change; the confidence it earned from those
 > checks was overstated.
 
@@ -208,13 +208,13 @@ stat into damage past the point where a combatant runs out of SP.
 > battle length must get the slope wrong. **Estimate per-turn output first, then
 > multiply by expected length.**
 
-> **Amended by issue #15 -- the model has no term for the defence toll, and that
+> **Amended by issue #15: the model has no term for the defence toll, and that
 > is where it broke.** Every calibration above varies `atk` while holding `power`
 > at or above 100. Issue #15 varied `power` instead, to 85, and the model as
 > written says a power-85 skill delivers 85% of a power-100 skill. It does not.
 > The defence subtraction happens *after* the power scaling, so the loss is
 > `power_deficit x atk / 100` against a hit that has already had `def / 2`
-> removed -- against the Iron Brawler that is 45 damage falling to 34, a 24% loss
+> removed: against the Iron Brawler that is 45 damage falling to 34, a 24% loss
 > from a 15% power cut, and against Dio 42 falling to 27, a **36% loss**. The
 > multiplier the model implies is right only when defence is zero, and it gets
 > worse as the target hardens. **When sizing a change to `power` rather than to
@@ -260,15 +260,15 @@ The two things it makes obvious, both of which the Change E prediction missed:
   > **Sharpened by issue #16.** "A slow foe is a cheap foe" is true and it is not
   > about speed alone. The Requiem Bell has the lowest `spd` in the game at 40
   > *and* the highest `tempo_cost` at 2000, giving it an action rate of 0.0242
-  > against the Blade Dancer's 0.137 -- a factor of 5.7 from two fields rather
+  > against the Blade Dancer's 0.137, a factor of 5.7 from two fields rather
   > than one. It took **1.24 actions per battle** against the Dancer's 5.03.
 - **A foe's output is capped by its SP, not by the clock.** *(True until
-  `7f72a4f`; withdrawn entirely by issue #14 -- see the amendment above. The
+  `7f72a4f`; withdrawn entirely by issue #14; see the amendment above. The
   clock is now the binding constraint.)*
 
 ---
 
-## Baseline -- 2026-07-28, commit `0fcfd86`
+## Baseline: 2026-07-28, commit `0fcfd86`
 
 First measurement of the shipped `0.2.0` content. No changes yet.
 
@@ -296,7 +296,7 @@ First measurement of the shipped `0.2.0` content. No changes yet.
    number in the project that is.
 
 2. **Kakyoin dies in every single battle** and absorbs 1166 of the roughly 1700
-   damage the enemy side deals -- 63% of it, on the lowest HP pool in the party.
+   damage the enemy side deals, 63% of it, on the lowest HP pool in the party.
    This is not a content accident. `ai::choose` focus-fires the enemy with the
    lowest current HP, so every hostile actor picks Kakyoin on turn one and keeps
    picking Kakyoin. A party member who is guaranteed to die is a rules problem,
@@ -314,7 +314,7 @@ First measurement of the shipped `0.2.0` content. No changes yet.
 
 5. **Josuke is the reason the party survives.** He takes 113 damage per battle
    and spends 83 SP. At `skill.restore`'s 230 healing for 20 SP, that is roughly
-   950 HP returned per battle -- an entire extra party member, and more than half
+   950 HP returned per battle, an entire extra party member, and more than half
    of what the enemy side deals.
 
    > **Superseded by issue #11, which measured it directly rather than inferring
@@ -323,12 +323,12 @@ First measurement of the shipped `0.2.0` content. No changes yet.
    > healer. Measured: **1044 HP per battle** at twelve seeds, **1088** at three
    > hundred. The inference was sound in method and roughly 9% low. The original
    > figure stays on the record because the point of this file is what was
-   > believed when a decision was taken -- the `skill.restore` nerf in Change B
+   > believed when a decision was taken: the `skill.restore` nerf in Change B
    > was argued against 950, not against 1088.
 
 ---
 
-## Change A -- Flame Assassin hp 480 -> 640
+## Change A: Flame Assassin hp 480 -> 640
 
 Commit `4f21d1f`.
 
@@ -371,7 +371,7 @@ with every death. No number in `data/*.json` fixes this. It is `ai::choose`.
 
 ---
 
-## Change B -- Restore heal power 230 -> 140
+## Change B: Restore heal power 230 -> 140
 
 Commit `b13e8f9`.
 
@@ -390,7 +390,7 @@ targeting is the first-order one.**
 
 > **Revisited after issue #11.** This conclusion was drawn from a single
 > unchanged win rate at twelve seeds, where the standard error is around 14
-> points -- so "no movement whatsoever" means only that the change did not move
+> points, so "no movement whatsoever" means only that the change did not move
 > the number by more than the noise floor. Issue #11 measured what the skill
 > actually does: 1088 HP per battle, offsetting 38% of everything the enemy side
 > deals in the boss fight. A lever that large being invisible in the win rate is
@@ -399,7 +399,7 @@ targeting is the first-order one.**
 
 ---
 
-## Change C -- weighted target selection in `ai::choose`
+## Change C: weighted target selection in `ai::choose`
 
 Commit `87c8220`. **This is a rules change, not a content change.**
 
@@ -412,9 +412,9 @@ the weakest enemy 55% of the time and picks uniformly random otherwise.
 
 | Matchup | Before | After | Predicted |
 | --- | --- | --- | --- |
-| `matchup.thug_solo` | 100% | 100% | 100% -- correct |
-| `matchup.assassin_ambush` | 100% | **100%** | 80-95% -- wrong |
-| `matchup.dio_boss` | 83% | **100%** | 70-88% -- wrong, and above the range |
+| `matchup.thug_solo` | 100% | 100% | 100%, correct |
+| `matchup.assassin_ambush` | 100% | **100%** | 80-95%, wrong |
+| `matchup.dio_boss` | 83% | **100%** | 70-88%, wrong, and above the range |
 
 `matchup.dio_boss`, per battle, before -> after:
 
@@ -434,7 +434,7 @@ needs roughly 3.1x its current output before the party is at risk.
 > **Issue #16 records the design consequence of `FOCUS_FIRE_CHANCE` that this
 > entry did not anticipate: it makes any non-damaging enemy self-defeating.** A
 > pure support foe deals little damage, so it is the lowest-HP foe for most of
-> the fight, so the party's own focus fire deletes it first -- and the more
+> the fight, so the party's own focus fire deletes it first, and the more
 > valuable its debuff, the less of it the party ever sees. The Hex Weaver needed
 > 690 HP, the largest foe pool outside Dio, purely to survive long enough to
 > cast. The Requiem Bell inverted the problem deliberately by hitting hard
@@ -443,7 +443,7 @@ needs roughly 3.1x its current output before the party is at risk.
 
 ---
 
-## Change D -- Dio atk 100 -> 130
+## Change D: Dio atk 100 -> 130
 
 Commit `b279cda`.
 
@@ -478,8 +478,8 @@ it wins half.
 > zone. That number was never measured. The sweep in
 > [`BALANCE-CURVE.md`](BALANCE-CURVE.md) puts the bend between 0.65 and 0.74.
 
-> **Retracted a second time, by issue #14.** The replacement claim above -- a
-> bend between 0.65 and 0.74 -- was itself read off five twelve-seed points. At
+> **Retracted a second time, by issue #14.** The replacement claim above (a
+> bend between 0.65 and 0.74) was itself read off five twelve-seed points. At
 > 300 seeds there is no bend and no step function. The response is a smooth
 > monotone decline from 96% to 12%, steepest where it passes 50%, with no flat
 > region at either end of the measured range. "A race resolves as a step function
@@ -495,13 +495,13 @@ it wins half.
 > retroactive. First, most of the "wrong direction" prediction misses in this
 > file were the right direction with the wrong gain. Second, **the minimum
 > defensible band width is about 25 points**, because a 1% error in a foe's
-> effective output -- which is inside what any of these models can resolve --
+> effective output (which is inside what any of these models can resolve)
 > moves the win rate by 1.45. Bands this file has called generous were closer to
 > the floor than to the ceiling.
 
 ---
 
-## Change E -- the ambush's second foe becomes the Iron Brawler
+## Change E: the ambush's second foe becomes the Iron Brawler
 
 Commits `2a9564d` (Stand), `3362d16` (combatant), `a6a906e` (roster).
 
@@ -524,7 +524,7 @@ The parity rule says a ratio far from 1.0 does not respond, and 0.54 is far.
 
 ---
 
-## Change F -- Iron Brawler atk 80 -> 105
+## Change F: Iron Brawler atk 80 -> 105
 
 Commit `99a4c94`.
 
@@ -587,7 +587,7 @@ Option 5: **measure the curve first**. See Change G.
 
 ---
 
-## Change G -- Iron Brawler atk 105 -> 135
+## Change G: Iron Brawler atk 105 -> 135
 
 Commit `e3d4a85`. **The first content change in this document that is a
 measurement rather than a prediction.**
@@ -629,15 +629,15 @@ the sixth.**
 > **Revisited after issue #12, and the lesson is now larger than it was.** Each
 > of the five curve points is a twelve-seed reading with roughly 14 points of
 > standard error. The two middle points, 67% and 67%, and the neighbouring 42%,
-> are not reliably distinguishable from one another. The curve's *shape* -- flat
-> at low ratio, collapsing near parity -- survives, because the endpoints are 100%
+> are not reliably distinguishable from one another. The curve's *shape* (flat
+> at low ratio, collapsing near parity) survives, because the endpoints are 100%
 > and 8% and no amount of sampling error bridges that. Its *resolution* does not.
 > The six wasted changes were partly chasing a flat curve and partly chasing
 > noise, and at the time there was no way to tell those two apart.
 
 > **The plateau is retracted outright by issue #14.** The 67% at `atk` 135 and the
 > 67% at `atk` 165 were not two independent points agreeing. At 300 seeds they
-> read **53%** and **34%** -- nineteen points apart, with about three points of
+> read **53%** and **34%**, nineteen points apart, with about three points of
 > error each. Two draws of 8/12 landing on the same value is the single most
 > likely coincidence available to a twelve-seed instrument.
 >
@@ -645,8 +645,8 @@ the sixth.**
 > they measured the same win rate, so 135 could be taken as the near edge of a
 > flat region that would absorb a later party buff rather than push the encounter
 > off a cliff. **There is no flat region, and there is no cliff.** The choice of
-> 135 survives on its other two grounds -- effective `atk` stays under Dio's, and
-> it leaves Kakyoin alive some of the time -- but the plateau argument behind it is
+> 135 survives on its other two grounds (effective `atk` stays under Dio's, and
+> it leaves Kakyoin alive some of the time), but the plateau argument behind it is
 > void, and the shipped encounter sits on the *steepest* part of the curve rather
 > than a stable one. It must be re-measured after any change touching its four
 > participants.
@@ -657,7 +657,7 @@ the sixth.**
 
 ---
 
-## Issue #8 -- `miss%` counted per action instead of per accuracy roll
+## Issue #8: `miss%` counted per action instead of per accuracy roll
 
 Commits `2808a26` (`report.rs`), `387d02a` (`sim.rs`), `cec68f7` (CLI legend).
 **A reporting fix, not a rules change: no win rate moved and every battle is
@@ -681,7 +681,7 @@ record** rather than being edited to match.
 > per attack, the count decomposes. `grave_toll` is an area attack used 232 times
 > beside 140 uses of `strike`, and the Requiem Bell's `rolls` reads **578**. If
 > every toll had found two party members that would be 232 x 2 + 140 = 604, so
-> 578 means **206 tolls landed on two targets and 26 on one** -- the party was
+> 578 means **206 tolls landed on two targets and 26 on one**: the party was
 > already down to a single survivor for **11.2%** of the tolls. No other column
 > in the report can count that. The corollary is that a **status-only** skill
 > draws no roll at all, measured four times on the Hex Weaver at 295/295,
@@ -690,7 +690,7 @@ record** rather than being edited to match.
 
 ---
 
-## Issue #9 -- the AI scores utility, and SP acquires a price and a refill
+## Issue #9: the AI scores utility, and SP acquires a price and a refill
 
 Commits: `1602dc5` and `38b775a` (scoring), `6ab2c8c` (unit fix),
 `d1c1741` / `cd947af` / `4a5f76f` (per-skill accounting), `bcc46cb` (SP priced),
@@ -730,12 +730,12 @@ with no damage effect scored zero. Power was read per target, not per encounter.
 > on the boss column and on direct inspection of the code, not on the ambush
 > column, so they stand.
 
-### Finding 1 -- the choice function was never the binding constraint
+### Finding 1: the choice function was never the binding constraint
 
 Dio's SP pool of 200 was exhausted by turn twenty of a fifty-one-turn fight.
 A choice function cannot allocate a budget that does not exist.
 
-### Finding 2 -- SP never came back, in any battle, ever
+### Finding 2: SP never came back, in any battle, ever
 
 No code path anywhere in `state.rs`, `battle.rs` or `resolve.rs` added SP to a
 combatant. Every fight in the entire history of this project was fought on the
@@ -751,7 +751,7 @@ Two tests pin the semantics. Measured effect in `matchup.dio_boss`, `sp/b`:
 
 Dio now spends more SP in one battle than he owns. So does Jotaro.
 
-### Finding 3 -- repricing `blade_volley` to 40 SP deleted the skill
+### Finding 3: repricing `blade_volley` to 40 SP deleted the skill
 
 At 40 SP the volley loses to a free attack before the halt is even considered.
 36 SP is the price at which it is chosen only when the halt is unaffordable and
@@ -762,7 +762,7 @@ fragile.
 > Dio's actions for two milestones and is **46%** of them once the party has four
 > members, because `affected_count` prices an `all_enemies` skill per target. The
 > skill was not fragile because 36 was a knife-edge price; it was fragile because
-> its value depends on a number nobody thought of as a tuning input -- how many
+> its value depends on a number nobody thought of as a tuning input: how many
 > people are standing opposite it.
 
 > **Issue #16 found a third face of the same mechanism, and this one is a
@@ -777,10 +777,10 @@ fragile.
 > as a separate issue; it is a design limit rather than a defect, but it is a
 > limit no amount of tuning reaches past.
 
-### The final measurement -- commit `7f72a4f`
+### The final measurement: commit `7f72a4f`
 
 `matchup.thug_solo` **bit-identical** to the pre-#9 baseline. `matchup.dio_boss`
--- 5 won, 7 lost, turns 51 / 43 / 65:
+(5 won, 7 lost, turns 51 / 43 / 65):
 
 | Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -790,7 +790,7 @@ fragile.
 | Dio | 2486 | 1360 | 252 | 308 | 4% | 58% |
 | Flame Assassin | 305 | 640 | 41 | 45 | 9% | 0% |
 
-`matchup.assassin_ambush` -- 8 won, 4 lost, turns 19 / 14 / 24:
+`matchup.assassin_ambush` (8 won, 4 lost, turns 19 / 14 / 24):
 
 | Combatant | dealt/b | taken/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -812,19 +812,19 @@ fragile.
   > mentions either skill. A search across every issue in the repository for
   > `guard_stance` or `rage_focus` returned nothing. Two skills were recorded as
   > tracked, in two places in this file, for two milestones, with no issue behind
-  > either citation -- and the claim was carried forward verbatim into `1eadf86`
+  > either citation, and the claim was carried forward verbatim into `1eadf86`
   > without being checked. A cross-reference is a claim like any other and decays
   > the same way the probe roster did.
 
   > **Restated after issue #15.** Thirteen skills now, eleven reachable, the same
   > two not. #15 added `skill.riposte`, which is reachable and heavily used, and
-  > it did **not** make `guard_stance` or `rage_focus` reachable -- `ai.rs`
+  > it did **not** make `guard_stance` or `rage_focus` reachable: `ai.rs`
   > already carries tests pinning both as correctly declined at the potencies the
   > game ships. #29 is untouched.
 
   > **Restated again after issue #16. Sixteen skills, fourteen reachable, the
   > same two not.** `flurry_cut`, `wither_hex` and `grave_toll` are all reachable
-  > and all heavily used, at 66%, 62% and 62% of their carriers' turns -- which
+  > and all heavily used, at 66%, 62% and 62% of their carriers' turns, which
   > is the `AGGRESSIVE_SKILL_CHANCE` ceiling rather than a pricing result. #29 is
   > still untouched, and it now has a ready answer: `ai.rs` carries
   > `bracing_is_declined_at_the_potency_the_game_ships` and
@@ -834,7 +834,7 @@ fragile.
 
 ---
 
-## Issue #10 -- elemental resistances applied in damage resolution
+## Issue #10: elemental resistances applied in damage resolution
 
 Commits: `46a06df` (data schema), followed by state.rs (runtime field),
 `f8f7592` (resolve pipeline), `a684c7c` (initial tables), `5644ee7` (validator
@@ -860,17 +860,17 @@ the base-minus-defence step:
 damage = max(damage * (100 - resist) / 100, 1)
 ```
 
-Positive resist cuts damage, floored at 1 -- a 100% resistant element deals 1,
+Positive resist cuts damage, floored at 1: a 100% resistant element deals 1,
 not 0, which prevents an accidental heal-on-hit. Negative resist amplifies.
 Three unit tests cover the modifier, the immunity edge case, and element
 isolation.
 
 **The initial tables** in `data/combatants.json`:
-- `pc.jotaro`: `{ "temporal": 50 }` -- Star Platinum's time-stop affinity
-- `npc.dio`: `{ "temporal": 50, "psychic": 20 }` -- The World's domain
-- `npc.flame_assassin`: `{ "fire": 75 }` -- Magicians' Red fire immunity
-- `npc.iron_brawler`: `{ "physical": 25, "psychic": -25 }` -- armour and
-  psychic exposure
+- `pc.jotaro`: `{ "temporal": 50 }` (Star Platinum's time-stop affinity)
+- `npc.dio`: `{ "temporal": 50, "psychic": 20 }` (The World's domain)
+- `npc.flame_assassin`: `{ "fire": 75 }` (Magicians' Red fire immunity)
+- `npc.iron_brawler`: `{ "physical": 25, "psychic": -25 }` (armour and
+  psychic exposure)
 - All others carry empty tables (intentional control: `thug_solo` must not move)
 
 > **All three of issue #16's enemies carry no resistance table at all**, and that
@@ -899,7 +899,7 @@ struct literal that initialises it without sweeping all files. Both failures
 > human to remember something, every time, forever. `validate_data.py --mirror`
 > now compares the seven `MIRROR_FIELDS` of every mirrored combatant against
 > `data/` and exits non-zero on any difference, and CI runs it on every push. The
-> guard was verified in both directions -- green on the real files, and red on a
+> guard was verified in both directions: green on the real files, and red on a
 > one-point change to a single `hp` value. Diffing by hand is no longer the
 > procedure; it is the fallback for a case the guard does not cover, and the
 > known gap is that the mirror check protects only combatants that appear in the
@@ -927,14 +927,14 @@ struct literal that initialises it without sweeping all files. Both failures
 | --- | --- | --- | --- |
 | 1 | `thug_solo` bit-identical | bit-identical in every column | correct |
 | 2 | Validator 0 errors / 0 warnings | 0 errors, 0 warnings | correct |
-| 3 | 67 tests pass | build broken -- 0 tests ran | **wrong** |
+| 3 | 67 tests pass | build broken (0 tests ran) | **wrong** |
 | 4 | `balance_bounds` FAILED, bands break | all three in band | **wrong** |
 | 5 | ambush rises from 67%, boss falls from 42% | ambush fell to 50%, boss held | **wrong** |
 
 Two of five. The second run scored five of five, mechanically: the fixture fixes
 touch no production code path.
 
-### Finding 1 -- the ambush fell because the AI is resistance-blind
+### Finding 1: the ambush fell because the AI is resistance-blind
 
 The Iron Brawler carries `physical: 25`, which cuts Jotaro's `rush_barrage` and
 `strike` by 25%. It also carries `psychic: -25`, which amplifies Kakyoin's
@@ -963,7 +963,7 @@ compensating routing toward the Brawler's psychic vulnerability, because
 > **Issue #16 names the third member of the family, and it is the one with no
 > issue number until now.** #22 is resistance-blindness, #33 is
 > defence-blindness, and both are about `score_action` not seeing its target.
-> The third is that `score_action` **has no term for `tempo_cost` at all** -- not
+> The third is that `score_action` **has no term for `tempo_cost` at all**, not
 > a blindness to the target but to the actor's own cost. It priced
 > `flurry_cut`'s 700 and `grave_toll`'s 2000 identically to `strike`'s 1000. The
 > Requiem Bell is designed *entirely* around `tempo_cost`, so its whole design
@@ -971,7 +971,7 @@ compensating routing toward the Brawler's psychic vulnerability, because
 > #33 is a skill chosen despite being worse than free, and this is a skill's
 > single most important property never entering the comparison.
 
-### Finding 2 -- `thug_solo` is the control, and it held
+### Finding 2: `thug_solo` is the control, and it held
 
 Street Thug carries no resistance table. No skill in `matchup.thug_solo` deals a
 typed element that any combatant there resists. The report is **bit-identical**
@@ -981,7 +981,7 @@ to reach. Note that bit-identity is a far stronger signal than an unchanged win
 rate, and it is not affected by sample size: two runs either produce the same
 event stream or they do not.
 
-### Finding 3 -- the boss win rate held at 42%, but every row moved
+### Finding 3: the boss win rate held at 42%, but every row moved
 
 Dio deals `temporal` damage; Jotaro resists temporal at 50%. Jotaro's `dealt/b`
 rose 1413 -> **1466** while Dio's fell 2486 -> **2392**.
@@ -992,7 +992,7 @@ anomaly was first noted in the #9 entry and is still undiagnosed.
 
 ---
 
-## Issue #11 -- healing is attributed to the combatant that performed it
+## Issue #11: healing is attributed to the combatant that performed it
 
 Commits: `a7bfadc` (`event.rs`), `c9d9b45` (`resolve.rs`), `ea74551`
 (`battle.rs`), `d49ab4c` (`report.rs`), `883eddb` (`sim.rs`), `4b74979`
@@ -1007,13 +1007,13 @@ contribution.
 **The decision it forced.** Three sites emit `Healed`, and one of them has no
 actor to name: regeneration ticks belong to a status, not to a combatant.
 Filling `actor` with the carrier's own index would have produced a log claiming
-a character healed itself through an action it never took -- exactly the defect
+a character healed itself through an action it never took, exactly the defect
 `Event::StatusDamaged` was added in `0.1.0` to fix, with the sign flipped. So
 `Healed` gained an actor and regeneration moved to a new `Event::StatusHealed`.
 
 **Result: every pre-existing figure is bit-identical.** No RNG is drawn by adding
 a field to an event, so the pass condition was that nothing moves, and nothing
-did -- `dealt/b`, `taken/b`, `sp/b`, `rolls`, `miss%` and `alive%` reproduce digit
+did: `dealt/b`, `taken/b`, `sp/b`, `rolls`, `miss%` and `alive%` reproduce digit
 for digit across all fifteen combatant rows, and every `actions by skill` line is
 identical.
 
@@ -1041,7 +1041,7 @@ was corrected by reading `data/skills.json` rather than by running anything.
    HP of incoming damage per battle, the healer undoes 38% of everything the
    enemy side does. It looked like the party's weakest member and was second only
    to Jotaro in contribution.
-2. **Dio self-heals 183 per battle** through `blood_drain` -- around 12% of its
+2. **Dio self-heals 183 per battle** through `blood_drain`, around 12% of its
    effective durability, on a boss whose printed pool is 1520.
 3. **The Iron Brawler heals 6 per battle**, from three uses in a whole batch.
    Recorded precisely because it is negligible: a column that only ever printed
@@ -1060,7 +1060,7 @@ requires zero damage **and** zero healing.
 > ask whether that something mattered. A pure debuffer deals no damage and heals
 > nobody, so `no_combatant_sits_out_the_whole_batch` would have failed the Hex
 > Weaver as inert while it was quietly cutting Jotaro's hits by 31%. The fix in
-> the content was to give it `skill.strike`, which it uses on 38% of its turns --
+> the content was to give it `skill.strike`, which it uses on 38% of its turns,
 > so the guard is satisfied by the one thing the character is *not* for. **No
 > column in this report can attribute a mitigation, and the guard that exists to
 > catch a do-nothing combatant is satisfied by a token attack.** Filed as a
@@ -1068,10 +1068,10 @@ requires zero damage **and** zero healing.
 
 ---
 
-## Issue #12 -- the seed list widens, and the instrument turns out to have been misread
+## Issue #12: the seed list widens, and the instrument turns out to have been misread
 
 Commits `08a40c4` (12 -> 24 seeds) and `1f5aaed` (24 -> 300 seeds). **Data only.
-No code, no rules, no content. No comparability boundary** -- see the note at the
+No code, no rules, no content. No comparability boundary**; see the note at the
 top of this file on why a wider sample is not a boundary.
 
 This entry is the most consequential in the file, and not for the reason the
@@ -1081,7 +1081,7 @@ own instrument since the harness was built.
 
 ### The error
 
-Every document here -- this file, `ROADMAP.md`, half a dozen commit messages --
+Every document here (this file, `ROADMAP.md`, half a dozen commit messages)
 has described twelve seeds as "resolving to 8.3 percentage points". That is
 **granularity**: 1/12, the distance between two adjacent possible readings. It is
 not the measurement error, and the two were used interchangeably.
@@ -1115,7 +1115,7 @@ original twelve seeds had been a lucky sample** and that every band in the
 project had been fitted against an optimistic instrument.
 
 That conclusion was wrong, and it was wrong by exactly the error it was
-diagnosing. At 300 seeds the ambush reads 53% and the boss 47% -- both *above* the
+diagnosing. At 300 seeds the ambush reads 53% and the boss 47%, both *above* the
 twelve-seed readings of 50% and 42%. The twelve added seeds were an unlucky
 sample, not the original twelve a lucky one. I over-read a difference that was
 comfortably inside one standard error, in the middle of writing an argument about
@@ -1126,7 +1126,7 @@ commit would have been a content commit buffing the party to rescue a boss fight
 reading 29%. The boss fight was never at 29%. That buff would have shipped, and
 the 300-seed run would then have shown a party that was far too strong.
 
-### Scorecard -- run 1, 24 seeds
+### Scorecard: run 1, 24 seeds
 
 | # | Prediction | Measured | Verdict |
 | --- | --- | --- | --- |
@@ -1136,7 +1136,7 @@ the 300-seed run would then have shown a party that was far too strong.
 | 4 | Gate green but uncomfortable | red, two encounters | **wrong** |
 | 5 | Ambush likelier of the two to fail | both failed; boss failed by more | **wrong** |
 
-### Scorecard -- run 2, 300 seeds
+### Scorecard: run 2, 300 seeds
 
 | # | Prediction | Measured | Verdict |
 | --- | --- | --- | --- |
@@ -1179,12 +1179,12 @@ run remains a superset of every figure measured before it.
 
 > **The cost of the array itself is now six times what it was.** Each shipped
 > matchup carries its own literal 300-entry seed list, about 6031 bytes, and
-> issue #16 took the count from three to **six** -- plus seven probe fixtures.
+> issue #16 took the count from three to **six**, plus seven probe fixtures.
 > Roughly 78 KB of `data/` is now a contiguous integer sequence written out by
 > hand, repeated thirteen times. A `seed_count` / `seed_base` declaration would
 > express the same thing in two fields. Filed; it overlaps issue #31.
 
-### `matchup.thug_solo` -- 300 battles, 300 won, turns 3 / 1 / 7
+### `matchup.thug_solo`: 300 battles, 300 won, turns 3 / 1 / 7
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1199,7 +1199,7 @@ seeds the Street Thug's `miss%` read **0%** over ten rolls; over 260 rolls it
 reads **5%**. Nothing changed but the number of observations. The same is true of
 Jotaro's 4% -> 10% and of the longest battle, 4 turns -> 7.
 
-### `matchup.assassin_ambush` -- 300 battles, 158 won, 142 lost, turns 21 / 13 / 32
+### `matchup.assassin_ambush`: 300 battles, 158 won, 142 lost, turns 21 / 13 / 32
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1217,11 +1217,11 @@ The Iron Brawler's `miss%` was recorded in the #10 entry as **16%**, "the highes
 recorded for any combatant", from 61 rolls. Over 1514 rolls it is **11%**, in
 line with everyone else. That superlative was noise and is retracted here.
 
-Kakyoin uses `strike` six times in 300 battles -- 1% of its turns, invisible at
+Kakyoin uses `strike` six times in 300 battles, 1% of its turns, invisible at
 twelve seeds. Rare branches only appear when the sample is large enough to
 contain them.
 
-### `matchup.dio_boss` -- 300 battles, 141 won, 159 lost, turns 54 / 28 / 84
+### `matchup.dio_boss`: 300 battles, 141 won, 159 lost, turns 54 / 28 / 84
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1257,17 +1257,17 @@ Three things worth noting:
   now needs its own justification, not this run's.
 - **The curve is still void.** [`BALANCE-CURVE.md`](BALANCE-CURVE.md) was swept
   at twelve seeds under pre-`0.4.0` rules; it is now invalid on both counts.
-  Re-sweep is issue #14, and it must be swept at 300. *(Done -- see below.)*
+  Re-sweep is issue #14, and it must be swept at 300. *(Done; see below.)*
 - **The historical entries are not rewritten.** Their annotations mark what is
   now known to be inside the noise. A retracted measurement is evidence too.
 
 ---
 
-## Issue #14 -- the response curve is re-swept, and the plateau it published never existed
+## Issue #14: the response curve is re-swept, and the plateau it published never existed
 
 Commits `60667aa` (probe roster repaired and widened to 300 seeds) and `9c8a88f`
 (`BALANCE-CURVE.md` rewritten). **Instrumentation only. No code, no rules, no
-content, no comparability boundary** -- nothing under `tools/probe/` is reachable
+content, no comparability boundary**: nothing under `tools/probe/` is reachable
 from the game, the validator or the CI gate.
 
 Six probes, 1800 battles, `atk` 75 to 225. Full write-up and the pricing tool are
@@ -1299,7 +1299,7 @@ through a file nobody thought of as content.
 ### The control
 
 `probe.curve_a135` reproduced the shipped `matchup.assassin_ambush` in **every
-digit** -- 158 won, 142 lost, turns 21/13/32, all four combatant rows, and every
+digit**: 158 won, 142 lost, turns 21/13/32, all four combatant rows, and every
 skill-use count down to Kakyoin's six uses of `strike`. Two different roster
 files describing the same combatants produce the same 300-battle event stream.
 
@@ -1400,7 +1400,7 @@ against.
    > **over-calls the win rate below `a075`'s 0.61 by 3-4 points and by a full 8
    > points at 0.716**. It is also **near-degenerate in any fixture the party
    > usually wins**, because party `out/b` is then pinned to the foe HP pool by
-   > definition -- 1179 against 1180, 1256 against 1260, 1368 against 1390 -- so
+   > definition (1179 against 1180, 1256 against 1260, 1368 against 1390), so
    > the denominator carries almost no information and the axis reduces to foe
    > output over party HP. Two of the ten readings were wrongly sized by trusting it
    > past that point. The formula is also easy to misread and was misread here for
@@ -1410,14 +1410,14 @@ against.
 ### An unexplained trend, filed rather than guessed at
 
 Kakyoin abandons `emerald_snare` as the enemy gets stronger: 35%, 32%, 28%, 21%,
-19%, 14% of his turns across the six rows. Six points, monotone, 1800 battles --
+19%, 14% of his turns across the six rows. Six points, monotone, 1800 battles:
 not noise. It is not merely shorter battles either: his turns per battle fall by
 a factor of 1.8 while his snare uses fall by 4.4.
 
 The probe's `spd` is 62 on every row and only `atk` differs, so the thing
 `spd_down` counters has not changed at all. The mechanism is somewhere in
 `ai.rs`. **Filed as issue #27 rather than explained here**, with the condition
-that the explanation and any fix must not share a commit -- the curve above was
+that the explanation and any fix must not share a commit; the curve above was
 measured with the current behaviour, and if that behaviour is a defect then part
 of this curve is measuring the defect.
 
@@ -1425,7 +1425,7 @@ of this curve is measuring the defect.
 > establishes that `emerald_snare` at power 75 against Kakyoin's atk 78 already
 > deals less than his free `strike`, and that the deficit **widens with the
 > target's defence**. The probes vary `atk` and hold `def` at 48, so that cannot
-> be the whole story here -- but the same skill's share of Kakyoin's turns also
+> be the whole story here, but the same skill's share of Kakyoin's turns also
 > moves from 28% in the ambush to 70% against Dio, whose defence is more than
 > twice as high. Any explanation of #27 must account for both directions, and
 > #33 is the more likely root than anything in the scorer's `atk` handling.
@@ -1434,7 +1434,7 @@ of this curve is measuring the defect.
 > the Blade Dancer (def 38) the snare is 40% of Kakyoin's turns, against the Hex
 > Weaver (def 55) 32%, against the Requiem Bell (def 60) 35%. The Iron Brawler at
 > def 48 is present in all three. Three foes spanning 22 points of defence and
-> the share moves eight points non-monotonically -- so whatever drives #27, a
+> the share moves eight points non-monotonically, so whatever drives #27, a
 > single foe's defence is not it in a two-foe fight where the AI also chooses its
 > target. #27 remains open and unexplained.
 
@@ -1442,7 +1442,7 @@ of this curve is measuring the defect.
 
 - **No content change.** Nothing in `data/` moved and nothing needs to.
 - **The curve is valid only for the current rules.** It is now correct on both
-  counts that invalidated it -- swept at 300 seeds, under `0.4.0` rules -- but
+  counts that invalidated it (swept at 300 seeds, under `0.4.0` rules), but
   issues #15, #16, #17, #22, #27 and #29 all touch rules or the roster, and any
   of them voids it again.
 
@@ -1460,12 +1460,12 @@ of this curve is measuring the defect.
   > maintaining for every combatant that appears in it. Issue #15 is the first
   > entry to benefit: `pc.polnareff` was added to both files in one commit and
   > the guard proves them byte-identical. The residual risk is narrower than the
-  > line above suggests but it is not zero -- a combatant absent from the probe
+  > line above suggests but it is not zero: a combatant absent from the probe
   > roster entirely is not mirrored and not checked.
 
 ---
 
-## Issue #15 -- a fourth playable character, and a paid skill that was worse than the free one
+## Issue #15: a fourth playable character, and a paid skill that was worse than the free one
 
 Commits `3d59744` (content, measured red) and `07af985a` (reprice and relocate).
 **A content change. Comparability boundary 6 begins here, and it is the first
@@ -1475,11 +1475,11 @@ boundary in this file that comes from content rather than from rules.**
 
 Four additions to `data/`, nothing in `src/`:
 
-- `skill.riposte` -- 14 SP, one enemy, 90% accuracy, power **110** physical,
+- `skill.riposte`: 14 SP, one enemy, 90% accuracy, power **110** physical,
   plus `atk_down` 35 potency / 3 turns / 75% chance.
-- `stand.silver_chariot` -- `{ atk 16, def 14, spd 26, will 18 }`, one skill.
+- `stand.silver_chariot`: `{ atk 16, def 14, spd 26, will 18 }`, one skill.
   The single-skill Stand has precedent in `stand.iron_hymn`.
-- `pc.polnareff` -- 570 / 100 / 78 / 66 / 74 / 80, `support` profile, effective
+- `pc.polnareff`: 570 / 100 / 78 / 66 / 74 / 80, `support` profile, effective
   **atk 94, def 80, spd 100, will 98** after the Stand bonus. Speed sits
   deliberately under Jotaro's 102 so the party's action order is unchanged.
 - `pc.polnareff` joins `matchup.dio_boss`.
@@ -1514,7 +1514,7 @@ skills. It was caught by reading a function, not by running anything.
 
 | Commit | `riposte` power | `chariot_duel` lives in | thug | ambush | boss | Gate |
 | --- | --- | --- | --- | --- | --- | --- |
-| `4588c33` | -- | -- | 100% | 53% | **47%** | green |
+| `4588c33` | n/a | n/a | 100% | 53% | **47%** | green |
 | `3d59744` | **85** | `data/matchups.json` | 100% | 53% | **56%** | **RED** |
 | `07af985a` | **110** | `tools/probe/` | 100% | 53% | **68%** | green |
 
@@ -1522,7 +1522,7 @@ skills. It was caught by reading a function, not by running anything.
 Polnareff is in neither, so they are the control, and they are the evidence that
 boundary 6 applies to the boss fight alone.
 
-### Run 1 scorecard -- one of four
+### Run 1 scorecard: one of four
 
 | # | Prediction | Measured | Verdict |
 | --- | --- | --- | --- |
@@ -1539,7 +1539,7 @@ throughput from 1244 per battle to 744 against 1340 HP of foes, and no amount of
 mitigation closes that in an attrition race. A debuff slows the loss; it does not
 win the race.
 
-### Run 2 scorecard -- three of three
+### Run 2 scorecard: three of three
 
 | # | Prediction | Measured | Verdict |
 | --- | --- | --- | --- |
@@ -1547,8 +1547,8 @@ win the race.
 | 2 | `probe.chariot_duel` off zero, under 25% | 4% | correct |
 | 3 | Mirror green at 8, warnings stay at 10 | 8 mirrored, 7 band + 3 unencountered | correct |
 
-A fourth was recorded -- "may breach the 75 ceiling, and if it does the fix is
-Polnareff's `atk` or `riposte`'s SP cost, never the band" -- and is **not scored**,
+A fourth was recorded ("may breach the 75 ceiling, and if it does the fix is
+Polnareff's `atk` or `riposte`'s SP cost, never the band") and is **not scored**,
 because "may" is not falsifiable. It is kept on the record as a pre-committed
 remedy rather than as a forecast.
 
@@ -1559,7 +1559,7 @@ the fight also shortened from 54 turns to 49 and he therefore acted less. **A
 right answer from wrong reasoning is a failure that happens to score as a
 success**, and it is recorded that way here.
 
-### `matchup.dio_boss` -- 300 battles, 203 won, 97 lost, turns 49 / 30 / 74
+### `matchup.dio_boss`: 300 battles, 203 won, 97 lost, turns 49 / 30 / 74
 
 | Combatant | dealt/b | taken/b | heal/b | sp/b | rolls | miss% | alive% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1577,7 +1577,7 @@ Actions: Jotaro `rush_barrage 1637 (54%), strike 1403 (46%)`; Josuke
 strike 1349 (42%), blood_drain 205 (6%), concussive_slam 97 (3%),
 tempo_halt 95 (3%)`; Assassin `sun_flare 435 (63%), strike 259 (37%)`.
 
-### Finding 1 -- the shipped skill was strictly worse than the free attack it displaced
+### Finding 1: the shipped skill was strictly worse than the free attack it displaced
 
 This is the reason run 1 failed, and it is the most transferable thing in the
 entry. Damage is `max(power * atk / 100 - def / 2, 1)`. The defence toll is
@@ -1604,7 +1604,7 @@ paid skill above the free one against every current target.
 **The defect is in shipped content too, and predates this branch.**
 `skill.emerald_snare` is power 75 against Kakyoin's effective atk 78. Against Dio
 it delivers **4 damage** where his free `strike` delivers 26, and he spends 15 SP
-on it for 70% of his turns -- which is why his `dealt/b` in the table above is 177
+on it for 70% of his turns, which is why his `dealt/b` in the table above is 177
 against 344 in the ambush, on nearly double the SP. **Filed as #33 and
 deliberately not fixed here**, because raising `emerald_snare` moves
 `assassin_ambush`, which sits on the steepest part of the measured curve and is
@@ -1623,12 +1623,12 @@ actually shipped.
 > an `atk_down` at 26/8 across two targets at 354 points against a baseline of
 > around 100.
 
-### Finding 2 -- the debuff works, and the first analysis of it was confounded
+### Finding 2: the debuff works, and the first analysis of it was confounded
 
 The first check compared damage per **battle turn** between `chariot_duel` and
 the control: 44.9 against 45.5, about 1%, which reads as "the status is inert".
 That comparison is wrong, because foe survival differs sharply between the two
-fixtures -- 94% and 100% in the duel against 16% and 42% in the ambush -- so the
+fixtures (94% and 100% in the duel against 16% and 42% in the ambush), so the
 same number of battle turns contains very different numbers of foe actions.
 
 Normalised per **foe action**, at an average party defence of 72 in both
@@ -1639,19 +1639,19 @@ cut in enemy damage per swing**, close to the intended potency and uptime.
 in how long their combatants survive.** The confounded version was one sentence
 from being published as evidence that a working feature did nothing.
 
-### Finding 3 -- a debuff's value scales with party size, and this was not stated in advance
+### Finding 3: a debuff's value scales with party size, and this was not stated in advance
 
 The same character moved `dio_boss` up 21 points and left `chariot_duel` at 4%.
 The reason is structural rather than numeric: a debuff protects **everyone**, so
-its value scales with the number of allies benefiting, while the cost -- the
-offence forgone by the debuffer -- is fixed. In a two-person party the debuffer is
+its value scales with the number of allies benefiting, while the cost (the
+offence forgone by the debuffer) is fixed. In a two-person party the debuffer is
 half the party's damage. In a four-person party he is a quarter of it and
 protects three others.
 
 This should have been written down before the fixture was designed. It is
 predictable from the design of `status_points` without running anything.
 
-### Finding 4 -- a fourth party member changed the boss's behaviour, not just his difficulty
+### Finding 4: a fourth party member changed the boss's behaviour, not just his difficulty
 
 Nothing on Dio's sheet changed. His action mix did:
 
@@ -1672,7 +1672,7 @@ threatening or trivial. It also retroactively explains issue #9's finding 3:
 `blade_volley` looked fragile at 36 SP because its value was being measured
 against three targets.
 
-### Finding 5 -- "Jotaro is the win condition" is a property of the ambush, not a law
+### Finding 5: "Jotaro is the win condition" is a property of the ambush, not a law
 
 `probe.chariot_duel` is the direct test: remove Jotaro, keep everything else, and
 the encounter reads 4% against the control's 53%. So the claim holds where it was
@@ -1690,7 +1690,7 @@ It is worth stating explicitly, because it has the same shape as the thing this
 file exists to prevent. The argument is **categorical, not numeric**:
 `chariot_duel` was authored as "`assassin_ambush` with one variable changed",
 which is the definition of a probe. It would belong in `tools/probe/` at 53%
-exactly as much as at 0%. The reading is preserved, not discarded -- it is in the
+exactly as much as at 0%. The reading is preserved, not discarded; it is in the
 sweep and in the table above.
 
 The test of that claim is the counterfactual: had it read 15% against a 20..60
@@ -1703,7 +1703,7 @@ once, which is what distinguishes relocating a fixture from rescuing a number.
 - **No band is re-declared.** `dio_boss` at 68% is inside 35..75. It is 7 points
   under the ceiling against a +/-6 interval, so it is inside but not comfortably,
   and the pre-committed remedy if a future change pushes it out is Polnareff's
-  `atk` or `riposte`'s SP cost -- never the band.
+  `atk` or `riposte`'s SP cost, never the band.
 - **`emerald_snare` is not touched.** See #33 and the note in finding 1.
 - **#29 is not closed.** Eleven of thirteen skills reachable; the same two are
   not, and `ai.rs` already pins both as correctly declined.
@@ -1715,12 +1715,12 @@ once, which is what distinguishes relocating a fixture from rescuing a number.
 
 ---
 
-## Issue #22 -- the scorer learns a target's resistance table
+## Issue #22: the scorer learns a target's resistance table
 
 **A rules change.** `ai.rs` is touched directly, not `data/`. No comparability
-boundary opens by itself -- nothing about the rules that produce a given
+boundary opens by itself (nothing about the rules that produce a given
 encounter's numbers changed, only how accurately the AI estimates them before
-acting -- but every encounter with a resistance table anywhere in it was
+acting), but every encounter with a resistance table anywhere in it was
 re-measured anyway, because the fix's own effect is exactly to make behaviour
 shift in exactly those encounters.
 
@@ -1728,7 +1728,7 @@ shift in exactly those encounters.
 
 `score_action` priced `Effect::Damage` and `Effect::Drain` by `power * targets`
 alone. `resolve.rs`'s `compute_damage` has applied the target's resistance
-since issue #10 -- but the AI choosing the skill never looked. Two identical
+since issue #10, but the AI choosing the skill never looked. Two identical
 power values against a physically-resistant target and a psychically-vulnerable
 one scored identically, even though the real hits landing on each would not be.
 
@@ -1746,7 +1746,7 @@ left the identical defect sitting under a different effect kind.
 **The RNG draw order everything else in this file depends on is unchanged.**
 `choose` used to build one `Situation` before picking a hostile target; it now
 builds `Situation` separately inside the `Support` and `Aggressive` branches,
-after the hostile pick -- but that pick already happened in the same relative
+after the hostile pick, but that pick already happened in the same relative
 position it always has, and constructing a struct draws nothing from the RNG.
 `same_seed_produces_identical_logs` and the full band suite both stayed green,
 which is what that guarantee is for.
@@ -1754,7 +1754,7 @@ which is what that guarantee is for.
 ### Control: `matchup.thug_solo`
 
 Street Thug carries no resistance table. Required to come out bit-identical,
-and it did -- `dealt/b`, `taken/b`, `rolls`, every column, unchanged to the
+and it did: `dealt/b`, `taken/b`, `rolls`, every column, unchanged to the
 integer.
 
 ### Re-measured, 300 seeds
@@ -1767,12 +1767,12 @@ integer.
 | `matchup.dancer_rush` | 70% | 77% | 60..90 | ok |
 | `matchup.weaver_gambit` | 73% | 69% | 58..86 | ok |
 | `matchup.bell_race` | 68% | 66% | 48..80 | ok |
-| `matchup.diavolo_boss` | 33% | 33% | 25..55 | ok, unaffected -- Diavolo carries a resistance table, but nothing on the party side changed and Diavolo's own targets (the party) were already being priced without one on his side of the fight either. **Corrected in 0.4.1 (#62): he carried none. The table sat under `"resistances"`, a key nothing read, so there was nothing for the party's scorer to price -- that, not the reasoning before it, is why this row did not move.** |
+| `matchup.diavolo_boss` | 33% | 33% | 25..55 | ok, unaffected: Diavolo carries a resistance table, but nothing on the party side changed and Diavolo's own targets (the party) were already being priced without one on his side of the fight either. **Corrected in 0.4.1 (#62): he carried none. The table sat under `"resistances"`, a key nothing read, so there was nothing for the party's scorer to price; that, not the reasoning before it, is why this row did not move.** |
 
 `matchup.assassin_ambush` and `matchup.dio_boss` are the two the issue named.
 `matchup.dancer_rush`, `matchup.weaver_gambit` and `matchup.bell_race` all
 share the Iron Brawler (`physical: 25, psychic: -25`) as their second foe and
-moved too, unprompted by the issue text -- checked rather than assumed to
+moved too, unprompted by the issue text, checked rather than assumed to
 still be `ok`, which they are. `npc.blade_dancer` itself carries no
 resistance table at all; `matchup.dancer_rush`'s +7 points is entirely the
 Iron Brawler half of that encounter.
@@ -1782,7 +1782,7 @@ Iron Brawler half of that encounter.
 An unchanged aggregate can still hide a real, correctly-directed shift. `Dio`
 (`temporal: 50, psychic: 20`, and the party's Jotaro also carries
 `temporal: 50`) used `skill.tempo_halt` (the only `temporal` skill Dio holds)
-97 times pre-fix, 77 post-fix -- down from 3% to 2% of his actions, in the
+97 times pre-fix, 77 post-fix, down from 3% to 2% of his actions, in the
 direction the issue predicted, just not far enough to move the win rate on
 its own. `blade_volley`'s share absorbed the difference. Recorded so the
 "nothing changed" reading of an unmoved percentage is not mistaken for the
@@ -1796,7 +1796,7 @@ fix having no effect here.
 - [x] `matchup.assassin_ambush` win rate re-measured and recorded above
 - [x] `matchup.dio_boss` win rate re-measured and recorded above
 
-## Issue #33 -- the scorer learns the defence toll, and Iron Brawler gets retuned
+## Issue #33: the scorer learns the defence toll, and Iron Brawler gets retuned
 
 **A rules change, and it opens a new comparability boundary.** `ai.rs` is
 touched directly (Option 3 from the issue), plus `src/data-pipeline/validate_data.py`
@@ -1809,7 +1809,7 @@ to close, not just a re-measurement.
 `score_action` priced `Effect::Damage`/`Effect::Drain` as raw `power`, scaled
 by `#22`'s resistance weighting. `resolve.rs`'s `compute_damage` has always
 subtracted a flat defence toll *after* scaling `power` by the attacker's
-`atk` -- `max(power * atk / 100 - def / 2, 1)` -- and the scorer never did
+`atk` (`max(power * atk / 100 - def / 2, 1)`), and the scorer never did
 either half of that. A power-75 skill and a power-100 skill scored
 75-points-cheaper-than-100 to the AI, when the real gap after atk scaling
 and a real target's defence could be far larger, or could vanish the
@@ -1817,19 +1817,19 @@ and a real target's defence could be far larger, or could vanish the
 
 ### What changed, part 1: the scorer (Option 3)
 
-`Situation` gained `target_def: i32` -- the `def` stat of whichever hostile
+`Situation` gained `target_def: i32`, the `def` stat of whichever hostile
 target `choose` already picked this turn, zero when none applies, populated
 the same way and at the same point as `#22`'s `target_resist` (after the
 hostile pick, same RNG position, verified again via
 `same_seed_produces_identical_logs`). `effect_points` now computes
 `base = power * atk / 100`, floors `base - def / 2` at 1, then applies
 `#22`'s resistance weighting to that floored result, then the target-count
-multiplier -- the same shape and the same two floors `compute_damage` uses,
+multiplier, the same shape and the same two floors `compute_damage` uses,
 not a new approximation.
 
 This was flagged in the issue itself as the largest of the three options,
 written before #22 landed: "the largest change... would alter every existing
-AI test's arithmetic." That part held -- seven of the existing `ai.rs` tests
+AI test's arithmetic." That part held: seven of the existing `ai.rs` tests
 needed their expected numbers recalculated, because `atk` had never entered
 the scorer's arithmetic at all before this, even for a target with zero
 defence. All seven were fixed by recomputing the new formula by hand and
@@ -1844,7 +1844,7 @@ free-skill-dominates check already in the same function. Deliberately dumb:
 it does not know that `skill.tempo_halt`'s real value is mostly its
 `tempo_lock`, so it warns on that too, alongside the issue's named example,
 `skill.emerald_snare`. Both are accepted as correct warnings, not false
-positives -- the check was never meant to weigh a skill's other effects, only
+positives; the check was never meant to weigh a skill's other effects, only
 to catch this specific shape on sight during authoring.
 
 ### The behaviour this actually produced, and why a data-only re-measurement was not enough
@@ -1867,16 +1867,16 @@ from single digits to **60% of his turns in `matchup.diavolo_boss`**, because
 every damage-dealing alternative got honestly discounted while
 `guard_stance`'s own value, priced through an unrelated code path, did not
 move. Reverting `guard_stance` to its pre-#29 numbers recovered some ground
-(`weaver_gambit` 41% -> 46%) but left all three bands broken -- the shift was
+(`weaver_gambit` 41% -> 46%) but left all three bands broken; the shift was
 not guard_stance alone.
 
 The three broken encounters are the four that include `npc.iron_brawler` minus
 the one that does not break (`matchup.bell_race`). Iron Brawler's `def` (48)
-is not the highest in the roster -- `npc.requiem_bell`'s is (60) -- so this is
+is not the highest in the roster; `npc.requiem_bell`'s is (60), so this is
 not simply "whichever enemy has the most defence." `matchup.bell_race`'s
 median fight length (17-18 turns) is the shortest of the four; the three that
 broke run longer (21-28), giving more turns for the discount to compound.
-Recorded as the best available explanation, not a fully closed one -- the
+Recorded as the best available explanation, not a fully closed one: the
 exact mechanism by which fight length interacts with the discount was not
 traced turn-by-turn the way #27's was.
 
@@ -1915,13 +1915,13 @@ every control in this file has been since #22 established the expectation.
       silently redeclared
 - [x] `matchup.thug_solo` remains bit-identical
 - [ ] Option 2 (repricing `skill.emerald_snare` directly) intentionally not
-      done here -- deferred per the decision to fix the scorer first and
+      done here, deferred per the decision to fix the scorer first and
       revisit content only if still warranted after. Still warranted:
       `emerald_snare` is still below 100 power and still trips the new
       validator warning. Left as a candidate for its own future pass, now
       informed by a scorer that can actually see what it is worth.
 
-## Issue #24 and the Diavolo rebalance -- the healer stays at 140, the boss gets shorter
+## Issue #24 and the Diavolo rebalance: the healer stays at 140, the boss gets shorter
 
 **A content change of one number: `npc.diavolo` `hp` 3400 -> 3200.** It opens a
 comparability boundary for `matchup.diavolo_boss` **only**: the other six
@@ -1936,8 +1936,8 @@ left alone, also measured.
 Separately, #33 left `matchup.diavolo_boss` at 27% against a 25..55 band: two
 points, under one standard error at 300 seeds, so the next change anywhere
 near this fight would turn the gate red for reasons unrelated to it. A change to
-`restore` moves both boss fights and nothing else -- Josuke fights only in those
-two -- so the two questions could not be answered in separate runs without one
+`restore` moves both boss fights and nothing else (Josuke fights only in those
+two), so the two questions could not be answered in separate runs without one
 answer silently depending on the other.
 
 All variants below ran as probe overrides of copies of `data/` (`--skills`,
@@ -1970,12 +1970,12 @@ boss fights, others untouched); `crimson_rage` 115 and 110 (36.0, 38.0);
 Diavolo `atk` 180 and 175 (34.7, 41.3); Diavolo `hp` 3100, 2900 and 2700
 (44.7, 54.3, 69.3).
 
-**Scorecard: three of ten.** The heal mechanism held -- `restore`'s share of
-Josuke's turns barely moved with its power (40% -> 37% -> 31% in `dio_boss`) --
+**Scorecard: three of ten.** The heal mechanism held (`restore`'s share of
+Josuke's turns barely moved with its power: 40% -> 37% -> 31% in `dio_boss`),
 and the magnitude it implied did not: forty points of potency moved `dio_boss`
 by fifteen.
 
-### Decision 1 (#24) -- `skill.restore` stays at 140
+### Decision 1 (#24): `skill.restore` stays at 140
 
 The healer is the strongest single lever measured on `dio_boss`. +20 potency
 moves it by 6.7 points, +40 puts it exactly on its 75% ceiling, and the
@@ -1986,7 +1986,7 @@ an inferred 950 HP per battle; the measured figure at 140 is now 1193 in
 `dio_boss` and 1096 in `diavolo_boss`, and that is the amount this decision
 keeps.
 
-### Decision 2 -- Dio's `blood_drain` is not changed
+### Decision 2: Dio's `blood_drain` is not changed
 
 #24 asked for the boss's self-heal to be considered with the healer, so that
 nerfing one and ignoring the other was not two decisions taken as one. At
@@ -1994,7 +1994,7 @@ shipped numbers Dio heals 60 per battle while the party deals him 2052, about
 3%. The 183 that #24 was filed against was a twelve-seed reading under the
 pre-#9 rules. There is nothing here worth a boundary.
 
-### Decision 3 -- Diavolo's `hp` 3400 -> 3200
+### Decision 3: Diavolo's `hp` 3400 -> 3200
 
 Three Diavolo-only levers were measured, and each leaves the other six
 encounters bit-identical: `crimson_rage` power (120, 115, 110 -> 32.0, 36.0,
@@ -2020,7 +2020,7 @@ the next section, and it is recorded because it will move this fight again.
    `assassin_ambush` 58 -> 60, the rest within a point. Removing it from Josuke
    alone gives the same two boss figures. The scorer prices the damage a guard
    prevents above what the turn spent on it would have bought. That is #33's
-   lesson again in another unit -- a share of turns is not evidence a skill is
+   lesson again in another unit: a share of turns is not evidence a skill is
    good. Reverting to duration 2 is a possible data fix and keeps the skill
    barely reachable, but it moves four encounters at once and puts `dio_boss`
    five points under its ceiling, and it would leave the mispricing in
@@ -2031,8 +2031,8 @@ the next section, and it is recorded because it will move this fight again.
    ceiling of 90. This is #33's deferred Option 2 with numbers on it. It moves
    `assassin_ambush`, the M3 control, so it is its own entry. Candidate issue.
 3. **Consequence for the band set today.** Fixing either of the above raises
-   `matchup.diavolo_boss` again -- by roughly six and nine points if they add
-   -- and it will need re-centring when they land. Written down now so that
+   `matchup.diavolo_boss` again (by roughly six and nine points if they add),
+   and it will need re-centring when they land. Written down now so that
    is a scheduled step and not a surprise.
 
 The Iron Brawler question carried in from M2 ("hits at an effective 157 against
@@ -2054,15 +2054,15 @@ deferred, on purpose.
 
 ### Acceptance (#24)
 
-- [x] A decision recorded with the prediction written before the run -- no
+- [x] A decision recorded with the prediction written before the run: no
       change to `restore`
-- [x] If it changes, `data/skills.json` only -- it did not; the one data edit
+- [x] If it changes, `data/skills.json` only: it did not; the one data edit
       in this entry is Diavolo's `hp` in `data/combatants.json`, which is D3
 - [x] All bands re-measured; the boundary is declared and scoped to
       `matchup.diavolo_boss`
 - [x] Dio's `blood_drain` considered in the same entry
 
-## 0.4.1 -- guard priced per ally, snare repriced, Diavolo's table loaded, bosses re-centred
+## 0.4.1: guard priced per ally, snare repriced, Diavolo's table loaded, bosses re-centred
 
 **A rules change and four content changes; only `matchup.thug_solo` is
 comparable across this entry.** The rules change: `status_points` divides the
@@ -2088,7 +2088,7 @@ is in it.
 2. **The guard was priced as if every enemy hit its holder.**
    `potency / 2 * enemies * own_turns` counts each living enemy as one hit on
    the guarding combatant per round. Enemies spread their attacks over the
-   living party -- 55% at the weakest, 45% at random -- so in a party of four
+   living party (55% at the weakest, 45% at random), so in a party of four
    a guard stops about one hit in four of those it was credited with. Josuke's
    effective atk is exactly 100, so the HP-to-power conversion changes nothing
    for him: his 47% guard share against Dio and 59% against Diavolo come from
@@ -2111,7 +2111,7 @@ claim on it is.
 | Round | Variant | Prediction | Measured | Verdict |
 | --- | --- | --- | --- | --- |
 | 1 | Diavolo's table under `resist` | other six bit-identical; diavolo 37.7 -> 10 | six bit-identical; diavolo **9.3** | right |
-| 1 | snare power 100 | the five #24 figures exactly; diavolo 46 | 65.3 / 68.0 / 83.3 / 75.7 / 72.7 exactly; diavolo 48.0 -- and `emerald_splash` **never used**, which nobody predicted | right on the numbers |
+| 1 | snare power 100 | the five #24 figures exactly; diavolo 46 | 65.3 / 68.0 / 83.3 / 75.7 / 72.7 exactly; diavolo 48.0, and `emerald_splash` **never used**, which nobody predicted | right on the numbers |
 | 1 | guard divided by allies | thug identical; ambush 59.5, dio 69, dancer unmoved, weaver 72, bell 66.5, diavolo 44; `guard_stance` close to unreachable | thug identical; 59.7, **66.3**, 74.7, 69.0, 65.0, 43.0; `guard_stance` **973** uses, Josuke 9% in both boss fights | wrong |
 | 1 | damage in power units | ambush 54, dio 58, dancer 71, weaver 63, bell 63, diavolo 40 | **94.0, 95.0, 89.0, 87.0, 82.7**; diavolo bit-identical; `sun_flare` never used | wrong, every direction |
 | 1 | both scorer changes | ambush 56, dio 66, dancer 72, weaver 68, bell 64, diavolo 45 | 95.7, 98.3, 89.7, 88.7, 78.0, 43.0 | wrong |
@@ -2129,7 +2129,7 @@ claim on it is.
 | 3 | table, Diavolo `hp` 2900 | diavolo 37 | 38.7 | right |
 | 3 | table, Diavolo `hp` 2800 | diavolo 41 | 43.0 | right |
 | 4 | + Dio `hp` 1650 | dio 59.7, others identical | 61.0, others identical | right |
-| -- | shipped content, everything at once | each encounter bit-identical to the probe that isolated it | all seven bit-identical | right |
+| n/a | shipped content, everything at once | each encounter bit-identical to the probe that isolated it | all seven bit-identical | right |
 
 Measured without a prediction, so not scored: no table, Diavolo `hp` 3600
 (31.3); table, Diavolo `hp` 2700 (50.7).
@@ -2143,7 +2143,7 @@ power-units probe moved the opposite way to every prediction on it, because
 the HP pricing undervalues damage most for the party's weakest attacker,
 Kakyoin.
 
-### Decision 1 (#60) -- divide by allies, rather than duration 2
+### Decision 1 (#60): divide by allies, rather than duration 2
 
 Both routes the issue named were measured. Duration 2 (the #24 probe) takes
 the guard out of almost every fight and leaves the reason in `ai.rs`; the
@@ -2151,14 +2151,14 @@ divisor removes the reason. It also keeps the skill where the arithmetic says
 it belongs: Josuke still guards on 10% of his turns in both boss fights and
 Jotaro on 8% in `matchup.weaver_gambit`, and by the formula those are mostly
 turns after the party has thinned and the enemy's attention has fewer places
-to go. Uniform over `allies` is crude on purpose -- focus fire on the weakest
+to go. Uniform over `allies` is crude on purpose: focus fire on the weakest
 is the enemy's rule, and a price read from content alone cannot know who that
 is. Two unit tests pin the divisor and the decision it changes.
 
 In the shipped result Josuke deals 244 per battle against Dio (132 at `0.4.0`)
 and 372 against Diavolo (243).
 
-### Decision 2 (#61) -- power 100 at 20 SP
+### Decision 2 (#61): power 100 at 20 SP
 
 Power 100 makes the snare what its description says, a strike that also
 slows, and clears the validator warning it has carried since #33. On its own it
@@ -2172,7 +2172,7 @@ In the shipped result Kakyoin deals 208 per battle against Dio (77 at `0.4.0`),
 237 against Diavolo (123), and 65 to 76 more in each of the four Iron Brawler
 fights.
 
-### Decision 3 (#62) -- the table loads, and the validator rejects unknown keys
+### Decision 3 (#62): the table loads, and the validator rejects unknown keys
 
 The data said Diavolo resists physical 20 and psychic 15, and the #22 entry
 reasoned as though he did, so the fix makes that true rather than deleting the
@@ -2183,15 +2183,15 @@ knows every key each kind of object may carry and reports any other one, for
 every object at once, and CI runs it. Run against `0.4.0`'s data it says
 `combatants.json[11] (npc.diavolo): unknown keys ['resistances']`.
 
-The loader was made strict as well -- `deny_unknown_fields` on every content
-struct, with tests -- and taken out again before release. It changes what the
+The loader was made strict as well (`deny_unknown_fields` on every content
+struct, with tests) and taken out again before release. It changes what the
 content files may contain: the `provenance` block `docs/DATA-SOURCES.md`
 reserves would stop loading the day an entry carried one. `docs/RELEASING.md`
 puts a schema change in a minor version, so the strict loader goes to 0.5.0
-together with declaring that block. Until then the validator accepts
+(#65) together with declaring that block. Until then the validator accepts
 `provenance` on the three kinds of entry the document reserves it for.
 
-### Decision 4 -- `npc.dio` `hp` 1400 -> 1650
+### Decision 4: `npc.dio` `hp` 1400 -> 1650
 
 The guard and snare fixes together take `matchup.dio_boss` to 75.7%, out of its
 35..75 band. Dio is the lever because he appears in that fight and nowhere
@@ -2199,7 +2199,7 @@ else, so the other six reproduce bit for bit, and `hp` because the fight had
 shortened (median 56 -> 46 turns) for exactly the reason the party got better
 at it. 1650 measures 61.0% against 60.0% at `0.4.0`, median 52.
 
-### Decision 5 -- `npc.diavolo` `hp` 3200 -> 2900
+### Decision 5: `npc.diavolo` `hp` 3200 -> 2900
 
 With the table loading and both fixes in, the fight measures 16.7%. `hp` is the
 lever for the reason the #24 entry gave: of the Diavolo-only levers it is the
@@ -2231,7 +2231,7 @@ here on purpose.
 4. **The loader still drops a key it does not know.** Only the validator
    notices one, so a misspelled key in an edit that has not been through the
    gate or CI loads without a word, as Diavolo's table did. Planned for
-   0.5.0; see Decision 3.
+   0.5.0 (#65); see Decision 3.
 
 ### Re-measured, shipped content, 300 seeds
 
@@ -2254,8 +2254,755 @@ here on purpose.
 - [x] #61: no paid-below-free warning on the snare; every skill chosen by
       someone; every band re-measured, and the two that left re-centred
 - [x] #62: Diavolo's table applies; an unknown key fails the validator,
-      and so CI, and the message names it -- checked against `0.4.0`'s data;
-      the loader's own refusal moves to 0.5.0 (Decision 3)
+      and so CI, and the message names it, checked against `0.4.0`'s data;
+      the loader's own refusal moves to 0.5.0 (#65, Decision 3)
+
+## Issue #63: `score_action` prices every effect in HP
+
+**A rules change: comparability boundary for every encounter but
+`matchup.thug_solo`.** `ai.rs` priced damage in HP after the defence toll
+(since #33), `Bleed` and `DefUp` in power units, and every action-valued
+effect on a nominal power baseline that ignores the target's defence. One
+decision compared three units. This entry measures the scorer change alone,
+on 0.4.1 content, then probes the retune levers, then records the owner's
+choice (option A, below) and the shipped measurement.
+
+### What reading the code found before anything ran
+
+1. **The unit was never the question.** Within one decision the actor's
+   attack is constant, so "everything in HP" and "everything in power units"
+   rank candidates identically up to integer rounding. What #63's one-line
+   probe in the 0.4.1 entry changed was the *mix*: it moved damage to
+   `HP * 100 / atk` after the defence toll and left the action-valued
+   effects on a baseline before it. Its figures (ambush 94, dio 95, dancer
+   89, weaver 87, bell 83) are therefore not a forecast of this fix.
+2. **The fix, per branch.** Damage and Drain unchanged. `Bleed` and `DefUp`
+   lose the `as_power_units` conversion. `TempoLock`, `Stun`, `SpdDown` and
+   `SpdUp` are priced at `baseline_hp`: the HP the actor's best affordable
+   hit deals to the chosen target, through the same defence, resistance and
+   floor as a Damage effect. `AtkUp`, and `AtkDown` by symmetry, are priced
+   at `baseline * atk / 100 * potency / 100`, the HP a percentage of attack
+   adds to a hit before the toll (the toll is flat, so it does not scale).
+   `DefDown` becomes `target_def * potency / 200` per hit; no content uses
+   it. RNG draws are untouched: `baseline_hp` is computed from the target
+   that `choose` already drew.
+3. **Found and left for its own issue.** `DefUp` treats `potency` as flat
+   defence points; `state.rs` applies it as a percentage of the holder's
+   defence. At shipped stats Josuke's guard prevents 29 per hit, not 30, and
+   Jotaro's 24. Not fixed here: one change per measurement.
+
+### Predictions, written before the run
+
+Derived by scoring each actor's candidates by hand, old and new, against the
+targets it actually faces. "Right" means the right direction and within two
+points.
+
+| Encounter | 0.4.1 | Prediction | Mechanism |
+| --- | --- | --- | --- |
+| `matchup.thug_solo` | 100.0 | bit-identical | Jotaro's ordering unchanged (rush 196 net vs halt below zero) |
+| `matchup.assassin_ambush` | 69.3 | 62 | Kakyoin's slow is now priced at his own hit (about 80 HP) rather than at 105 nominal, so `emerald_splash` outbids `emerald_snare` while both foes stand; the Brawler is slowed less |
+| `matchup.dio_boss` | 61.0 | 56 | the same flip for Kakyoin while the Flame Assassin stands; Dio's stun and lock rise a little at two party members |
+| `matchup.dancer_rush` | 85.3 | 80 | as the ambush |
+| `matchup.weaver_gambit` | 81.0 | 77 | as the ambush, partly offset: under `wither_hex` Jotaro's guard no longer inflates as his attack falls (68 -> 60 points against a 54-61 strike) |
+| `matchup.bell_race` | 74.7 | 69 | as the ambush |
+| `matchup.diavolo_boss` | 38.7 | bit-identical | every ordering checked unchanged: Diavolo's lock still wins at 50 SP, Josuke's slam, Polnareff's rage over riposte, Kakyoin's snare against one foe |
+
+Behaviour, scored the same way: in the four Iron Brawler fights Kakyoin's
+`emerald_splash` share rises from 14-19% to at least 40%; the Flame
+Assassin, Hex Weaver, Blade Dancer, Requiem Bell and Iron Brawler move by
+under two points of share each; Jotaro's `guard_stance` share in
+`matchup.weaver_gambit` falls from 8% to at most 5%.
+
+### Measured, the scorer change alone, 300 seeds
+
+The 0.4.1 table was reproduced first, battle for battle (208, 183, 256, 243,
+224 and 116 wins; Diavolo's median 73 turns), so the binary and the content
+are the ones the 0.4.1 entry measured. Two runs of the new build are
+byte-identical.
+
+| Encounter | 0.4.1 | Predicted | Measured | 95% interval | Band | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100.0 | bit-identical | 100.0, bit-identical | n/a | 85..100 | right |
+| `matchup.assassin_ambush` | 69.3 | 62 | **97.3** (292) | 95.5..99.2 | 45..90 | wrong, direction |
+| `matchup.dio_boss` | 61.0 | 56 | 61.3 (184) | 55.8..66.8 | 35..75 | wrong |
+| `matchup.dancer_rush` | 85.3 | 80 | **92.0** (276) | 88.9..95.1 | 60..90 | wrong, direction |
+| `matchup.weaver_gambit` | 81.0 | 77 | **91.0** (273) | 87.8..94.2 | 58..86 | wrong, direction |
+| `matchup.bell_race` | 74.7 | 69 | **80.7** (242) | 76.2..85.1 | 48..80 | wrong, direction |
+| `matchup.diavolo_boss` | 38.7 | bit-identical | 38.0 (114), median 73 | 32.5..43.5 | 25..55 | wrong |
+
+Behaviour: Kakyoin's `emerald_splash` share in the four Iron Brawler fights
+is 61-70% (right); Jotaro's `guard_stance` in `matchup.weaver_gambit` is 4%
+(right); the other enemies hold their shares within two points (**wrong**:
+the Flame Assassin's `sun_flare` falls from 19% to **0** in the ambush and from
+7% to 0 against Dio, and `rage_focus` rises from 44% to 65%).
+
+**Scorecard: three of ten.** Four encounters leave their bands, and three of
+them on the side the prediction said they would not. Two mechanisms were
+missed:
+
+1. **The slow was the overpriced side, not the splash.** The prediction
+   assumed a slowed Brawler was worth more than Kakyoin's second target. The
+   fights say otherwise: dancer, weaver and bell have no Flame Assassin, no
+   enemy moved a share by more than five points, and all three rose by six
+   to ten points as Kakyoin switched to the splash.
+2. **The attack buff now scales with the attack it has already raised.**
+   `attack_share_hp` reads the actor's *current* attack, which includes an
+   active `rage_focus`. Once the Flame Assassin is buffed its next
+   `rage_focus` is priced higher than the first, while re-applying a status
+   only refreshes it (`state.rs` keeps the stronger potency). The scorer has
+   never known which statuses are already active; 0.4.1 priced the buff on a
+   nominal baseline that did not grow, and that hid it. The assassin now
+   spends its turns refreshing a buff it already holds.
+
+`matchup.diavolo_boss` is not bit-identical because a lone Jotaro now guards
+(64 uses): alone against one enemy the guard prevents 60 HP against a 58 HP
+strike, where it was 50 power points before.
+
+### Retune probes: predictions, written before the runs
+
+Each P and O probe changes content in a copy of `data/` and runs through
+`--combatants`, `--stands` or `--skills`. Q1 and Q2 are temporary scorer
+builds, measured and reverted; Q2 then ships (see the decision). P runs on
+the new scorer; O combines a Q build with one content number, each of which
+was first measured alone.
+
+| Probe | Change | Prediction |
+| --- | --- | --- |
+| P1 | `npc.iron_brawler` `atk` 135 -> 150 | ambush 95, dancer 88, weaver 87, bell 76; the other three bit-identical |
+| P2 | `npc.iron_brawler` `atk` 135 -> 165 | ambush 91, dancer 83, weaver 82, bell 70; the other three bit-identical |
+| P3 | `npc.iron_brawler` `hp` 620 -> 720 | ambush 95, dancer 89, weaver 88, bell 77; the other three bit-identical |
+| P4 | `skill.emerald_splash` `sp_cost` 22 -> 28 | ambush 95, dio 60, dancer 89, weaver 88, bell 78; thug and diavolo bit-identical |
+| P5 | `stand.magicians_red` without `skill.rage_focus` (diagnostic) | ambush 85, dio 58; the other five bit-identical |
+| P6 | `npc.flame_assassin` `hp` 640 -> 760 | ambush 95, dio 58; the other five bit-identical |
+| Q1 | a status the recipient already carries is priced at zero (a buff on the actor, a debuff on the chosen target) | ambush 80, dio 58, dancer 92, weaver 85, bell 81, diavolo 42; thug bit-identical |
+| Q2 | `attack_share_hp` reads the actor's base attack, so an active buff does not raise the next one's price | ambush 85, dio 59; dancer, weaver and bell within one point; diavolo within one point; thug bit-identical |
+| O1 | Q2 and P1 together (`atk` 150) | additive: ambush 64, dio 55.7, dancer 81.7, weaver 84.7, bell 71.7, diavolo 38.0, thug 100 |
+| O2 | Q2 and `npc.iron_brawler` `atk` 135 -> 145 | ambush 66, dio 55.7, dancer 85, weaver 87, bell 75, diavolo 38.0, thug 100 |
+| O3 | Q1 and P1 together | ambush 64, dio 54.7, dancer 81, weaver 86, bell 72, diavolo 39.7, thug 100 |
+| O4 | Q2 and `npc.iron_brawler` `atk` 135 -> 155 | ambush 56, dio 55.7, dancer 79, weaver 82, bell 69, diavolo 38.0, thug 100 |
+| O5 | Q2 and P3 together (`hp` 720) | ambush 62, dio 55.7, dancer 84.0, weaver 82.0, bell 73.0, diavolo 38.0, thug 100 |
+
+### Retune probes: results, 300 seeds
+
+Win rates in percent; `thug_solo` won 300 of 300 in every probe. A
+prediction of "bit-identical" was checked on win counts only, and every
+such count matched.
+
+| Probe | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| scorer alone | 97.3 | 61.3 | 92.0 | 91.0 | 80.7 | 38.0 | n/a |
+| P1 | 92.3 | 61.3 | 81.7 | 84.7 | 71.7 | 38.0 | wrong |
+| P2 | 81.7 | 61.3 | 76.0 | 77.7 | 65.3 | 38.0 | wrong |
+| P3 | 91.0 | 61.3 | 84.0 | 82.0 | 73.0 | 38.0 | wrong |
+| P4 | 96.0 | 59.7 | 91.3 | 92.7 | 80.0 | 38.0 | wrong, weaver direction |
+| P5 | 76.3 | 58.7 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| P6 | 96.7 | 53.3 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| Q1 | 69.3 | 54.7 | 91.7 | 93.3 | 80.3 | 39.7 | wrong |
+| Q2 | 68.7 | 55.7 | 92.0 | 91.0 | 80.7 | 38.0 | wrong |
+| O1 | 59.3 | 55.7 | 81.7 | 84.7 | 71.7 | 38.0 | wrong (ambush; the other five exact) |
+| O2 | 62.3 | 55.7 | 85.3 | **86.7** | 75.0 | 38.0 | wrong (ambush) |
+| O3 | 58.7 | 54.7 | 81.3 | **88.3** | 70.7 | 39.7 | wrong |
+| O4 | 56.7 | 55.7 | 80.0 | 82.3 | 70.3 | 38.0 | right |
+| O5 | 54.3 | 55.7 | 84.0 | 82.0 | 73.0 | 38.0 | wrong (ambush) |
+
+**Scorecard: one of thirteen**, four of twenty-three for the entry. Once Q2
+is in, the Brawler's numbers move the three fights without the Flame
+Assassin exactly as they did alone (O1 against P1, O5 against P3: the same
+win counts), and move the ambush by more than they did alone: with the
+assassin no longer refreshing its buff, the Brawler is the fight.
+
+### What the probes say
+
+1. **Q2 is a correction to this change, not a new rule.** `state.rs` stacks
+   a modifier additively on the *base* stat, `base * (100 + sum) / 100`, so
+   a +35% buff adds `base * 35 / 100` whether or not another buff is
+   active. Pricing it off the current attack, as the scorer-alone build
+   does, counts the active buff twice. Q2 prices it the way the rules apply
+   it, and with it the ambush returns to 68.7, within a point of 0.4.1.
+   P5 says the same from the content side: take `rage_focus` away from the
+   assassin and the ambush falls 21 points.
+2. **Q1 is the deeper defect, and it is not this issue.** The scorer has
+   never known which statuses are active, so it re-buffs a buffed actor and
+   re-debuffs a debuffed target. Q1 fixes the ambush as Q2 does, and also
+   moves `matchup.weaver_gambit` to 93.3 (the Hex Weaver's `wither_hex` falls
+   from 803 uses to 535 and its strike rises from 470 to 693) and Diavolo
+   to 39.7. It is a second rules change with its own boundary; it should be
+   its own issue.
+3. **The three Brawler fights without the assassin rose because Kakyoin now
+   plays better.** Nothing else changed in them: no enemy moved a share by
+   more than five points, and Q2 leaves them exactly where the scorer alone
+   put them. The 0.4.1 entry already named the answer for them: the regular
+   enemies' numbers, not a wider band. The Iron Brawler is in all four.
+4. **Repricing the splash is the wrong lever.** P4 (`sp_cost` 28) lowers
+   nothing that needs lowering and raises `matchup.weaver_gambit` to 92.7.
+5. **`matchup.dio_boss` falls to 55.7 under Q2**, inside its band (35..75)
+   and five points under 0.4.1. It needs no re-centring to pass; whether it
+   should be re-centred is the owner's call under the boss rule.
+
+### Decision: the owner chose option A (Q2, and `npc.iron_brawler` `atk` 135 -> 155)
+
+Recorded on 2026-11-02, from the options above: Q2 ships as part of #63,
+and the Iron Brawler's attack goes from 135 to 155. Not taken: B (`hp` 620
+-> 720), which returns the three Brawler fights closest to 0.4.1 but leaves
+the ambush's interval 3.7 points above its floor; C (`atk` 150), whose
+`matchup.weaver_gambit` interval reaches 88.7 against a ceiling of 86.
+`matchup.dio_boss` is not re-centred: it stays in band at 55.7, and the
+causes that moved it (#63, Q2) are named here. Q1 and the `DefUp` percentage
+are not fixed in this change.
+
+Predictions for the shipped build, before it ran: Q2 as shipped reproduces
+probe Q2 win for win (68.7, 55.7, 92.0, 91.0, 80.7, 38.0, thug 100), and Q2
+with the content change reproduces O4 win for win (56.7, 55.7, 80.0, 82.3,
+70.3, 38.0, thug 100), because the shipped code computes exactly what the
+probes did.
+
+### Re-measured, shipped build, 300 seeds
+
+Both predictions right: Q2 as shipped reproduces probe Q2 win for win (206,
+167, 276, 273, 242, 114, 300), and the shipped build with the content change
+reproduces O4 (below). Two runs are byte-identical, and `matchup.thug_solo`'s
+report is byte-identical to 0.4.1's. **Scorecard for the entry: six of
+twenty-five.**
+
+| Encounter | 0.4.1 | Now | 95% interval | Band | Median turns |
+| --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 100% | 100%, bit-identical | n/a | 85..100 | 3 |
+| `matchup.assassin_ambush` | 69.3% | 56.7% (170) | 51.1..62.3 | 45..90 | 22 -> 19 |
+| `matchup.dio_boss` | 61.0% | 55.7% (167) | 50.0..61.3 | 35..75 | 52 |
+| `matchup.dancer_rush` | 85.3% | 80.0% (240) | 75.5..84.5 | 60..90 | 20 -> 19 |
+| `matchup.weaver_gambit` | 81.0% | 82.3% (247) | 78.0..86.6 | 58..86 | 26 -> 23 |
+| `matchup.bell_race` | 74.7% | 70.3% (211) | 65.2..75.5 | 48..80 | 17 -> 15 |
+| `matchup.diavolo_boss` | 38.7% | 38.0% (114) | 32.5..43.5 | 25..55 | 73 |
+
+**Is this band-fitting?** No band moved, and no number was chosen to land
+on one. The content change answers a named cause (Kakyoin's better play in
+the three Brawler fights, #63), and was taken from three measured levers by
+the owner. Neither boss was re-centred.
+
+### What this entry deliberately does not fix
+
+1. **The scorer does not know which statuses are active** (probe Q1). It
+   still re-buffs a buffed actor and re-debuffs a debuffed target; Q2 only
+   stops a refresh from looking better than the first application. A rules
+   change of its own, unfiled.
+2. **`DefUp` reads its potency as flat defence**, where `state.rs` applies
+   it as a percentage of the holder's defence. Small at shipped stats (29 or
+   24 per hit against the 30 priced), unfiled.
+3. **Denial is priced at the actor's own hit.** A stun, a lock or a slow is
+   worth one of *our* actions, not the target's; a weak attacker therefore
+   undervalues slowing a strong one. This is the proxy that made the
+   prediction for Kakyoin wrong in both directions at once.
+4. **`matchup.weaver_gambit` sits close to its ceiling again**: 86.6 at the
+   interval's upper end against 86, as it stood at 85.4 in 0.4.1.
+
+### Acceptance (#63)
+
+- [x] One unit throughout `score_action`: every effect kind pinned in HP by
+      `every_effect_kind_is_priced_in_hp`, the attack multiplier kept out of
+      HP-valued effects by `only_hit_valued_effects_follow_the_actors_attack`,
+      and an attack buff priced on the base attack by
+      `an_attack_buff_is_priced_on_the_base_attack_not_the_buffed_one`
+- [x] Predictions written before every run, and scored
+- [x] Comparability boundary declared, here and in the list at the top
+- [x] Scorer change measured alone; retune options brought to the owner with
+      measurements; the owner's choice recorded with the options not taken
+- [x] All seven encounters inside their bands; `matchup.thug_solo`
+      bit-identical; no band widened
+
+## M4 audit: four balance questions, measured, nothing shipped changed
+
+**No rule, content or band changed, so this entry opens no comparability
+boundary.** It answers four questions asked while planning `1.0.0`: which
+single change would push the encounters closest to their ceilings out (Q1),
+what pricing the guard's tempo would do (Q2), how Dio wins and loses on SP
+(Q3), and what bounds the thug and Iron Brawler fights after #63 (Q4). Every
+probe ran on a throwaway local build or on a copy of one `data/` file, and none
+of them is in the repository. Each section ends with the options its
+measurements leave; choosing between them is the owner's decision, and this
+entry makes none.
+
+### Method
+
+- **Baseline.** `development` at `8b51e34` (#79). Its `--json` report is
+  byte-identical to the one `f575394` (#76) writes, so #77 to #79 moved
+  nothing, and it reproduces the #63 table win for win: 300, 170, 167, 240,
+  247, 211 and 114, with Diavolo's median at 73 turns.
+- **Sample and interval.** Seeds 1 to 300 per encounter. Intervals are the
+  Wilson score interval at 95%, the one `tools/balance_diff.py` computes. The
+  #63 entry and "Current status" quote the normal approximation instead
+  (`weaver_gambit` 78.0..86.6 there, 77.6..86.2 here, from the same 247 of
+  300), although that script's docstring says this file quotes Wilson; at
+  these counts the two differ by under half a point.
+- **One change per probe**, always against the shipped build and never
+  stacked. Rule probes are patches on local `exp/*` branches; content probes
+  are copies of one data file passed with `--combatants`, `--skills` or
+  `--matchups`.
+- **Traces** come from a throwaway tracer that replays the loop of
+  `Battle::run_to_completion` one step at a time and records the state before
+  every action. Over all seven encounters it reproduces every win, loss and
+  median of the report.
+- **Predictions** were written in seven sittings between 13:08 and 13:27 UTC
+  on 2026-11-03, each before the runs it covers. "Right" means the right
+  direction and within two points; a measured change of zero has no direction
+  to miss; a row is wrong if any claim on it is.
+- **Gate edges.** The gate compares the whole percent, rounded half up, so
+  `weaver_gambit` fails at 260 wins (13 more than now),
+  `dancer_rush` at 272 (32 more) and `bell_race` at 242 (31 more).
+
+| Encounter | Won of 300 | Win rate | Wilson 95% | Band | Median turns |
+| --- | --- | --- | --- | --- | --- |
+| `matchup.thug_solo` | 300 | 100.0 | 98.7..100.0 | 85..100 | 3 |
+| `matchup.assassin_ambush` | 170 | 56.7 | 51.0..62.2 | 45..90 | 19 |
+| `matchup.dio_boss` | 167 | 55.7 | 50.0..61.2 | 35..75 | 52 |
+| `matchup.dancer_rush` | 240 | 80.0 | 75.1..84.1 | 60..90 | 19 |
+| `matchup.weaver_gambit` | 247 | 82.3 | 77.6..86.2 | 58..86 | 23 |
+| `matchup.bell_race` | 211 | 70.3 | 64.9..75.2 | 48..80 | 15 |
+| `matchup.diavolo_boss` | 114 | 38.0 | 32.7..43.6 | 25..55 | 73 |
+
+### Q1: what would push `weaver_gambit`, `dancer_rush` and `bell_race` out
+
+Fourteen single changes in Round C (written at 13:21 UTC), five more in
+Rounds F and G (13:24 and 13:26) aimed at what Round C found, and the three
+guard prototypes of Q2. C1 to C3 are scorer defects this file already names,
+C4 is one this entry found (see the last section), C11 is a rule constant,
+and C5 to C14 are content.
+
+| Probe | Change | Prediction |
+| --- | --- | --- |
+| C1 | a buff the actor already carries, or a debuff the chosen target carries, is priced at zero (#63's probe Q1) | thug bit-identical; ambush 55.0, dio 54.7, dancer 80.0, weaver 84.6, bell 70.0, diavolo 39.7 |
+| C2 | `DefUp` priced as a percentage of the actor's base defence, as `state.rs` applies it: 24 per hit for Jotaro and 29 for Josuke, not 30 | thug bit-identical; ambush 58.7, dio 56.2, dancer 80.5, weaver 83.3, bell 70.8, diavolo 39.0 |
+| C3 | a stun, lock or slow priced at the target's basic strike on the actor, not at the actor's own best hit | thug bit-identical; ambush 54.0, dio 55.7, dancer 75.0, weaver 77.0, bell 66.0, diavolo 38.0 |
+| C4 | a hostile status priced at the chance `resolve.rs` rolls, `chance - will / 2` floored at 5 | thug bit-identical; ambush 62.0, dio 35.0, dancer 82.0, weaver 84.0, bell 72.0, diavolo 25.0 |
+| C11 | `SP_REGEN_PER_TURN` 4 -> 5 | thug bit-identical; ambush 58.0, dio 54.0, dancer 81.5, weaver 83.5, bell 71.5, diavolo 37.0 |
+| C5 | `npc.iron_brawler` `atk` 155 -> 145 | #63's O2 win for win: ambush 62.3, dancer 85.3, weaver 86.7, bell 75.0; thug, dio and diavolo bit-identical |
+| C6 | `npc.iron_brawler` `atk` 155 -> 165 | ambush 51.5, dancer 75.5, weaver 78.0, bell 65.5; the other three bit-identical |
+| C7 | `npc.iron_brawler` `hp` 620 -> 560 | ambush 64.5, dancer 84.5, weaver 87.5, bell 75.0; the other three bit-identical |
+| C8 | `pc.kakyoin` `atk` 70 -> 75 | thug bit-identical; ambush 61.5, dio 58.5, dancer 84.5, weaver 86.0, bell 75.0, diavolo 40.0 |
+| C9 | `pc.kakyoin` `hp` 520 -> 570 | thug bit-identical; ambush 59.5, dio 57.5, dancer 83.0, weaver 85.0, bell 73.5, diavolo 39.5 |
+| C10 | `pc.jotaro` `atk` 95 -> 100 | thug 100 but not bit-identical; ambush 61.0, dio 59.0, dancer 84.5, weaver 86.5, bell 74.5, diavolo 42.0 |
+| C12 | each third foe's `hp` 10% lower: Hex Weaver 620, Blade Dancer 560, Requiem Bell 500 | dancer 83.0, weaver 84.8, bell 73.8; the other four bit-identical |
+| C13 | `skill.emerald_splash` power 105 -> 115 | ambush 61.5, dio 57.0, dancer 85.0, weaver 87.0, bell 75.0; thug and diavolo bit-identical |
+| C14 | `skill.concussive_slam` stun chance 40 -> 30; it lands at the 5% floor on every target either way, so only prices move | dio within a point and not bit-identical; the other six bit-identical |
+| C, ranking | across C1 to C14 | the largest rise in weaver is party-side (C10 or C13); at least three of C5, C7, C8, C10 and C13 push weaver out; none pushes dancer or bell out |
+| F1 | `npc.iron_brawler` `hp` 620 -> 590, to see whether C7 is a slope | ambush 60.5, dancer 81.5, weaver 88.5, bell 73.0; the other three bit-identical |
+| F2 | `npc.hex_weaver` `hp` 690 -> 760 | weaver 76.8; the other six bit-identical |
+| F3 | `skill.wither_hex` potency 26 -> 30 | weaver 78.3; the other six bit-identical |
+| G1 | `npc.hex_weaver` `hp` 690 -> 700, a tie with the Brawler that breaks toward the Weaver | weaver 81.0, and the Weaver downed first in at least 70% of battles |
+| G2 | `npc.hex_weaver` `hp` 690 -> 710 | weaver 89.0, and the Brawler downed first in at least 60% of battles |
+
+Results, 300 seeds. "bit" is a report bit-identical to the shipped one for
+that encounter; bold is outside its band.
+
+| Probe | thug | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| C1 | bit | 56.0 | 54.7 | 79.3 | 85.7 | 69.7 | 39.7 | right |
+| C2 | bit | bit | bit | 80.0 | 85.0 | bit | 38.7 | right |
+| C3 | bit | 50.0 | 57.0 | 75.0 | 84.7 | 72.3 | bit | wrong: ambush, weaver and bell |
+| C4 | bit | 89.7 | **9.3** (out) | bit | bit | bit | **2.0** (out) | wrong: ambush, dio, diavolo |
+| C11 | bit | 55.7 | 62.0 | 79.0 | 82.7 | 72.0 | 44.3 | wrong: four directions |
+| C5 | bit | 62.3 | bit | 85.3 | **86.7** (out) | 75.0 | bit | right, O2 win for win |
+| C6 | bit | 49.3 | bit | 76.0 | 77.7 | 65.3 | bit | wrong: ambush by 2.2 |
+| C7 | bit | 64.0 | bit | 83.0 | **95.0** (out) | 75.7 | bit | wrong: weaver |
+| C8 | bit | 61.7 | 57.3 | 82.0 | **86.7** (out) | 73.7 | 41.7 | wrong: dancer by 2.5 |
+| C9 | bit | 64.3 | 58.7 | 88.0 | 84.3 | 76.7 | 42.0 | wrong: four |
+| C10 | 100.0 | 62.7 | 58.7 | 81.7 | **87.7** (out) | 74.7 | 42.3 | wrong: dancer by 2.8 |
+| C12 | bit | bit | bit | 84.0 | **88.3** (out) | 78.3 | bit | wrong: weaver and bell |
+| C13 | bit | 63.7 | 58.0 | 82.3 | **86.7** (out) | 74.7 | bit | wrong: ambush, dancer |
+| C14 | bit | bit | bit | bit | bit | bit | bit | wrong: dio is bit-identical too |
+| C, ranking | | | | | | | | wrong: the largest rise is C7, a Brawler number |
+| F1 | bit | 60.3 | bit | 81.3 | **92.0** (out) | 72.3 | bit | wrong: weaver |
+| F2 | bit | bit | bit | bit | **89.0** (out) | bit | bit | wrong: direction |
+| F3 | bit | bit | bit | bit | 80.7 | bit | bit | wrong: by 2.4 |
+| G1 | bit | bit | bit | bit | 81.3 | bit | bit | right: Weaver first in 212 of 300 |
+| G2 | bit | bit | bit | bit | **89.0** (out) | bit | bit | wrong: Brawler first in 179 of 300, 59.7% |
+
+The three encounters in wins, with their Wilson intervals, for every probe
+that moved one of them:
+
+| Probe | dancer won, Wilson 95% | weaver won, Wilson 95% | bell won, Wilson 95% |
+| --- | --- | --- | --- |
+| shipped | 240, 75.1..84.1 | 247, 77.6..86.2 | 211, 64.9..75.2 |
+| B1 | 227, 70.5..80.2 | 243, 76.2..85.0 | 200, 61.2..71.8 |
+| B2 | 177, 53.4..64.4 | 173, 52.0..63.1 | 170, 51.0..62.2 |
+| B3 | 232, 72.3..81.7 | 247, 77.6..86.2 | 203, 62.2..72.7 |
+| C1 | 238, 74.4..83.5 | 257, 81.2..89.2 | 209, 64.2..74.6 |
+| C2 | 240, 75.1..84.1 | 255, 80.5..88.6 | 211, 64.9..75.2 |
+| C3 | 225, 69.8..79.6 | 254, 80.2..88.3 | 217, 67.0..77.1 |
+| C11 | 237, 74.0..83.2 | 248, 78.0..86.5 | 216, 66.7..76.8 |
+| C5 | 256, 80.9..88.9 | 260, 82.4..90.1 | 225, 69.8..79.6 |
+| C6 | 228, 70.9..80.5 | 233, 72.6..82.0 | 196, 59.8..70.5 |
+| C7 | 249, 78.3..86.8 | 285, 91.9..96.9 | 227, 70.5..80.2 |
+| C8 | 246, 77.3..85.9 | 260, 82.4..90.1 | 221, 68.4..78.3 |
+| C9 | 264, 83.8..91.2 | 253, 79.8..88.0 | 230, 71.6..81.1 |
+| C10 | 245, 76.9..85.6 | 263, 83.5..90.9 | 224, 69.5..79.3 |
+| C12 | 252, 79.4..87.7 | 265, 84.2..91.5 | 235, 73.3..82.6 |
+| C13 | 247, 77.6..86.2 | 260, 82.4..90.1 | 224, 69.5..79.3 |
+| F1 | 244, 76.5..85.3 | 276, 88.4..94.6 | 217, 67.0..77.1 |
+| F2 | 240, 75.1..84.1 | 267, 85.0..92.1 | 211, 64.9..75.2 |
+| F3 | 240, 75.1..84.1 | 242, 75.8..84.7 | 211, 64.9..75.2 |
+| G1 | 240, 75.1..84.1 | 244, 76.5..85.3 | 211, 64.9..75.2 |
+| G2 | 240, 75.1..84.1 | 267, 85.0..92.1 | 211, 64.9..75.2 |
+
+What the measurements show:
+
+1. **`weaver_gambit` is the fragile one.** Nine of the 22 single changes
+   measured push it out (C5, C7, C8, C10, C12, C13, F1, F2, G2), by 0.7 to 9.0
+   points over its ceiling, and three of them (C5, C8, C13) by exactly the one
+   win the gate needs. `dancer_rush` and `bell_race` crossed their ceilings
+   under none of the 22. Their largest rises are 8.0 points each, C9 for the
+   dancer (264 wins against the 272 that fail it) and C12 for the bell (235
+   against 242).
+2. **The most likely way out for `weaver_gambit` is any hit-point edit that
+   reverses which of its two foes has fewer HP.** The Hex Weaver's 690 sits
+   under the Iron Brawler's 700 (620 plus Iron Hymn's 80), and each party
+   member aims at the foe with the lowest current HP 55% of the time and at a
+   random foe otherwise, so 83% of the single-target attacks among the
+   party's first four actions go at the Weaver, who falls first in 219 of 300
+   battles. At 700, a tie that breaks toward the Weaver, the opening is the
+   same (83%) and the result within three wins (244). At 710 the opening goes
+   58% at the Brawler, he falls first in 179 battles, and the party wins 267:
+   **7.7 points for 10 HP**, and no more at 760 (267 again). C7 is the same
+   flip from the Brawler's side: traced, 60% of the opening goes at the
+   Brawler and he falls first in 206. It is a threshold, not a slope, which is
+   why the prediction for F2 had the wrong sign: more HP on the Weaver makes
+   the fight easier, and so does less (C12, 265 wins, with the opening still
+   on the Weaver, 87%).
+3. **The pending scorer fixes push it the same way, by less.** C1 +3.3 (257
+   wins, three short of failing), C2 +2.7 (255), C3 +2.3 (254). None fails
+   alone, and each is inside one run's noise of shipped. Whether two of them
+   together fail it is not measured.
+4. **`dancer_rush`'s nearest measured exit is its floor.** B2, tempo priced
+   for every skill, takes it to 59.0, with Kakyoin back on the snare for 99%
+   of his turns. `bell_race` left its band under none of the 22.
+5. **The Brawler's attack stays the smooth lever #63 used.** `atk` 145
+   reproduces #63's O2 win for win (187, 167, 256, 260, 225, 114), and 165
+   lowers the four Brawler fights by 4.0 to 7.3 points.
+
+Options for Q1, measured:
+
+- **A. Leave the encounter as it is**, and treat any `hp` edit to the Hex
+  Weaver or the Iron Brawler as a change to `weaver_gambit` that must be
+  re-measured. Nine of the 22 measured single changes fail it today.
+- **B. Widen its margin with a Weaver-only number that keeps the Weaver the
+  first target**: `skill.wither_hex` potency 26 -> 30 reads 80.7 (242 wins, 18
+  from failing instead of 13) and moves nothing else. A Weaver `hp` edit does
+  not do it: 620 and 710 both raise the win rate (88.3 and 89.0), and 700 is
+  within three wins of shipped.
+- **C. Raise the Brawler's attack**, `atk` 155 -> 165: weaver 77.7 (233 wins,
+  27 from failing), at the cost of the ambush (49.3, four points above its
+  floor), the dancer (76.0) and the bell (65.3).
+
+### Q2: pricing the guard's tempo
+
+The 0.4.1 entry noted this and did not measure it: `guard_stance` costs 600
+tempo against `strike`'s 1000, and no score prices tempo at all. Three
+prototypes, each measured alone:
+
+- **B1** multiplies the guard's price by `1000 / tempo_cost`, 5/3 for the
+  guard. Only `DefUp` reads it, and in shipped content only `guard_stance`
+  carries `DefUp`.
+- **B3** prices the guard over the window it really covers. Its holder's next
+  turn comes after 600 tempo rather than 1000, so the two rounds it is priced
+  over are 1.6, and the turn it costs is 0.6: `(600 + 1000) / 600` in place of
+  2, which is 4/3 of the shipped price.
+- **B2** multiplies every candidate's score by `1000 / tempo_cost`: tempo
+  priced for every skill, in one unit, which is what the question becomes once
+  it is asked of more than the guard.
+
+Predictions (Round B, written at 13:16 UTC):
+
+| Probe | Prediction |
+| --- | --- |
+| B1 | thug bit-identical; ambush 54.7, dio 53.7, dancer 79.0, weaver 80.3, bell 68.3, diavolo 36.0; Josuke's guard share 11 -> 20% against Dio and 10 -> 18% against Diavolo; Jotaro's 5 to 12% in the four Brawler fights |
+| B2 | thug bit-identical; ambush 52, dio 48, dancer 74, weaver 77, bell 65, diavolo 32: Kakyoin back to the snare, Jotaro's lock dropped, Polnareff's `rage_focus` over `riposte` |
+| B3 | thug bit-identical; every other encounter within 1.5 points of shipped |
+
+Results, 300 seeds:
+
+| Probe | thug | ambush | dio | dancer | weaver | bell | diavolo | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B1 | bit | 45.7 | 54.3 | 75.7 | 81.0 | 66.7 | 33.0 | wrong: ambush, dancer, diavolo, two guard shares |
+| B2 | bit | 60.3 | **11.7** (out) | **59.0** (out) | 57.7 | 56.7 | **2.3** (out) | wrong: all but the thug |
+| B3 | bit | 47.7 | 55.3 | 77.3 | 82.3 | 67.7 | bit | wrong: ambush, dancer, bell |
+
+| Build | Jotaro's guard share: ambush, dancer, weaver, bell | Jotaro alive, ambush | Josuke's guard share: dio, diavolo |
+| --- | --- | --- | --- |
+| shipped | 3, 1, 5, 2% | 52% | 11, 10% |
+| B1 | 15, 9, 15, 10% | 42% | 22, 25% |
+| B3 | 11, 8, 13, 7% | 43% | 11, 10% |
+| C2 | 3, 1, 2, 2% | 52% | 11, 10% |
+
+What the measurements show:
+
+1. **Pricing the guard's tempo raises the guard's use and lowers the party's
+   win rate wherever the guard is used.** B1 takes the ambush down 11.0
+   points to 45.7, under a point above its floor, diavolo down 5.0, the other
+   Brawler fights down 1.3 to 4.3 and Dio's fight down 1.3. B3, the smaller
+   correction, takes the ambush down 9.0 and the dancer and bell 2.7, and
+   leaves both bosses within 0.4 points. In the ambush Jotaro guards five
+   times as often under B1 and survives less, 52% -> 42%.
+2. **Inference** [medium confidence, resting on C2 and on B1 and B3 moving the
+   opposite way]: the guard is already priced above what it delivers, so a
+   correct tempo term lands on a price that is too high for other reasons. It
+   prices 30 HP a hit where `state.rs` gives Jotaro 24 and Josuke 29, it
+   spreads every enemy hit evenly over the holder's side, and it counts two
+   rounds of cover. C2, which corrects only the first, lowers Jotaro's guard
+   share in `weaver_gambit` from 5% to 2% and raises that encounter 2.7
+   points; nothing else moves by more than 0.7.
+3. **B2 is not a guard change, and it fails three bands** (dio 11.7, dancer
+   59.0, diavolo 2.3). What breaks is not tempo. Polnareff's `rage_focus`, at
+   700 tempo, becomes his best action on 80% of his turns against Dio and 86%
+   against Diavolo, buying again a buff he already holds because the scorer
+   cannot see it (the defect C1 removes), and his `riposte` falls from 2543
+   casts to 559 against Dio and from 2020 to none against Diavolo. Kakyoin goes
+   back to the snare on 95 to 99% of his turns in the Brawler fights, the
+   reverse of the change #63 measured there.
+4. **`matchup.thug_solo` is bit-identical under all three.** Jotaro never
+   holds less than `rush_barrage`'s 18 SP there, so the guard never wins a
+   turn.
+
+Options for Q2, measured:
+
+- **A. Do not price the guard's tempo.** The shipped scorer stays; the item
+  0.4.1 noted is now measured. No effect.
+- **B. Correct the `DefUp` percentage first (C2)**, then measure B3 on top of
+  it as a change of its own. C2 alone: weaver 85.0 (+2.7), diavolo 38.7
+  (+0.7), dancer on the same wins, the other four bit-identical. The pair is
+  not measured.
+- **C. Price tempo for every skill (B2) only after the status-aware scorer
+  (C1).** Alone it fails three bands; on top of C1 it is not measured.
+
+### Q3: Dio's SP economy
+
+Round A (13:08 UTC) and Round A2 (13:10 UTC, after Round A's results) read
+the shipped traces of `matchup.dio_boss`. Dio is downed in 167 battles and
+outlives the party in 133.
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| A1 | Dio opens with `blade_volley` in 60..70% | 193 of 300, 64.3% | right |
+| A2 | his SP when downed: median 15..35, and at least 36 in under 25% | median 24, mean 41.3; at least 36 in 74 of 167, 44.3% | wrong |
+| A3 | his SP when the party falls: median 10..30 | median 8, mean 11.5 | wrong |
+| A4 | mean SP at his death exceeds mean SP at the party's wipe by at least 5 | by 29.8 | right |
+| A5 | more volleys into a full party in his wins, by at least 0.5 | 4.57 in his wins, 4.81 in his losses | wrong |
+| A6 | his fifth volley, where there is one, by his ninth action (median) | seventh action, 256 battles | right |
+| A7 | the Flame Assassin downed before any party member in at least 70% | 289 of 300, 96.3% | right |
+| A8 | Kakyoin the first party member down in at least half | 109 of 253, 43.1% | wrong |
+| A9 | `blade_volley` at least 60% of his damage | 78.8% | right |
+| A15 | strikes while holding at least 36 SP (the skill roll) differ by under 0.3 a battle between his wins and losses | 2.47 in his wins, 3.65 in his losses | wrong |
+| A16 | at his dry point (the first action that leaves him under 36 SP) the party holds under half its HP in at least 60% of his wins and over half in at least 60% of his losses | under half in 124 of 124 wins, and in 89 of 94 losses | wrong |
+| A17 | where he dies holding at least 36 SP, after 9 actions or fewer on average | 9.36 | wrong |
+| A18 | Josuke heals more in Dio's losses, by at least 0.5 a battle | 4.47 in Dio's wins, 4.03 in his losses | wrong |
+
+**How he spends.** The pool is spent up front, at the pace the skill roll
+allows. His SP before each action averages 200, 179, 159, 140, 120, 101, 81,
+65, 50 and 38 over his first ten. What he does with a given amount is a
+ladder:
+
+| SP held | Actions | Chosen |
+| --- | --- | --- |
+| 45 or more | 2470 | volley 62%, strike 35%, slam 3% |
+| 36..44 | 167 | volley 46%, strike 41%, slam 13% |
+| 22..35 | 87 | slam 63%, strike 37% |
+| 12..21 | 410 | drain 65%, strike 35% |
+| 0..11 | 326 | strike 100% |
+
+In every band but the lowest, 35 to 41% of his turns are strikes, and most
+of that is `AGGRESSIVE_SKILL_CHANCE` (65), rolled before any score is read:
+not a choice. `skill.tempo_halt` is never chosen.
+
+**How he wins** (133). He lives longer, 13.3 actions against 10.1, spends
+everything (236.5 SP a battle, his 200 plus regeneration) and finishes dry:
+his SP when the party falls has a median of 8, and is under 10 in 87 of the
+133. He reaches his dry point in 124 of them, and the party then holds 12% of
+its pool on average (median 11%). The volleys do most of the damage (78.8%
+of his total); strikes and drains finish it.
+
+**How he loses** (167), by one of two routes:
+
+- **Killed mid-budget**: 74 of the 167 (44.3%) die holding at least the 36 SP
+  of another volley, median 64, after 9.4 actions on average. The party
+  out-raced the volley phase, and SP was never what limited him.
+- **Dry against a party still standing**: 94 reach the dry point, with the
+  party at 28% of its pool on average (median 27%), and lose the rest of the
+  fight on strikes and drains. The two routes share one battle, in which he
+  went dry and had regained 36 SP when he fell.
+
+Across both outcomes, the party's share of its pool at his dry point
+separates them: Dio wins 98 of 125 battles where it is under 20%, 23 of 57
+between 20 and 30%, 3 of 22 between 30 and 40%, and none of 14 above that.
+What does not separate his wins from his losses: the volleys he casts into a
+full party (4.57 against 4.81), and Josuke's heals (4.47 against 4.03). What
+does: the rolled strikes while he could afford a volley, 2.47 a battle in his
+wins and 3.65 in his losses. That is a correlation within one batch, since a
+slower spend also leaves him holding SP for longer; E1 below is the causal
+test.
+
+Round E (13:21 UTC) measured three Dio-only changes, and Round C's C11 is the
+rule constant:
+
+| Probe | Change | Prediction | dio won, Wilson 95% | Win rate | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| E1 | Dio's skill roll still drawn, no longer obeyed | 40.0 | 91, 25.4..35.8 | **30.3** (out) | wrong |
+| E2 | `npc.dio` `sp` 160 -> 124, a pool of 164 | 60.5 | 190, 57.7..68.6 | 63.3 | wrong |
+| E3 | `skill.blade_volley` `sp_cost` 36 -> 30 | 48.0 | 160, 47.7..58.9 | 53.3 | wrong |
+| C11 | `SP_REGEN_PER_TURN` 4 -> 5, for everyone | 54.0 | 186, 56.4..67.3 | 62.0 | wrong (scored in Round C) |
+
+The other six encounters are bit-identical in E1, E2 and E3. The skill roll
+is the largest brake on him: without it his drains go from 266 to 660 and his
+volleys from 1606 to 1768 over the batch, he outlives the party in 69.7% of
+battles, and the fight leaves its band. A smaller pool moves the fight more
+than a cheaper volley (+7.7 points for the party against -2.3), and faster
+regeneration helps the party of four more than it helps him (+6.3; his
+volleys move from 1606 to 1620).
+
+Options for Q3, measured:
+
+- **A. Leave Dio as he is.** 55.7, in band; the economy works as described
+  above.
+- **B. A smaller pool**, `sp` 160 -> 124 (a pool of 164): 63.3, in band.
+- **C. Let a boss spend every turn its score allows**, the roll drawn and not
+  obeyed. That needs a profile or a flag in the schema, and it reads 30.3, out
+  of band, so it would come with a re-centre of its own.
+
+### Q4: what bounds the thug and the Iron Brawler fights
+
+Round A (13:08 UTC) read the shipped traces of the five fights first:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| A10 | the thug deals at most 60 in any battle, and Jotaro never ends below 558 HP | at most 42; Jotaro's lowest finish 578 | right |
+| A11 | the thug acts at most twice in any battle | 0, 1 or 2 times | right |
+| A12 | in the losses of each Brawler fight, Kakyoin falls before Jotaro in at least 70% | 77.7, 85.0, 71.7, 76.4% (ambush, dancer, weaver, bell) | right |
+| A13 | in the wins of each, the Brawler is downed after the other foe in at least 70% | 81.8, 93.3, 70.4, 91.0% | right |
+| A14 | the Brawler deals at least 55% of what the party takes in each, and at least 60% in the ambush | 67.8, 72.0, 95.1, 68.6% | right |
+
+**`matchup.thug_solo` is bounded by Jotaro's kill clock.** The thug acts
+never (63 battles), once (214) or twice (23), deals at most 42 in a battle,
+and Jotaro never ends below 578 of 620. Round D (13:21 UTC) asked what it
+would take:
+
+| # | Change | Prediction | Measured | Verdict |
+| --- | --- | --- | --- | --- |
+| D1 | `npc.thug` `atk` 58 -> 350 | 96.5 (95..98) | 293 of 300, 97.7 (95.3..98.9) | right |
+| D2 | `npc.thug` `atk` 58 -> 700 | 33 (30..36) | 92 of 300, **30.7** (25.7..36.1), out | right |
+| D3 | `npc.thug` `hp` 300 -> 600 | 100; median 6 or 7 turns; at most 100 damage in any battle | 300 of 300, median 6, at most 72 | right |
+
+Its floor of 85 holds against a thug that hits for half of Jotaro's HP
+(`atk` 350) and falls only when one hit can kill him (`atk` 700). The fight
+was also bit-identical under all nine rule prototypes in this entry (B1, B2,
+B3, C1, C2, C3, C4, C11, E1), including the three that failed a boss: it is a
+control for the engine, and it saw none of them.
+
+**The four Iron Brawler fights are bounded by the pair, not by either foe.**
+Round D's last probe put Jotaro and Kakyoin against each foe alone:
+
+| # | Prediction | Measured | Verdict |
+| --- | --- | --- | --- |
+| D4 | Brawler alone 88; Flame Assassin 97; Blade Dancer 99; Hex Weaver 100; Requiem Bell 98 | 300 of 300 against every one | wrong: Brawler and Assassin |
+
+Alone, the Brawler deals 340 a battle and Kakyoin survives 96.7% of the
+fights. In the shipped pairs he deals 647, 593, 704 and 591 a battle (ambush,
+dancer, weaver, bell), 67.8, 72.0, 95.1 and 68.6% of what the party takes,
+and the other foe falls before him in 81.8, 93.3, 70.4 and 91.0% of the wins.
+The likely mechanism [inference, from A13 and D4]: the party's focus takes
+the other foe first, which leaves the Brawler acting for longer than he lasts
+alone. In `weaver_gambit` the order itself is the bound, as Q1 found: a 10 HP
+edit that reverses it is worth 7.7 points.
+
+Kakyoin also finishes some of these fights alone now: 14, 21, 16 and 13 of
+the 300. In a party of two, the win rate is Jotaro's survival plus those
+battles, so the tracking the #16 annotation recorded nine times within three
+points now reads 4.3 to 7.0 points apart (52.0 against 56.7, 73.0 against
+80.0, 77.0 against 82.3, 66.0 against 70.3).
+
+Options for Q4, measured:
+
+- **A. Keep `matchup.thug_solo` as the engine control it is**, and record
+  that its band fails only somewhere between a thug six and twelve times as
+  strong (97.7 at `atk` 350, 30.7 at 700).
+- **B. Check the control as a control**: pin its report byte for byte in a
+  test, since it stayed bit-identical under every rule prototype here and its
+  band cannot detect a change short of D2. No win rate moves.
+- **C. Retune a single Brawler fight through its third foe, and all four
+  through the Brawler.** C12 (each third foe's `hp` 10% lower) moved the
+  dancer 4.0, the weaver 6.0 and the bell 8.0 and nothing else; C5 to C7 and
+  F1 move all four together, and in `weaver_gambit` an `hp` edit to either foe
+  can cross the focus threshold.
+
+### What the measurements do not show
+
+- **Any combination.** Every probe is one change against shipped. None were
+  stacked, including the ones that plainly need each other: C4 and B2 both
+  need C1, and Q2's option B is a pair.
+- **The best version of each rule.** The prototypes are the least code that
+  states the idea, and their simplifications set their numbers. C3 values a
+  denied action at the target's basic strike on the actor; C3 and C4 read
+  the chosen target's attack or will for every target of an area skill; B1
+  and B3 reach `DefUp` and so, in shipped content, the guard alone.
+- **A cause for every contrast in Q3.** Dio's wins and losses are compared
+  within one batch; E1 is the only causal test, and it removes the roll for
+  him alone.
+- **How a person plays.** Every figure is the AI against the AI.
+- **Differences smaller than one run's noise.** The Wilson half-width is 4.3
+  to 5.6 points at these rates; a smaller gap between two probes is not a
+  finding. The gate's verdict is exact for the seed list, which is why the
+  edges above are given in wins.
+- **The removal probes as exact bounds.** A foe taken out of a fight also
+  changes what Kakyoin's splash is worth, so D4 shows each foe beatable
+  alone, not what tuning one of them could reach.
+
+### Found and not fixed
+
+This entry changed no file outside itself; Decisions, below, says where
+each item went.
+
+1. **Hostile statuses are priced at their raw `chance`, while `resolve.rs`
+   rolls `chance - target will / 2`, floored at 5.** Round H (13:26 UTC)
+   predicted the landing rates from that formula and got all four right:
+   `concussive_slam`'s stun, priced at 40, lands on 4.7% of rolls (146 of
+   3128); `riposte`'s cut lands on Dio 13.4% (priced at 75); the snare's slow
+   lands on the Brawler 44.2% (priced at 80); `wither_hex` lands on Jotaro
+   33.9% and on Kakyoin 28.9% (priced at 85). C4 corrects the price and sends
+   both bosses out through Polnareff's buying the same buff again, so it is a
+   change that depends on C1, not a patch.
+2. **`ai.rs`'s module documentation still says SP does not regenerate.** It
+   has, 4 a turn, since #9.
+3. **`tools/balance_diff.py`'s docstring says this file quotes Wilson
+   intervals**; the #63 entry and "Current status" quote the normal
+   approximation (see Method).
+
+**Scorecard: twenty-one of fifty-two.** Round A ten of fourteen, A2 none of
+four, B none of three, C three of fifteen, D three of four, E none of three,
+F none of three, G one of two, H four of four. Predictions derived from the
+code or from an earlier measurement held (C5, D1 to D3, H). Predictions of
+how the AI would answer a new price or budget mostly failed (B1 to B3, C3,
+C4, C11, E1 to E3, against C1 and C2 right), and nothing before Round F
+foresaw the focus threshold in `weaver_gambit`.
+
+### Decisions, recorded on 2026-11-03
+
+The owner chose from the options above and filed each question on the
+`1.0.0` milestone. Nothing in `data/` or the rules changes, so every figure
+in this entry stays the shipped game's.
+
+- **Q1, #81: option A.** `weaver_gambit` stays as it is, and an `hp` edit to
+  the Hex Weaver or the Iron Brawler counts as a change to that encounter, to
+  be re-measured. Not taken: B (`wither_hex` potency 30) and C (Brawler `atk`
+  165). Each pending scorer fix moves the encounter by 2.3 to 3.3 points, so
+  a retune measured on today's scorer would have to be redone.
+- **Q2, #82: option A now, and option B if the scorer is reopened.** The
+  guard's tempo stays unpriced. If `score_action` changes again, the `DefUp`
+  percentage (C2) goes first and B3 is measured on top of it as a change of
+  its own. Not taken: C, tempo for every skill, which fails three bands alone
+  and waits on the status-aware scorer.
+- **Q3, #83: option A.** Dio stays as he is. Not taken: B (`sp` 124: 63.3)
+  and C (a boss that obeys its scored choice every turn: 30.3, out of band).
+- **Q4, #84: option A, then option B.** `matchup.thug_solo` stays the engine
+  control, and pinning its report byte for byte in a test comes next, as a
+  change of its own. Not taken: C, since no Brawler fight is being retuned.
+- **The first item under "Found and not fixed" is #85.** The other two go to
+  a follow-up docs branch.
 
 ## Known limitations of the harness itself
 
@@ -2298,7 +3045,7 @@ Recorded here so a number is not over-read:
   reads `Effect::Damage.power` and knows nothing about the defence or the
   resistance table of the thing it is about to hit. Two separate issues are the
   same root: #22 (resistance-blind) and #33 (defence-blind). #33 is the more
-  expensive of the two -- it let a paid skill that deals less damage than the free
+  expensive of the two: it let a paid skill that deals less damage than the free
   basic attack be chosen on 99% of a character's turns, and it is present in
   shipped content in `skill.emerald_snare`. Any fix changes every AI test's
   arithmetic and voids the curve, so they should be done together.
@@ -2339,7 +3086,7 @@ Recorded here so a number is not over-read:
   recorded in this file is a property of the party that was standing opposite it.
 - **~~Only five of eleven skills are ever used.~~ Eleven of thirteen as of
   `07af985a`.** Two remain: `guard_stance` and `rage_focus`, both declined
-  correctly on their own numbers -- and unlike earlier statements of this line,
+  correctly on their own numbers, and unlike earlier statements of this line,
   "correctly" is now verified: `ai.rs` carries
   `bracing_is_declined_at_the_potency_the_game_ships` and
   `an_attack_buff_worth_less_than_one_hit_is_declined`. Tracked as issue **#29**

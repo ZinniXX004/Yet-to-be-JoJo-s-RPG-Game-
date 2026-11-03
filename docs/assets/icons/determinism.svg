@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Deterministic</title>
+  <path d="M32 6a26 26 0 1 1-24.2 16.5" fill="none" stroke="#F5B82E" stroke-width="4" stroke-linecap="round"/>
+  <path d="M3.5 14.5 7.8 22.5 15.6 18" fill="none" stroke="#F5B82E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="18" y="18" width="28" height="28" rx="7" fill="#7B4DFF"/>
+  <circle cx="25" cy="25" r="3" fill="#fff"/><circle cx="32" cy="32" r="3" fill="#fff"/><circle cx="39" cy="39" r="3" fill="#fff"/>
+</svg>

@@ -29,7 +29,7 @@ document assumes it.
 | --- | --- | --- | --- |
 | Rust toolchain | **1.94.1** (pinned) | Simulation and GDExtension library. `godot` 0.5 sets the floor at 1.94.0 | [rustup.rs](https://rustup.rs) |
 | MSVC Build Tools | 2022, workload *Desktop development with C++* | Rust on Windows uses `link.exe`. Without it, every build fails at link time | [Visual Studio downloads](https://visualstudio.microsoft.com/downloads/) |
-| Godot | **4.6 or newer**, standard build (not .NET) | Runs the GDExtension. `godot` 0.5.3 compiles against the Godot 4.6 API, so 4.6 is a hard floor, not a preference. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
+| Godot | **4.7** (tested on 4.7.1), standard build (not .NET) | Runs the project and the GDExtension. `project.godot` declares the 4.7 feature, CI tests 4.7.1 only, and the release notes say to open the project in 4.7. `godot` 0.5.5 compiles against the Godot 4.6 API, so 4.6 is the floor of the extension (`compatibility_minimum`), not of the project. The .NET build is unnecessary here and only adds weight | [godotengine.org/download](https://godotengine.org/download) |
 | Python | 3.11+ | Content validator in CI and locally | [python.org](https://www.python.org/downloads/) |
 | Git | any recent | Version control | [git-scm.com](https://git-scm.com/downloads) |
 | Git LFS | any recent | `.gitattributes` routes binary assets to LFS. **Install before your first asset commit** | [git-lfs.com](https://git-lfs.com) |
@@ -49,9 +49,9 @@ library and the synced content, both gitignored.
 | --- | --- | --- |
 | `cargo-watch` | `cargo install cargo-watch --locked` | Recompile on save; pair it with Godot's GDExtension hot reload |
 | `cargo-deny` | `cargo install cargo-deny --locked` | Run the CI supply-chain audit locally before pushing |
-| `typos-cli` | `cargo install typos-cli --version 1.49.0 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml` |
+| `typos-cli` | `cargo +stable install typos-cli --version 1.51.1 --locked` | Same spellcheck CI runs; required by `tools/check.*`. Match the version pinned in `ci.yml`; section 4 says why `+stable` |
 | `cargo-edit` | `cargo install cargo-edit --locked` | `cargo set-version` for release bumps. It rewrites `src/Cargo.toml` and `Cargo.lock` together, which hand-editing does not |
-| LLVM/clang | [releases.llvm.org](https://releases.llvm.org/) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
+| LLVM/clang | [LLVM releases on GitHub](https://github.com/llvm/llvm-project/releases) | Only needed if you switch godot-rust to `api-custom`; the default prebuilt bindings do not need it |
 | VS Code + `rust-analyzer` + `godot-tools` | Marketplace | Editor integration; `.editorconfig` is already in the repo |
 
 ### 1.3 Rust dependencies
@@ -64,7 +64,7 @@ needs.
 | --- | --- | --- | --- |
 | `serde` | `1` (feature `derive`) | `rpg-core` | Serialise state, content and events |
 | `serde_json` | `1` | `rpg-core`, `rpg-bridge` | JSON at the content and FFI boundaries |
-| `godot` | `=0.5.3` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
+| `godot` | `=0.5.5` | `rpg-bridge` | Godot 4 GDExtension bindings ([gdext](https://github.com/godot-rust/gdext)) |
 
 `rpg-core` has **zero engine dependencies** and builds and tests without Godot
 installed. That is enforced by the CI job that compiles and tests it alone.
@@ -117,7 +117,7 @@ godot --version
 ```
 
 Adjust the path to your own extraction directory. If the alias reports
-`is not recognized`, the path is wrong -- most often because the archive was
+`is not recognized`, the path is wrong, most often because the archive was
 extracted into a subdirectory named after the archive itself. Verify with:
 
 ```powershell
@@ -243,8 +243,8 @@ that still takes a playthrough.
 One behaviour it works around, stated so it is not mistaken for flakiness: the
 first `--import` of a project with no `.godot/` folder can abort while shutting
 down, after the import has finished, when the GDExtension is present (seen with
-Godot 4.7.1 and godot-rust 0.5.4 on Linux). The script retries once, only when
-the extension was registered, and the second run has to exit cleanly.
+Godot 4.7.1 and godot-rust 0.5.4 and 0.5.5 on Linux). The script retries once,
+only when the extension was registered, and the second run has to exit cleanly.
 
 ### 3.3 Recording a playthrough
 
@@ -302,8 +302,8 @@ all five CI failures recorded between late July and September 2026 (#22, #29,
 when a job is added to `ci.yml`, it is added to both scripts in the same commit.
 
 ```powershell
-.	ools\check.ps1          # full gate: run before opening a pull request
-.	ools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos: seconds
+.\tools\check.ps1          # full gate: run before opening a pull request
+.\tools\check.ps1 -Fast    # rustfmt, content + probe mirror, typos, prose, balance diff self-test: seconds
 ```
 
 ```sh
@@ -332,8 +332,49 @@ releases, and PR #36 went red on a dictionary update alone. The scripts read the
 version CI pins from `ci.yml` and warn when yours differs. To match it:
 
 ```powershell
-cargo install typos-cli --version 1.49.0 --locked   # the pin in ci.yml at the time of writing
+cargo +stable install typos-cli --version 1.51.1 --locked   # the pin in ci.yml at the time of writing
 ```
+
+`+stable` is there because typos-cli 1.51.1 needs rustc 1.95 or newer, and
+inside this repository rustup otherwise applies the 1.94.1 that
+`rust-toolchain.toml` pins to every cargo command, so the install fails.
+
+[`tools/check_prose.py`](../tools/check_prose.py) holds the prose rule: no em
+dash, en dash or double hyphen used as punctuation in any tracked Markdown file.
+A comma, a colon, a semicolon, parentheses or a full stop says the same thing,
+and a table cell that only marks "no value" reads `n/a`. The check skips fenced
+and inline code, HTML comments, URLs, table separator rows and command-line
+flags such as `--fast`, prints `file:line:column` for every dash it finds and
+exits 1 if there is one. It needs nothing beyond the standard library; to run it
+alone:
+
+```powershell
+py -3 tools\check_prose.py
+```
+
+[`tools/balance_diff.py`](../tools/balance_diff.py) compares two balance
+reports. On every pull request, CI's `balance diff` job runs the harness, 300
+seeds per encounter, on the pull request merged into its base and on the base
+commit itself, and posts one comment that it updates on every push: each
+encounter's base and head win percent, the change in percentage points, the
+head's Wilson 95% interval, the band and the harness's in-band verdict. A
+change in bold is larger than the half-width of the base interval, which is
+the noise of one run. The job is not in the `needs` list of `ci`, so it never
+blocks a merge. On a fork or Dependabot pull request the token is read-only,
+and the table appears only in the job's summary. The comment replaces pasting
+the reports by hand; it does not replace explaining them in the pull request.
+The fast gate runs the script's `--self-test`. To make the same table locally,
+write one report on the base commit and one on your branch, then compare them:
+
+```sh
+cd src
+cargo run -q -p rpg-core --bin balance -- --json --no-fail > target/head.json
+cd ..
+python3 tools/balance_diff.py src/target/base.json src/target/head.json
+```
+
+A report redirected with `>` in Windows PowerShell 5.1 is UTF-16; the script
+decodes every input by its byte order mark, so such a file reads as it is.
 
 ### 4.1 Pre-push hook (once per clone)
 
@@ -352,11 +393,54 @@ Do not delete those files: LFS would stop working without any error.
 
 One CI job cannot be reproduced locally without extra tooling: the Markdown link
 check. It resolves every URL in every `.md` file over the network, so it fails
-for reasons that have nothing to do with your change -- a slow academic host, a
+for reasons that have nothing to do with your change: a slow academic host, a
 rate-limited CDN, or a link to a Git tag that does not exist yet. Exclusions live
 in [`.lycheeignore`](../.lycheeignore), one regex per line, each with the reason
 it is there. Add to that list only when the failure is genuinely outside the
 repository's control.
+
+### 4.2 Mutation testing (occasional, not a gate)
+
+[cargo-mutants](https://github.com/sourcefrog/cargo-mutants) changes one
+operator or return value of `rpg-core` at a time and runs the tests; a change
+that every test survives marks behaviour no test checks. Run it before a
+release or after a large rules change. Neither CI nor the check scripts run it.
+
+Install it once, with `+stable` for the same reason as `typos` above:
+
+```powershell
+cargo +stable install --locked cargo-mutants
+```
+
+Do not run it in your own checkout as it stands. Its default mode copies only
+the `src/` workspace to a temporary directory, the tests and the `balance`
+binary read `data/` from outside it with `include_str!`, and the unmutated
+baseline then fails to build, so nothing is tested. Run it in place instead,
+inside a throwaway clone, so that an interrupted run can never leave a mutated
+file in your working tree:
+
+```powershell
+git clone --shared . target\mutants\a
+cd target\mutants\a\src
+cargo mutants -p rpg-core --in-place --all-features --cargo-test-arg=--all-targets
+```
+
+```sh
+git clone --shared . target/mutants/a
+cd target/mutants/a/src
+cargo mutants -p rpg-core --in-place --all-features --cargo-test-arg=--all-targets
+```
+
+The two flags run the tests exactly as the gate does. Results land in
+`mutants.out/` next to `Cargo.toml`, and `missed.txt` is the list to read;
+`.gitignore` keeps that directory out of Git wherever it appears. A full run
+is about 720 mutants. To halve the wall time, make a second clone and run
+`--shard 0/2` in one and `--shard 1/2` in the other at the same time; that took
+11 minutes on a 4-core Linux machine. Delete `target/mutants` afterwards.
+
+A survivor in the text formatting of the `balance` binary (`print_report`,
+`verdict`, `truncate` and the like) needs no test: CI reads its exit code and
+its `--json` report, and `core/tests/balance_cli.rs` checks both.
 
 ---
 
@@ -374,9 +458,9 @@ Every row below is a failure that actually occurred, not a hypothetical.
 | Alias `godot` reports the full path as unrecognized | The archive extracted into a directory named after the archive, so the path points at a folder | `Get-ChildItem -Recurse C:\Tools\Godot\*.exe`, flatten the directory, then `. $PROFILE` |
 | Godot: `Can't open dynamic library` | Library not in `src/game/bin/`, or a 32-bit/64-bit mismatch | Rebuild and copy again; confirm the path in `src/game/rpg.gdextension` |
 | Godot: `Class 'BattleSession' not found` | Extension not loaded | Check `entry_symbol = "gdext_rust_init"`, that `rpg.gdextension` sits beside `project.godot`, and reopen the project |
-| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.6+, or pin a lower `api-*` feature in `src/bridge/Cargo.toml` and lower `compatibility_minimum` to match. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
+| Godot: extension built for a newer API | `compatibility_minimum` above your Godot build | Upgrade Godot to 4.7. API version must be <= runtime version ([compatibility docs](https://godot-rust.github.io/book/toolchain/compatibility.html)) |
 | `GString: From<String> is not satisfied` | godot-rust takes `&str` or `&String`, never an owned `String` | Borrow it: `GString::from(&s)`. `src/bridge/src/lib.rs` funnels this through `json_to_gstring` |
-| `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale -- rebuild and copy |
+| `invalid type: floating point \`95.0\`, expected i32` | Godot's JSON has no integer type, so content round-tripped through GDScript loses its integer-ness | Already handled by `rpg_core::json_compat` at the boundary. If it reappears, the library in `res://bin/` is stale; rebuild and copy |
 | Event log prints `"actor":0.0` while Rust emitted `0` | Same cause, opposite direction: `_animate` re-stringifies a parsed payload | Cosmetic only. Format with `%d` or `int()` when the real UI displays numbers |
 | A fix appears to do nothing | The old `.dll` is still in `res://bin/` | `Copy-Item src\target\debug\rpg_bridge.dll src\game\bin\ -Force` from the repository root, then restart Godot |
 | `res://data/<file>.json is missing` | Sync script not run; `src/game/data/` is not in git, so a fresh clone has none | `powershell -ExecutionPolicy Bypass -File tools\sync_data.ps1` from the repository root |

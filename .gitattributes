@@ -40,3 +40,8 @@
 *.so    filter=lfs diff=lfs merge=lfs -text
 *.dll   filter=lfs diff=lfs merge=lfs -text
 *.dylib filter=lfs diff=lfs merge=lfs -text
+
+# README and documentation images stay in plain Git: they are small, change
+# rarely, and GitHub shows them without spending Git LFS bandwidth. Game
+# assets above still go to LFS.
+docs/assets/** !filter !diff !merge

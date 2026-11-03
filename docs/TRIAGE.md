@@ -49,8 +49,8 @@ apply them automatically.
 Severity is about consequence, not annoyance. A cosmetic label that says
 `Defeat` on a win is `sev: major`, because the player cannot tell what happened.
 
-Every issue should end triage with **one `type:`, one `area:`, and — for a
-defect — one `sev:`**. Anything else is a queue that cannot be filtered.
+Every issue should end triage with **one `type:`, one `area:`, and, for a
+defect, one `sev:`**. Anything else is a queue that cannot be filtered.
 
 ---
 
@@ -62,7 +62,7 @@ A report without the first three items gets `needs: repro` and nothing else:
 2. **The command sequence**, or a statement that the battle ran unattended.
 3. **The version**: a tag such as `v0.3.0`, or a commit SHA.
 4. Expected behaviour, quoting the document or doc-comment that states it.
-5. Observed behaviour, pasted verbatim -- console output, panic message, or the
+5. Observed behaviour, pasted verbatim: console output, panic message, or the
    relevant lines of the event log. Not a description of the output.
 
 The fastest reproduction for anything below the UI is the harness itself:
@@ -81,7 +81,7 @@ If the harness reproduces it, the Godot layer is not involved and
 
 A balance claim is a measurement or it is an opinion:
 
-1. The `balance` report, pasted -- not summarised.
+1. The `balance` report, pasted, not summarised.
 2. Which declared band in `data/matchups.json` the number contradicts.
 3. The commit the numbers were produced at.
 
@@ -121,8 +121,8 @@ not a finding.
 
 ## 6. Where a report is not the right tool
 
-- **Tooling absent on your machine** -- `pwsh`, `typos`, `cargo deny` not found
-  -- is a setup step, not a defect. See
+- **Tooling absent on your machine** (`pwsh`, `typos`, `cargo deny` not found)
+  is a setup step, not a defect. See
   [DEVELOPMENT.md](DEVELOPMENT.md#5-troubleshooting), which lists every one of
   these that has actually happened here.
 - **A transient network failure** in `cargo deny check`, `git push` or the
@@ -155,7 +155,7 @@ winget install --id GitHub.cli
 gh auth login
 ```
 
-The script is idempotent -- it uses `gh label create --force`, so running it
+The script is idempotent: it uses `gh label create --force`, so running it
 again repairs a label whose colour or description was edited by hand, and adds
 nothing twice. It never deletes anything, so GitHub's seven default labels
 (`bug`, `enhancement`, `question`, and so on) survive. **Delete those by hand.**
@@ -182,14 +182,14 @@ It does not wait for a release to reach `main`.
 `### heading` in the issue body, with the answer underneath. That is why the
 fields are worth arguing about: a field that exists gets answered, and a field
 that does not exist gets left out, every time. `validations: required: true`
-means GitHub refuses to open the issue until the box is filled — which is the
+means GitHub refuses to open the issue until the box is filled, which is the
 entire mechanism forcing a seed into every defect report.
 
 **Labels in the `labels:` list are applied on submission.** `bug_report.yml`
 applies `type: bug` **and** `needs: repro`, deliberately: a report starts
 unproven, and you remove `needs: repro` once you have reproduced it yourself.
 The area and severity are not in the list, because only triage can decide them
-honestly — the reporter says where they noticed the problem, which is often not
+honestly: the reporter says where they noticed the problem, which is often not
 where it lives.
 
 **`config.yml` disables blank issues.** Every report therefore arrives in one of
@@ -199,7 +199,7 @@ of things that can be closed.
 
 To change a form, edit the YAML and open a PR like any other change. The forms
 are not link-checked (lychee reads Markdown only) and not spellchecked as prose,
-so a broken relative path inside a form will not fail CI — check those by hand.
+so a broken relative path inside a form will not fail CI; check those by hand.
 
 ---
 
@@ -213,7 +213,7 @@ authors content must come after the measurement is trustworthy again.
 
 | # | Title | Form | Labels beyond `type:` | Depends on |
 | --- | --- | --- | --- | --- |
-| 1 | `task: report miss% per action, not per target` | Task | `area: core` | — |
+| 1 | `task: report miss% per action, not per target` | Task | `area: core` | n/a |
 | 2 | `task: make every skill reachable by the AI` | Task | `area: core` | 1 |
 | 3 | `task: apply elemental resistance in damage resolution` | Task | `area: core` | 2 |
 | 4 | `task: give Event::Healed an actor and report healing done` | Task | `area: core` | 3 |
@@ -223,7 +223,7 @@ authors content must come after the measurement is trustworthy again.
 | 8 | `task: third playable character, authored in data/ only` | Task | `area: content` | 7 |
 | 9 | `task: three more enemies, each in a declared encounter` | Task | `area: content` | 7 |
 | 10 | `task: second boss fight with its own band` | Task | `area: content` | 8, 9 |
-| 11 | `task: floating damage numbers, status icons, legible tempo readout` | Task | `area: godot` | — |
+| 11 | `task: floating damage numbers, status icons, legible tempo readout` | Task | `area: godot` | n/a |
 
 Why item 1 comes before the work it seems unrelated to: `miss%` currently counts
 one miss per target and one action per skill, so the moment area attacks become
@@ -233,7 +233,7 @@ quietly lied.
 
 Item 11 is independent of all of it. It touches no rule and no number, so it can
 be worked at any point, and it is the only item on the list that CI cannot
-verify — it closes on a recorded playthrough with a clean console, the way M1
+verify: it closes on a recorded playthrough with a clean console, the way M1
 did.
 
 ### What each of these owes before it closes
@@ -242,7 +242,7 @@ did.
   with no test is a rules change nobody can defend in six months.
 - **Items 5 to 10** owe a [BALANCE-LOG.md](BALANCE-LOG.md) entry with the
   prediction written **before** the run, and a passing `balance_bounds`. If a
-  band has to move, the entry argues why the old band was wrong — not why the
+  band has to move, the entry argues why the old band was wrong, not why the
   new number is inconvenient.
 - **Item 11** owes a playthrough: the console output, and what you saw.
 
@@ -256,5 +256,5 @@ as they happen rather than pre-emptively:
   and 3. That is `type: balance`, not `type: bug`; the gate is correct and the
   content is stale.
 - `BALANCE-CURVE.md` ceasing to reproduce. Same class. Mark the old table as
-  describing pre-`0.4.0` rules rather than deleting it — a retracted
+  describing pre-`0.4.0` rules rather than deleting it; a retracted
   measurement is still evidence, and this project has already retracted one.
