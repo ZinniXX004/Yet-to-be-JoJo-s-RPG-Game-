@@ -1338,4 +1338,199 @@ mod tests {
         // The hit itself does use the buffed attack: 162 against no defence.
         assert_eq!(effect_points(&damage(100), &buffed, 1), 162);
     }
+
+    /// Durations above one, so a price that divides by the duration instead
+    /// of multiplying is told apart. `spd_up` and `def_down` are in no
+    /// shipped skill yet, which is exactly why their prices need pinning
+    /// before content reaches them.
+    #[test]
+    fn statuses_are_priced_over_their_whole_duration() {
+        let at = armoured(0);
+        let one = |effect: Effect| effect_points(&effect, &at, 1);
+
+        // Two denied actions at 100 HP each.
+        assert_eq!(one(status(StatusKind::Stun, 0, 2, 100)), 200);
+        // 60% of the 100 HP action again on each of two own turns (3 - 1).
+        assert_eq!(one(status(StatusKind::SpdUp, 60, 3, 100)), 120);
+        // 50% of 40 defence is 20, half of that off each of three hits.
+        assert_eq!(one(status(StatusKind::DefDown, 50, 3, 100)), 30);
+    }
+
+    /// An actor whose own list holds no affordable hit is still priced by
+    /// the database's basic attack, not by zero.
+    #[test]
+    fn the_power_baseline_reads_the_basic_attack_even_when_the_actor_lacks_it() {
+        let skills = vec![
+            skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill("costly", TargetKind::OneEnemy, 45, vec![damage(195)]),
+        ];
+        let db = database(skills);
+        let own = vec!["costly".to_string()];
+        assert_eq!(baseline_power(&db, &own, 0), 100);
+    }
+
+    /// The HP baseline falls back to the content's basic attack before the
+    /// built-in 100-power hit, and only skips it when it deals no damage.
+    #[test]
+    fn the_hp_baseline_prefers_the_contents_basic_attack_to_the_built_in_one() {
+        let own = vec!["costly".to_string()];
+        let costly = skill("costly", TargetKind::OneEnemy, 45, vec![damage(195)]);
+
+        let heavy_strike = skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(150)]);
+        let db = database(vec![heavy_strike, costly.clone()]);
+        // 150 power at atk 120 is 180, minus the 20 toll.
+        assert_eq!(baseline_hp(&db, &own, &armoured(0)), 160);
+
+        let harmless_strike = skill(
+            BASIC_ATTACK_ID,
+            TargetKind::OneEnemy,
+            0,
+            vec![status(StatusKind::AtkDown, 10, 1, 100)],
+        );
+        let db = database(vec![harmless_strike, costly]);
+        // The built-in 100 power: 120 - 20.
+        assert_eq!(baseline_hp(&db, &own, &armoured(0)), 100);
+    }
+
+    /// A party of a Support medic (index 0), two allies (1, 2) and one foe
+    /// (3), with a free heal and the basic attack, on seed 11.
+    fn infirmary() -> (Database, BattleState) {
+        use crate::data::{CombatantDef, Stats, Team};
+        let member = |id: &str, team: Team, ai: AiProfile| CombatantDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            team,
+            stats: Stats {
+                hp: 100,
+                sp: 50,
+                atk: 100,
+                def: 0,
+                spd: 10,
+                will: 0,
+            },
+            stand: None,
+            skills: vec![BASIC_ATTACK_ID.to_string(), "mend".to_string()],
+            ai,
+            resist: Resistances::new(),
+            provenance: None,
+        };
+        let db = Database::new(
+            Vec::new(),
+            vec![
+                skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
+                skill(
+                    "mend",
+                    TargetKind::OneAlly,
+                    0,
+                    vec![Effect::Heal { power: 30 }],
+                ),
+            ],
+            vec![
+                member("pc.medic", Team::Party, AiProfile::Support),
+                member("pc.a", Team::Party, AiProfile::Aggressive),
+                member("pc.b", Team::Party, AiProfile::Aggressive),
+                member("npc.foe", Team::Foe, AiProfile::Aggressive),
+            ],
+        )
+        .expect("test content should validate");
+        let party: Vec<Id> = ["pc.medic", "pc.a", "pc.b"]
+            .iter()
+            .map(|id| id.to_string())
+            .collect();
+        let st = BattleState::build(&db, &party, &["npc.foe".to_string()], 11)
+            .expect("the test battle instantiates");
+        (db, st)
+    }
+
+    fn heals(command: &Command) -> Option<usize> {
+        match command {
+            Command::Skill { skill, target } if skill == "mend" => Some(*target),
+            _ => None,
+        }
+    }
+
+    /// The medic heals an ally below 55% of its HP and leaves one at 55% or
+    /// above to fight on.
+    #[test]
+    fn support_heals_below_the_threshold_and_not_at_it() {
+        let (db, mut st) = infirmary();
+        st.combatants[1].hp = 90;
+        assert_eq!(heals(&choose(&db, &mut st, 0)), None, "90% is healthy");
+        st.combatants[1].hp = 55;
+        assert_eq!(
+            heals(&choose(&db, &mut st, 0)),
+            None,
+            "55% is not below 55%"
+        );
+        st.combatants[1].hp = 54;
+        assert_eq!(heals(&choose(&db, &mut st, 0)), Some(1));
+    }
+
+    /// Of two wounded allies the medic heals the lower share of HP, not the
+    /// lower number: 60 of 200 is worse off than 50 of 100.
+    #[test]
+    fn support_heals_the_lowest_share_of_hp_first() {
+        let (db, mut st) = infirmary();
+        st.combatants[1].hp = 50;
+        st.combatants[2].max_hp = 200;
+        st.combatants[2].hp = 60;
+        assert_eq!(heals(&choose(&db, &mut st, 0)), Some(2));
+    }
+
+    /// A Trickster picks at random, but only among hostile skills it can pay
+    /// for: never a self-buff and never a skill beyond its SP.
+    #[test]
+    fn a_trickster_only_picks_affordable_hostile_skills() {
+        use crate::data::{CombatantDef, Stats, Team};
+        let skills = vec![
+            skill(BASIC_ATTACK_ID, TargetKind::OneEnemy, 0, vec![damage(100)]),
+            skill("costly", TargetKind::OneEnemy, 40, vec![damage(200)]),
+            skill(
+                "pump",
+                TargetKind::SelfOnly,
+                0,
+                vec![status(StatusKind::AtkUp, 30, 2, 100)],
+            ),
+        ];
+        let known = ids(&skills);
+        let fighter = |id: &str, team: Team| CombatantDef {
+            id: id.to_string(),
+            name: id.to_string(),
+            team,
+            stats: Stats {
+                hp: 100,
+                sp: 10,
+                atk: 100,
+                def: 0,
+                spd: 10,
+                will: 0,
+            },
+            stand: None,
+            skills: known.clone(),
+            ai: AiProfile::Trickster,
+            resist: Resistances::new(),
+            provenance: None,
+        };
+        let db = Database::new(
+            Vec::new(),
+            skills,
+            vec![
+                fighter("npc.imp", Team::Foe),
+                fighter("pc.mark", Team::Party),
+            ],
+        )
+        .expect("test content should validate");
+        let mut st = BattleState::build(&db, &["pc.mark".to_string()], &["npc.imp".to_string()], 5)
+            .expect("the test battle instantiates");
+
+        for _ in 0..200 {
+            match choose(&db, &mut st, 1) {
+                Command::Skill { skill, target } => {
+                    assert_eq!(skill, BASIC_ATTACK_ID);
+                    assert_eq!(target, 0);
+                }
+                other => panic!("one usable skill was available, got {other:?}"),
+            }
+        }
+    }
 }

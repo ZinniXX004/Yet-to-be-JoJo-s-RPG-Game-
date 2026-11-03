@@ -242,3 +242,104 @@ fn instantiate(db: &Database, def: &CombatantDef, team: Team) -> Combatant {
         resist: def.resist.clone(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fighter(atk: i32, def: i32, spd: i32) -> Combatant {
+        let base = Stats {
+            hp: 100,
+            sp: 40,
+            atk,
+            def,
+            spd,
+            will: 10,
+        };
+        Combatant {
+            id: "pc.test".to_string(),
+            name: "Test".to_string(),
+            team: Team::Party,
+            base,
+            max_hp: 100,
+            max_sp: 40,
+            hp: 100,
+            sp: 20,
+            stand: None,
+            skills: Vec::new(),
+            statuses: Vec::new(),
+            tempo: 0,
+            tempo_lock: 0,
+            ai: AiProfile::Aggressive,
+            resist: Resistances::default(),
+        }
+    }
+
+    #[test]
+    fn a_debuff_lowers_the_stat_it_names_and_no_other() {
+        let mut fighter = fighter(100, 60, 20);
+        fighter.apply_status(StatusKind::AtkDown, 30, 3);
+        assert_eq!(fighter.atk(), 70);
+        assert_eq!(fighter.def(), 60);
+        assert_eq!(fighter.spd(), 20);
+
+        fighter.apply_status(StatusKind::SpdDown, 50, 3);
+        assert_eq!(fighter.spd(), 10);
+        assert_eq!(fighter.atk(), 70);
+    }
+
+    #[test]
+    fn a_buff_and_a_debuff_of_one_stat_add_up() {
+        let mut fighter = fighter(100, 60, 20);
+        fighter.apply_status(StatusKind::AtkUp, 50, 3);
+        fighter.apply_status(StatusKind::AtkDown, 20, 3);
+        assert_eq!(fighter.atk(), 130);
+    }
+
+    #[test]
+    fn reapplying_a_status_refreshes_that_status_and_no_other() {
+        let mut fighter = fighter(100, 60, 20);
+        fighter.apply_status(StatusKind::AtkUp, 20, 2);
+        fighter.apply_status(StatusKind::DefUp, 50, 4);
+        fighter.apply_status(StatusKind::AtkUp, 10, 5);
+        assert_eq!(
+            fighter.statuses,
+            vec![
+                Status {
+                    kind: StatusKind::AtkUp,
+                    potency: 20,
+                    remaining: 5,
+                },
+                Status {
+                    kind: StatusKind::DefUp,
+                    potency: 50,
+                    remaining: 4,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn has_reports_exactly_the_statuses_present() {
+        let mut fighter = fighter(100, 60, 20);
+        assert!(!fighter.has(StatusKind::Stun));
+        fighter.apply_status(StatusKind::Stun, 0, 1);
+        assert!(fighter.has(StatusKind::Stun));
+        assert!(!fighter.has(StatusKind::Bleed));
+    }
+
+    #[test]
+    fn the_downed_recover_no_sp_and_the_living_recover_up_to_their_pool() {
+        let mut fighter = fighter(100, 60, 20);
+        fighter.hp = 0;
+        fighter.sp = 5;
+        assert_eq!(fighter.recover_sp(10), 0);
+        assert_eq!(fighter.sp, 5);
+
+        fighter.hp = 1;
+        assert_eq!(fighter.recover_sp(10), 10);
+        assert_eq!(fighter.recover_sp(100), 25);
+        assert_eq!(fighter.sp, 40);
+        assert_eq!(fighter.recover_sp(0), 0);
+    }
+}
